@@ -1,0 +1,30 @@
+# Dépendances et build
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Secrets & environnement local — JAMAIS commités
+.env
+.env.local
+.env.*.local
+
+# Base de données / sauvegardes
+*.dump
+*.sql.gz
+
+# Prisma local
+prisma/dev.db
+prisma/sqlite*
+
+# OS / éditeurs
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*

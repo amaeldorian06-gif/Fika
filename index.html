@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- TODO_PROD : domaine fika.cm retenu par défaut, à confirmer par le fondateur -->
+    <meta name="description" content="Des services numériques, techniques et pratiques, réunis au même endroit à Ngaoundéré." />
+    <link rel="canonical" href="https://fika.cm/" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Fika" />
+    <meta property="og:url" content="https://fika.cm/" />
+    <meta property="og:title" content="Fika | Nous nous occupons du reste" />
+    <meta property="og:description" content="Des services numériques, techniques et pratiques, réunis au même endroit à Ngaoundéré." />
+    <meta property="og:image" content="https://fika.cm/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Fika | Nous nous occupons du reste" />
+    <meta name="twitter:description" content="Des services numériques, techniques et pratiques, réunis au même endroit à Ngaoundéré." />
+    <meta name="twitter:image" content="https://fika.cm/og.png" />
+    <!-- JSON-LD LocalBusiness injecté dynamiquement via lib/seo (source unique : lib/site.ts) -->
+    <title>Fika | Nous nous occupons du reste</title>
+    <script>
+      // Confort d'accès : une URL saisie « en dur » (/admin, /services…) est
+      // convertie vers la route hash équivalente (#/admin) avant le rendu.
+      (function () {
+        var p = window.location.pathname.replace(/\/index\.html$/, '');
+        if (p && p !== '/' && !window.location.hash) {
+          window.location.replace(window.location.origin + '/#' + p);
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
