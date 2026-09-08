@@ -7,7 +7,7 @@ les données statiques (`src/lib/data.ts`) — la bascule DB est le chantier P03
 
 ```bash
 cp .env.example .env
-# Renseigner DATABASE_URL (PostgreSQL) et VITE_WA_PHONE (+2376XXXXXXXX, TODO_PROD)
+# Renseigner DATABASE_URL (PostgreSQL) et VITE_WA_PHONE (+23767164936, TODO_PROD)
 ```
 
 ## 2. Scripts npm à déclarer (package.json hors périmètre d'édition ici)
