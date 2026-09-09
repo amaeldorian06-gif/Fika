@@ -7,7 +7,7 @@ async function seed() {
         const hash = bcrypt.hashSync("Kid1joyland'@", 10);
         await db.insert(adminUsers).values({
             id: "admin-" + Date.now(),
-            email: "fika@admin",
+            email: "admin@fika.cm",
             passwordHash: hash,
             role: "SUPERADMIN",
             active: true
