@@ -174,27 +174,9 @@ export async function postJson<T>(path: string, body: unknown): Promise<T> {
 /* -------------------------------- Session --------------------------------- */
 
 export async function login(email: string, password: string): Promise<{ ok: true; admin: AdminIdentity }> {
-  try {
-    return await postJson<{ ok: true; admin: AdminIdentity }>('/api/auth/login', { email, password });
-  } catch (err) {
-    // Mode prévisualisation (client-side) : valide l'e-mail du fondateur
-    const norm = email.trim().toLowerCase();
-    if (norm === 'amaeldorian06@gmail.com' || norm === 'admin@fika.cm') {
-      const founder: AdminIdentity = {
-        id: 'admin-founder',
-        email: 'amaeldorian06@gmail.com',
-        role: 'SUPERADMIN',
-      };
-      setPreviewSession(founder);
-      return { ok: true, admin: founder };
-    }
-
-    if (err instanceof ApiUnavailableError) {
-      // E-mail inconnu en mode preview
-      throw new Error('E-mail non reconnu. Utilisez amaeldorian06@gmail.com.');
-    }
-    throw err;
-  }
+  const res = await postJson<{ ok: true; admin: AdminIdentity }>('/api/auth/login', { email, password });
+  setPreviewSession(res.admin);
+  return res;
 }
 
 export async function logout(): Promise<{ ok: true }> {

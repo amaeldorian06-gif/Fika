@@ -10,7 +10,7 @@ import { CITY_PRICES, DEFAULT_CITY_SLUG, getServiceRef } from './catalog-data';
 
 /** 12500 → « 12 500 F » (fr-FR, Int FCFA, pas de centimes). */
 export function formatPriceFCFA(amount: number): string {
-  return `${Math.round(amount).toLocaleString('fr-FR')} F`;
+  return `${Math.round(amount).toLocaleString('fr-FR').replace(/\s/g, ' ')} F`;
 }
 
 /**
@@ -22,6 +22,10 @@ export function displayPrice(
   service: Pick<Service, 'priceType' | 'startingPrice' | 'priceMin' | 'priceMax'>,
   cityPricing?: CityPricing | null,
 ): string {
+  if (cityPricing?.missingPrices) {
+    return 'Sur devis';
+  }
+
   const min = cityPricing?.priceMin ?? service.priceMin ?? service.startingPrice ?? null;
   const max = cityPricing?.priceMax ?? service.priceMax ?? null;
 

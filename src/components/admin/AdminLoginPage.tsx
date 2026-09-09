@@ -62,14 +62,14 @@ export function AdminLoginPage({ onSuccess }: { onSuccess: (admin: AdminIdentity
             </div>
           )}
 
-          <Field label="Adresse e-mail" htmlFor="email" required hint="Compte fondateur : amaeldorian06@gmail.com">
+          <Field label="Adresse e-mail" htmlFor="email" required>
             <Input
               id="email"
               type="email"
               autoComplete="username"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="amaeldorian06@gmail.com"
+              placeholder="votre@email.com"
               required
             />
           </Field>
@@ -90,27 +90,6 @@ export function AdminLoginPage({ onSuccess }: { onSuccess: (admin: AdminIdentity
             {pending && <Loader2 className="w-5 h-5 mr-2 animate-spin" />}
             {pending ? 'Connexion…' : 'Se connecter'}
           </Button>
-
-          {/* Raccourci de test direct pour la prévisualisation */}
-          <div className="pt-2 border-t border-brand-border text-center">
-            <button
-              type="button"
-              onClick={async () => {
-                setEmail('amaeldorian06@gmail.com');
-                setPassword('••••••••');
-                setPending(true);
-                try {
-                  const res = await login('amaeldorian06@gmail.com', 'preview');
-                  onSuccess(res.admin);
-                } finally {
-                  setPending(false);
-                }
-              }}
-              className="text-xs font-bold text-brand-accent hover:underline cursor-pointer"
-            >
-              ⚡ Connexion directe (mode prévisualisation fondateur)
-            </button>
-          </div>
 
           <p className="text-xs text-center text-brand-text-muted">
             Sessions de 12 h · 5 tentatives par minute maximum.

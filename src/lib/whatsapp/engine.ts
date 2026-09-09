@@ -51,6 +51,7 @@ export function renderTemplate(template: string, vars: Record<string, string>): 
   return template
     .replace(VAR_RE, (_match, key: string) => vars[key] ?? '')
     .replace(/[ \t]+\n/g, '\n') // lignes vides laissées par des variables absentes
+    .replace(/ {2,}/g, ' ') // espaces multiples laissés par des variables vides
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }

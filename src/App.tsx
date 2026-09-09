@@ -15,7 +15,7 @@ import { applyRouteMeta, seoForRoute } from './lib/seo';
 
 // L'espace admin est chargé à la demande : il ne pèse jamais sur le First Load
 // des visiteurs publics (objectif performance P09).
-const AdminRouter = lazy(() => import('./components/admin'));
+const AdminRouter = lazy(() => import('./components/admin/index'));
 
 const LEGAL_ROUTES: LegalKind[] = ['mentions-legales', 'cgv', 'confidentialite'];
 

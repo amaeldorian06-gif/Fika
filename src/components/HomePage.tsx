@@ -120,7 +120,7 @@ function UniversePricingCards() {
   const services = getServices();
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className="flex gap-6 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-6 -mx-4 px-4 sm:mx-0 sm:px-0 sm:pb-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-2 lg:grid-cols-4">
       {universes.map((cat, idx) => {
         const catServices = services.filter((s) => s.categoryId === cat.id);
         const prices = catServices.map((s) => s.startingPrice).filter((p): p is number => p != null);
@@ -134,6 +134,7 @@ function UniversePricingCards() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1], delay: idx * 0.05 }}
+            className="shrink-0 snap-start w-[85%] sm:w-auto"
           >
             <Link
               to={`/univers/${cat.slug}`}
@@ -177,13 +178,13 @@ function PacksRow() {
       <p className="text-center text-sm font-heading font-bold uppercase tracking-[0.18em] text-brand-text-muted mb-8">
         Ou plusieurs choses à la fois — nos packs à prix optimisé
       </p>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="flex gap-6 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-6 -mx-4 px-4 md:mx-0 md:px-0 md:pb-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:grid md:grid-cols-3">
         {packs.map((pkg) => {
           const savings = computePackageSavings(pkg);
           return (
             <div
               key={pkg.id}
-              className="p-7 rounded-card bg-brand-bg border border-brand-border flex flex-col gap-5 hover:shadow-premium transition-shadow"
+              className="shrink-0 snap-start w-[85%] md:w-auto p-7 rounded-card bg-brand-bg border border-brand-border flex flex-col gap-5 hover:shadow-premium transition-shadow"
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
