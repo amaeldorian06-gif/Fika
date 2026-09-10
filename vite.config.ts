@@ -12,6 +12,7 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true,
+    allowedHosts: [".e2b.app"],
   },
   plugins: [react(), tailwindcss()],
   resolve: {

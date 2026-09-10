@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, uuid, integer, json, pgEnum, decimal } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, boolean, integer, pgEnum, decimal } from "drizzle-orm/pg-core";
 
 export const adminRoleEnum = pgEnum("AdminRole", ["SUPERADMIN", "OPERATOR", "FINANCE", "QUALITY"]);
 

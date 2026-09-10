@@ -6,10 +6,10 @@ import { Field, Input } from '../forms';
 import { Link } from '../../router';
 
 /** Écran de connexion du back-office (tokens brand-*, noindex via App). */
-export function AdminLoginPage({ onSuccess }: { onSuccess: (admin: AdminIdentity) => void }) {
+export function AdminLoginPage({ onSuccess, initialError = null }: { onSuccess: (admin: AdminIdentity) => void; initialError?: string | null }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError);
   const [pending, setPending] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
@@ -74,7 +74,7 @@ export function AdminLoginPage({ onSuccess }: { onSuccess: (admin: AdminIdentity
             />
           </Field>
 
-          <Field label="Mot de passe" htmlFor="password" required hint="Votre code d'authentification">
+          <Field label="Mot de passe" htmlFor="password" required hint="Mot de passe du compte créé par votre administrateur">
             <Input
               id="password"
               type="password"

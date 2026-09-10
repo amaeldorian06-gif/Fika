@@ -28,3 +28,8 @@ Thumbs.db
 npm-debug.log*
 pnpm-debug.log*
 yarn-debug.log*
+
+# Vercel local metadata and downloaded environments
+.vercel/
+.env.*
+!.env.example

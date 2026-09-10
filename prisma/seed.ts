@@ -1,3 +1,5 @@
+import 'dotenv/config';
+import { adminSeedCredentials } from '../server/lib/admin-seed';
 /**
  * Seed Fika — idempotent (sûr à exécuter plusieurs fois).
  * Usage : npx tsx prisma/seed.ts  (ou `npx prisma db seed` une fois le bloc
@@ -9,7 +11,7 @@
  */
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
-import * as bcrypt from 'bcryptjs';
+
 // Annuaire zones partagé (source unique : src/lib/city.ts — TODO_PROD :
 // liste À VALIDER par le fondateur avant production).
 import { ZONE_GROUPS } from '../src/lib/city';
@@ -47,17 +49,7 @@ async function seedCityAndZones() {
 }
 
 async function seedAdminUser() {
-  const email = process.env.ADMIN_EMAIL ?? 'admin@fika.cm';
-  let passwordHash = process.env.ADMIN_PASSWORD_HASH;
-
-  if (!passwordHash) {
-    // TODO_PROD : définir ADMIN_PASSWORD_HASH (bcrypt) avant la mise en production.
-    const devPassword = process.env.ADMIN_PASSWORD ?? 'fika-admin-todo-prod';
-    passwordHash = bcrypt.hashSync(devPassword, 10);
-    if (!process.env.ADMIN_PASSWORD) {
-      console.warn('[seed] ADMIN_PASSWORD_HASH/ADMIN_PASSWORD absents — mot de passe dev généré (fika-admin-todo-prod). À corriger avant production.');
-    }
-  }
+  const { email, passwordHash } = adminSeedCredentials();
 
   await prisma.adminUser.upsert({
     where: { email },
@@ -121,6 +113,7 @@ async function seedExtraCities() {
 }
 
 async function main() {
+  adminSeedCredentials(); // Valider avant toute écriture.
   await seedCityAndZones();
   await seedAdminUser();
   await seedExtraCities();

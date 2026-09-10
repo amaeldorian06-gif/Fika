@@ -1,18 +1,5 @@
 import type { OrderStatus } from './status';
-import {
-  getPreviewSession, previewAddOrderCost, previewAssignExpert, previewConvertLead,
-  previewCreateQuote, previewCreateReview, previewGetCustomers, previewGetExperts,
-  previewGetLeads, previewGetOrder, previewGetOrders, previewGetOverview,
-  previewSaveDelivery, previewUpdateOrderStatus, previewUpdateTask, setPreviewSession,
-} from './preview-store';
-
-/**
- * Client d'API du back-office (P06/P07).
- * En production : dialogue avec les routes serveur (POST /api/auth/login, etc.).
- * En prévisualisation / hors-ligne : bascule automatiquement sur le magasin
- * de session et d'état local (`preview-store.ts`) pour que le fondateur
- * puisse tester TOUT le dashboard avec ses identifiants réels.
- */
+/** Client back-office : uniquement des données serveur, aucun repli de démonstration. */
 
 export interface AdminIdentity {
   id: string;
@@ -75,7 +62,7 @@ export interface AdminOrderDetail extends AdminOrderSummary {
   costs: AdminOrderCost[];
   events: AdminOrderEvent[];
   tasks: AdminTask[];
-  payments: { id: string; amount: number; method: string | null; status: string }[];
+  payments: { id: string; amount: number; method: string | null; status: string; reference?: string | null; confirmedAt?: string | null }[];
   deliveries: { id: string; status: string; fee: number; zoneName: string | null; proofUrl: string | null }[];
   quotes: { id: string; quoteNumber: string; amount: number; status: string }[];
   hasAssignedExpert: boolean;
@@ -148,9 +135,12 @@ export class ApiUnavailableError extends Error {
   }
 }
 
-async function getJson<T>(path: string): Promise<T> {
+export async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(path, { credentials: 'same-origin', headers: { Accept: 'application/json' } });
-  if (res.status === 401) throw new Error('UNAUTHORIZED');
+  if (res.status === 401) {
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('fika:unauthorized'));
+    throw new Error('Session expirée. Reconnectez-vous.');
+  }
   if (!res.ok) throw new ApiUnavailableError();
   const contentType = res.headers.get('content-type') ?? '';
   if (!contentType.includes('application/json')) throw new ApiUnavailableError();
@@ -164,6 +154,7 @@ export async function postJson<T>(path: string, body: unknown): Promise<T> {
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify(body),
   });
+  if (res.status === 401 && typeof window !== 'undefined') window.dispatchEvent(new Event('fika:unauthorized'));
   const contentType = res.headers.get('content-type') ?? '';
   if (!contentType.includes('application/json')) throw new ApiUnavailableError();
   const data = (await res.json()) as T & { ok?: boolean; message?: string };
@@ -175,185 +166,112 @@ export async function postJson<T>(path: string, body: unknown): Promise<T> {
 
 export async function login(email: string, password: string): Promise<{ ok: true; admin: AdminIdentity }> {
   const res = await postJson<{ ok: true; admin: AdminIdentity }>('/api/auth/login', { email, password });
-  setPreviewSession(res.admin);
   return res;
 }
 
 export async function logout(): Promise<{ ok: true }> {
-  setPreviewSession(null);
-  try {
-    return await postJson<{ ok: true }>('/api/auth/logout', {});
-  } catch {
-    return { ok: true };
-  }
+  return await postJson<{ ok: true }>('/api/auth/logout', {});
 }
 
 export async function fetchSession(): Promise<AdminIdentity | null> {
   try {
     const data = await getJson<{ ok: boolean; admin: AdminIdentity | null }>('/api/auth/me');
     return data.admin ?? null;
-  } catch {
-    return getPreviewSession();
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Session expirée. Reconnectez-vous.') return null;
+    throw error;
   }
 }
 
 /* -------------------------------- Lectures -------------------------------- */
 
 export async function fetchOverview(): Promise<AdminOverviewData | null> {
-  try {
-    return await getJson<AdminOverviewData>('/api/admin/overview');
-  } catch {
-    return previewGetOverview();
-  }
+  return await getJson<AdminOverviewData>('/api/admin/overview');
 }
 
 export async function fetchOrders(params: { status?: string; q?: string } = {}): Promise<AdminOrderSummary[]> {
-  try {
-    const qs = new URLSearchParams();
-    if (params.status) qs.set('status', params.status);
-    if (params.q) qs.set('q', params.q);
-    const suffix = qs.toString() ? `?${qs}` : '';
-    return await getJson<AdminOrderSummary[]>(`/api/admin/orders${suffix}`);
-  } catch {
-    return previewGetOrders(params);
-  }
+  const qs = new URLSearchParams();
+  if (params.status) qs.set('status', params.status);
+  if (params.q) qs.set('q', params.q);
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return await getJson<AdminOrderSummary[]>(`/api/admin/orders${suffix}`);
 }
 
 export async function fetchOrder(id: string): Promise<AdminOrderDetail | null> {
-  try {
-    return await getJson<AdminOrderDetail>(`/api/admin/orders/${encodeURIComponent(id)}`);
-  } catch {
-    return previewGetOrder(id);
-  }
+  return await getJson<AdminOrderDetail>(`/api/admin/orders/${encodeURIComponent(id)}`);
 }
 
 export async function fetchLeads(): Promise<AdminLead[]> {
-  try {
-    return await getJson<AdminLead[]>('/api/admin/leads');
-  } catch {
-    return previewGetLeads();
-  }
+  return await getJson<AdminLead[]>('/api/admin/leads');
 }
 
 export async function fetchExperts(): Promise<AdminExpert[]> {
-  try {
-    return await getJson<AdminExpert[]>('/api/admin/experts');
-  } catch {
-    return previewGetExperts();
-  }
+  return await getJson<AdminExpert[]>('/api/admin/experts');
 }
 
 export async function fetchCustomers(): Promise<AdminCustomer[]> {
-  try {
-    return await getJson<AdminCustomer[]>('/api/admin/customers');
-  } catch {
-    return previewGetCustomers();
-  }
+  return await getJson<AdminCustomer[]>('/api/admin/customers');
 }
 
 export async function fetchAssignableExperts(): Promise<AssignableExpertDto[]> {
-  try {
-    return await getJson<AssignableExpertDto[]>('/api/admin/experts?assignable=1');
-  } catch {
-    return previewGetExperts();
-  }
+  return await getJson<AssignableExpertDto[]>('/api/admin/experts?assignable=1');
 }
 
 /* ------------------------------- Mutations -------------------------------- */
 
 export async function updateOrderStatus(orderId: string, to: OrderStatus, note?: string): Promise<{ ok: true; status: OrderStatus }> {
-  try {
-    return await postJson<{ ok: true; status: OrderStatus }>('/api/admin/orders/status', { orderId, to, note });
-  } catch {
-    previewUpdateOrderStatus(orderId, to, note);
-    return { ok: true, status: to };
-  }
+  return await postJson<{ ok: true; status: OrderStatus }>('/api/admin/orders/status', { orderId, to, note });
 }
 
 export async function addOrderCost(orderId: string, type: string, amount: number, note?: string) {
-  try {
-    return await postJson<{ ok: true; margin: { revenue: number; costsTotal: number; marginAmount: number; marginPercent: number } }>(
-      '/api/admin/orders/costs', { orderId, type, amount, note },
-    );
-  } catch {
-    const margin = previewAddOrderCost(orderId, type, amount, note);
-    return { ok: true, margin: margin! };
-  }
+  return await postJson<{ ok: true; margin: { revenue: number; costsTotal: number; marginAmount: number; marginPercent: number } }>(
+    '/api/admin/orders/costs', { orderId, type, amount, note },
+  );
 }
 
 export async function createQuote(orderId: string, amount: number, details?: string): Promise<{ ok: true; quoteNumber: string }> {
-  try {
-    return await postJson<{ ok: true; quoteNumber: string }>('/api/admin/orders/quotes', { orderId, amount, details });
-  } catch {
-    const quoteNumber = previewCreateQuote(orderId, amount, details);
-    return { ok: true, quoteNumber };
-  }
+  return await postJson<{ ok: true; quoteNumber: string }>('/api/admin/orders/quotes', { orderId, amount, details });
 }
 
 export async function convertLead(leadId: string, phone?: string, name?: string): Promise<{ ok: true; orderId: string; orderNumber: string }> {
-  try {
-    return await postJson<{ ok: true; orderId: string; orderNumber: string }>('/api/admin/leads/convert', { leadId, phone, name });
-  } catch {
-    const res = previewConvertLead(leadId);
-    return { ok: true, ...res };
-  }
+  return await postJson<{ ok: true; orderId: string; orderNumber: string }>('/api/admin/leads/convert', { leadId, phone, name });
 }
 
 export async function saveExpert(payload: Record<string, unknown>): Promise<{ ok: true; expertId?: string }> {
-  try {
-    return await postJson<{ ok: true; expertId?: string }>('/api/admin/experts', payload);
-  } catch {
-    return { ok: true, expertId: `e-${Date.now()}` };
-  }
+  return await postJson<{ ok: true; expertId?: string }>('/api/admin/experts', payload);
 }
 
 export async function assignExpert(orderId: string, expertId: string, compensation?: number): Promise<{ ok: true; taskId: string }> {
-  try {
-    return await postJson<{ ok: true; taskId: string }>('/api/admin/orders/assign', { orderId, expertId, compensation });
-  } catch {
-    const taskId = previewAssignExpert(orderId, expertId, compensation);
-    return { ok: true, taskId };
-  }
+  return await postJson<{ ok: true; taskId: string }>('/api/admin/orders/assign', { orderId, expertId, compensation });
 }
 
 export async function updateTask(taskId: string, status: string, notes?: string): Promise<{ ok: true }> {
-  try {
-    return await postJson<{ ok: true }>('/api/admin/tasks/status', { taskId, status, notes });
-  } catch {
-    previewUpdateTask(taskId, status, notes);
-    return { ok: true };
-  }
+  return await postJson<{ ok: true }>('/api/admin/tasks/status', { taskId, status, notes });
 }
 
 export async function saveDelivery(payload: {
   orderId: string; status: string; internalCost: number;
   zoneId?: string | null; address?: string; courierExpertId?: string | null; proofUrl?: string;
 }): Promise<{ ok: true; customerFee: number }> {
-  try {
-    return await postJson<{ ok: true; customerFee: number }>('/api/admin/orders/delivery', payload);
-  } catch {
-    previewSaveDelivery(payload);
-    return { ok: true, customerFee: 0 };
-  }
+  return await postJson<{ ok: true; customerFee: number }>('/api/admin/orders/delivery', payload);
 }
 
 export async function publishPortfolio(payload: {
   orderId: string; title: string; category: string; image: string; description?: string; clientType?: string;
 }): Promise<{ ok: true; portfolioId: string }> {
-  try {
-    return await postJson<{ ok: true; portfolioId: string }>('/api/admin/portfolio', payload);
-  } catch {
-    return { ok: true, portfolioId: `port-${Date.now()}` };
-  }
+  return await postJson<{ ok: true; portfolioId: string }>('/api/admin/portfolio', payload);
 }
 
 export async function createReview(payload: {
   orderId: string; rating: number; comment?: string; expertId?: string;
 }): Promise<{ ok: true; reviewId: string }> {
-  try {
-    return await postJson<{ ok: true; reviewId: string }>('/api/reviews', payload);
-  } catch {
-    previewCreateReview(payload.orderId);
-    return { ok: true, reviewId: `rev-${Date.now()}` };
-  }
+  return await postJson<{ ok: true; reviewId: string }>('/api/reviews', payload);
+}
+
+export function recordPayment(payload: import('./payments').RecordPaymentInput): Promise<{ ok: true; paymentId: string }> {
+  return postJson('/api/admin/payments', payload);
+}
+
+export function reviewPayment(payload: { paymentId: string; action: 'CONFIRM' | 'REJECT'; receivedVerified?: boolean; reason?: string }): Promise<{ ok: true; paymentId: string }> {
+  return postJson('/api/admin/payments/review', payload);
 }

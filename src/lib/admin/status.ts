@@ -62,7 +62,7 @@ export const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
 export interface TransitionContext {
   /** Un expert est assigné à au moins une tâche de la commande. */
   hasAssignedExpert: boolean;
-  /** Au moins un paiement au statut CONFIRMED. */
+  /** Le total des paiements confirmés couvre le montant dû. */
   hasConfirmedPayment: boolean;
   /** La commande porte au moins une ligne. */
   hasItems: boolean;
@@ -76,7 +76,7 @@ export interface TransitionCheck {
 /**
  * Valide une transition : graphe d'états + règles métier.
  * ASSIGNED exige un expert ; PAID exige un paiement confirmé ;
- * COMPLETED exige paiement confirmé et livraison effectuée.
+ * COMPLETED exige un paiement intégralement confirmé.
  */
 export function canTransition(
   from: OrderStatus,
@@ -97,13 +97,13 @@ export function canTransition(
     return { ok: false, reason: 'Ajoutez au moins une ligne avant d\u2019envoyer un devis.' };
   }
   if (to === 'PAID' && !ctx.hasConfirmedPayment) {
-    return { ok: false, reason: 'Aucun paiement confirmé pour cette commande.' };
+    return { ok: false, reason: 'Le paiement confirmé doit couvrir le montant total (un acompte ne suffit pas).' };
   }
   if (to === 'ASSIGNED' && !ctx.hasAssignedExpert) {
     return { ok: false, reason: 'Assignez un expert avant de passer la commande en « Assignée ».' };
   }
   if (to === 'COMPLETED' && !ctx.hasConfirmedPayment) {
-    return { ok: false, reason: 'Le paiement doit être confirmé avant de terminer la commande.' };
+    return { ok: false, reason: 'Le solde doit être entièrement confirmé avant de terminer la commande.' };
   }
 
   return { ok: true };

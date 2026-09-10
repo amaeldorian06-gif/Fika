@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 
 /**
@@ -12,7 +13,7 @@ const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 export const prisma: PrismaClient =
   globalForPrisma.prisma ??
   new PrismaClient({
-    log: ['warn', 'error'],
+    log: [] // Les erreurs ORM peuvent contenir des paramètres sensibles.,
   });
 
 if (process.env.NODE_ENV !== 'production') {

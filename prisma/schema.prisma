@@ -9,9 +9,10 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
-/* -------------------------------- Geography ------------------------------- */
+// -------------------------------- Geography -------------------------------
 
 model City {
   id        String   @id @default(cuid())
@@ -43,7 +44,7 @@ model Zone {
   @@unique([cityId, name])
 }
 
-/* -------------------------------- Catalog --------------------------------- */
+// -------------------------------- Catalog ---------------------------------
 
 model Category {
   id          String    @id @default(cuid())
@@ -196,7 +197,7 @@ model ServiceCityPrice {
   @@unique([serviceId, cityId])
 }
 
-/* --------------------------------- People --------------------------------- */
+// --------------------------------- People ---------------------------------
 
 model Customer {
   id        String   @id @default(cuid())
@@ -240,7 +241,7 @@ model Expert {
   updatedAt        DateTime         @updatedAt
 }
 
-/* --------------------------------- Orders --------------------------------- */
+// --------------------------------- Orders ---------------------------------
 
 enum OrderStatus {
   NEW
@@ -279,7 +280,7 @@ model Order {
   zoneId             String?
   zone               Zone?        @relation(fields: [zoneId], references: [id])
   clientAddress      String? // free-text delivery address complements the zone
-  leadId             String?
+  leadId             String?      @unique
   lead               Lead?        @relation(fields: [leadId], references: [id])
   expectedDeliveryAt DateTime?
   completedAt        DateTime? // anchors "1 review = 1 completed order"
@@ -327,7 +328,7 @@ model OrderEvent {
   @@index([orderId])
 }
 
-/* ------------------------------ Money & quotes ----------------------------- */
+// ------------------------------ Money & quotes -----------------------------
 
 enum PaymentStatus {
   PENDING
@@ -341,10 +342,20 @@ model Payment {
   orderId   String
   order     Order         @relation(fields: [orderId], references: [id])
   amount    Int // FCFA
-  method    String? // free text: MTN MoMo, Orange Money, cash…
+  method    String? // MTN_MOMO, ORANGE_MONEY, CASH for new manual entries
+  reference String? // provider transaction ID or numbered cash receipt
+  idempotencyKey String? @unique
+  createdById String?
+  createdBy AdminUser? @relation("PaymentCreator", fields: [createdById], references: [id])
+  confirmedById String?
+  confirmedBy AdminUser? @relation("PaymentConfirmer", fields: [confirmedById], references: [id])
+  confirmedAt DateTime?
   status    PaymentStatus @default(PENDING)
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
+
+  @@unique([method, reference])
+  @@index([orderId])
 }
 
 enum QuoteStatus {
@@ -389,7 +400,7 @@ model Cost {
   @@index([orderId])
 }
 
-/* -------------------------------- Delivery -------------------------------- */
+// -------------------------------- Delivery --------------------------------
 
 enum DeliveryStatus {
   PENDING
@@ -417,7 +428,7 @@ model Delivery {
   updatedAt       DateTime       @updatedAt
 }
 
-/* ------------------------------ Tasks & experts ---------------------------- */
+// ------------------------------ Tasks & experts ----------------------------
 
 enum TaskStatus {
   PENDING
@@ -462,7 +473,7 @@ model TaskAssignment {
   status     AssignmentStatus @default(ASSIGNED)
 }
 
-/* ------------------------------- Social proof ------------------------------ */
+// ------------------------------- Social proof ------------------------------
 
 // Invariant: one public review = one real completed order (orderId unique).
 // rating is 1–5, enforced at the application level (P03).
@@ -517,7 +528,7 @@ model PortfolioItem {
   @@index([serviceId, active])
 }
 
-/* ------------------------------ Leads & growth ----------------------------- */
+// ------------------------------ Leads & growth -----------------------------
 
 enum LeadStatus {
   NEW
@@ -575,7 +586,7 @@ model Event {
   @@index([createdAt])
 }
 
-/* ---------------------------------- Admin ---------------------------------- */
+// ---------------------------------- Admin ----------------------------------
 
 enum AdminRole {
   SUPERADMIN
@@ -590,6 +601,14 @@ model AdminUser {
   role         AdminRole    @default(OPS)
   active       Boolean      @default(true)
   orderEvents  OrderEvent[]
+  paymentsCreated Payment[] @relation("PaymentCreator")
+  paymentsConfirmed Payment[] @relation("PaymentConfirmer")
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
+}
+
+// Transactional annual numbering, initialized from legacy numbers on first use.
+model DocumentCounter {
+  key String @id
+  value Int
 }

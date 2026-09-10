@@ -3,6 +3,9 @@ import {
   Activity, AlertCircle, ArrowLeft, BarChart, Briefcase, CheckCircle2, DollarSign,
   Download, FileText, Inbox, Loader2, MessageCircle, Package, Search, TrendingUp, Users,
 } from 'lucide-react';
+import { PaymentPanel } from './PaymentPanel';
+import { ExpertForm } from './ExpertForm';
+import { LeadConversion } from './LeadConversion';
 import { EmptyState } from './AdminShell';
 import { Link } from '../../router';
 import { Button } from '../ui';
@@ -10,18 +13,18 @@ import { Input, Select, Textarea } from '../forms';
 import { formatPriceFCFA } from '../../lib/pricing';
 import { computeTrend, formatMonthLabel } from '../../lib/admin/kpi';
 import {
-  COST_TYPE_LABELS, DELIVERY_STATUS_LABELS, EXPERT_STATUS_LABELS, LEAD_STATUS_LABELS,
-  ORDER_STATUS_META, PAYMENT_STATUS_LABELS, QUOTE_STATUS_LABELS, orderStatusLabel,
+  COST_TYPE_LABELS, EXPERT_STATUS_LABELS, LEAD_STATUS_LABELS,
+  ORDER_STATUS_META, QUOTE_STATUS_LABELS, orderStatusLabel,
   transitionOptions, type OrderStatus,
 } from '../../lib/admin/status';
 import {
-  addOrderCost, assignExpert, convertLead, createQuote, createReview, fetchAssignableExperts,
+  addOrderCost, assignExpert, createQuote, createReview, fetchAssignableExperts,
   fetchCustomers, fetchExperts, fetchLeads, fetchOrder, fetchOrders, fetchOverview,
   publishPortfolio, saveDelivery, updateOrderStatus, updateTask,
   type AdminCustomer, type AdminExpert, type AdminLead, type AdminOrderDetail,
   type AdminOrderSummary, type AssignableExpertDto,
 } from '../../lib/admin/api';
-import { getWALink } from '../../lib/whatsapp';
+import { getCustomerWALink } from '../../lib/admin/whatsapp';
 import { downloadCsv } from '../../lib/csv';
 import {
   ANALYTICS_PERIODS, fetchAnalytics, fetchAnalyticsOrders,
@@ -55,20 +58,34 @@ function useAsync<T>(loader: () => Promise<T>, deps: unknown[] = []) {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [tick, setTick] = useState(0);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
     setLoading(true);
+    setLoadError(null);
     loader().then((res) => {
       if (!alive) return;
       setData(res);
+      setLoading(false);
+    }).catch(() => {
+      if (!alive) return;
+      setData(null);
+      setLoadError('Impossible de charger les données. Vérifiez la connexion et la disponibilité du serveur.');
       setLoading(false);
     });
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...deps, tick]);
 
-  return { data, loading, reload: () => setTick((t) => t + 1) };
+  return { data, loading, loadError, reload: () => setTick((t) => t + 1) };
+}
+
+function LoadError({ message, retry }: { message: string; retry: () => void }) {
+  return <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-800">
+    <p>{message}</p>
+    <button type="button" onClick={retry} className="mt-3 font-bold underline">Réessayer</button>
+  </div>;
 }
 
 const dateFr = (iso: string) =>
@@ -95,9 +112,10 @@ function KpiCard({ label, value, Icon, hint, accent }: {
 }
 
 export function AdminOverview() {
-  const { data, loading } = useAsync(fetchOverview, []);
+  const { data, loading, loadError, reload } = useAsync(fetchOverview, []);
 
   if (loading) return <Loading />;
+  if (loadError) return <LoadError message={loadError} retry={reload} />;
   if (!data) {
     return (
       <EmptyState
@@ -248,7 +266,7 @@ function OrdersTable({ orders }: { orders: AdminOrderSummary[] }) {
 export function AdminOrders() {
   const [status, setStatus] = useState('');
   const [q, setQ] = useState('');
-  const { data, loading } = useAsync(() => fetchOrders({ status, q }), [status, q]);
+  const { data, loading, loadError, reload } = useAsync(() => fetchOrders({ status, q }), [status, q]);
   const orders = data ?? [];
 
   return (
@@ -272,7 +290,7 @@ export function AdminOrders() {
         </Select>
       </div>
 
-      {loading ? <Loading /> : orders.length > 0 ? (
+      {loading ? <Loading /> : loadError ? <LoadError message={loadError} retry={reload} /> : orders.length > 0 ? (
         <div className="bg-brand-surface rounded-2xl border border-brand-border shadow-sm overflow-hidden">
           <OrdersTable orders={orders} />
         </div>
@@ -290,7 +308,7 @@ export function AdminOrders() {
 /* ----------------------------- Détail commande ----------------------------- */
 
 export function AdminOrderDetailView({ orderId }: { orderId: string }) {
-  const { data, loading, reload } = useAsync(() => fetchOrder(orderId), [orderId]);
+  const { data, loading, loadError, reload } = useAsync(() => fetchOrder(orderId), [orderId]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [costType, setCostType] = useState('EXPERT');
@@ -312,6 +330,7 @@ export function AdminOrderDetailView({ orderId }: { orderId: string }) {
   }, [order]);
 
   if (loading) return <Loading />;
+  if (loadError) return <LoadError message={loadError} retry={reload} />;
   if (!order) {
     return (
       <EmptyState
@@ -328,6 +347,8 @@ export function AdminOrderDetailView({ orderId }: { orderId: string }) {
     catch (e) { setError(e instanceof Error ? e.message : 'Opération refusée.'); }
     finally { setBusy(false); }
   };
+
+  const quoteLocked = !['QUALIFYING', 'QUOTED', 'AWAITING_CONFIRMATION'].includes(order.status) || !order.items.length || order.payments.some(p => ['PENDING', 'CONFIRMED'].includes(p.status));
 
   const options = transitionOptions(order.status, {
     hasAssignedExpert: order.hasAssignedExpert,
@@ -366,7 +387,7 @@ export function AdminOrderDetailView({ orderId }: { orderId: string }) {
                 <dd className="font-medium text-brand-text">
                   {order.customerName ?? 'Client'}{' · '}
                   <a
-                    href={getWALink(`Bonjour 👋, au sujet de votre commande ${order.orderNumber} chez Fika.`)}
+                    href={getCustomerWALink(order.customerPhone, `Bonjour 👋, au sujet de votre commande ${order.orderNumber} chez Fika.`)}
                     target="_blank" rel="noopener noreferrer"
                     className="text-brand-wa font-bold hover:underline"
                   >
@@ -515,6 +536,7 @@ export function AdminOrderDetailView({ orderId }: { orderId: string }) {
           {/* Devis */}
           <div className="bg-brand-surface border border-brand-border rounded-2xl p-6">
             <h2 className="font-heading font-bold text-brand-text mb-4">Créer un devis</h2>
+            {quoteLocked && <p className="text-xs text-brand-text-muted mb-3">Devis verrouillé : vérifiez le statut, les prestations et les paiements déjà saisis.</p>}
             <div className="space-y-3">
               <Input
                 type="number" min={0} inputMode="numeric" placeholder="Montant proposé (FCFA)"
@@ -522,7 +544,7 @@ export function AdminOrderDetailView({ orderId }: { orderId: string }) {
               />
               <Textarea rows={3} placeholder="Détail (optionnel)" value={quoteDetails} onChange={(e) => setQuoteDetails(e.target.value)} aria-label="Détail du devis" />
               <Button
-                variant="primary" className="w-full" disabled={busy || !quoteAmount}
+                variant="primary" className="w-full" disabled={busy || quoteLocked || !quoteAmount}
                 onClick={() => run(async () => {
                   await createQuote(order.id, Number(quoteAmount), quoteDetails || undefined);
                   setQuoteAmount(''); setQuoteDetails('');
@@ -545,29 +567,12 @@ export function AdminOrderDetailView({ orderId }: { orderId: string }) {
             )}
           </div>
 
+          <PaymentPanel order={order} onSaved={reload} />
           <ExecutionPanel order={order} busy={busy} run={run} />
           <DeliveryPanel order={order} busy={busy} run={run} />
           <ProofPanel order={order} busy={busy} run={run} />
 
-          {/* Paiements & livraison */}
-          {(order.payments.length > 0 || order.deliveries.length > 0) && (
-            <div className="bg-brand-surface border border-brand-border rounded-2xl p-6 space-y-4 text-sm">
-              {order.payments.map((p) => (
-                <div key={p.id} className="flex justify-between">
-                  <span className="text-brand-text-muted">Paiement {p.method ?? ''}</span>
-                  <span className="font-semibold">{formatPriceFCFA(p.amount)} · {PAYMENT_STATUS_LABELS[p.status] ?? p.status}</span>
-                </div>
-              ))}
-              {order.deliveries.map((d) => (
-                <div key={d.id} className="flex justify-between">
-                  <span className="text-brand-text-muted">Livraison {d.zoneName ?? ''}</span>
-                  <span className="font-semibold">
-                    {DELIVERY_STATUS_LABELS[d.status] ?? d.status} · coût interne {formatPriceFCFA(d.fee)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
+
         </div>
       </div>
     </div>
@@ -579,7 +584,7 @@ export function AdminOrderDetailView({ orderId }: { orderId: string }) {
 function ExecutionPanel({ order, busy, run }: {
   order: AdminOrderDetail; busy: boolean; run: (fn: () => Promise<unknown>) => void;
 }) {
-  const { data } = useAsync(fetchAssignableExperts, [order.id]);
+  const { data, loadError, reload } = useAsync(fetchAssignableExperts, [order.id]);
   const [expertId, setExpertId] = useState('');
   const [compensation, setCompensation] = useState('');
 
@@ -595,8 +600,11 @@ function ExecutionPanel({ order, busy, run }: {
     [experts, order],
   );
 
+  const assignmentAllowed = ['PAID', 'ASSIGNED'].includes(order.status) && order.hasConfirmedPayment;
   const selected = ranked.find((e) => e.id === expertId);
   const blocked = selected ? canAssignExpert(selected) : { ok: true as const };
+
+  if (loadError) return <LoadError message={loadError} retry={reload} />;
 
   return (
     <div className="bg-brand-surface border border-brand-border rounded-2xl p-6">
@@ -670,7 +678,7 @@ function ExecutionPanel({ order, busy, run }: {
         )}
         <Button
           variant="secondary" className="w-full"
-          disabled={busy || !expertId || !blocked.ok}
+          disabled={busy || !assignmentAllowed || !expertId || !blocked.ok}
           onClick={() => run(async () => {
             await assignExpert(order.id, expertId, compensation ? Number(compensation) : undefined);
             setExpertId(''); setCompensation('');
@@ -678,6 +686,7 @@ function ExecutionPanel({ order, busy, run }: {
         >
           Assigner et créer la tâche
         </Button>
+        {!assignmentAllowed && <p className="text-xs text-brand-text-muted">Confirmez le paiement intégral et passez la commande en « Payée » avant l’affectation.</p>}
         {experts.length === 0 && (
           <p className="text-xs text-brand-text-muted">
             Aucun expert enregistré : ajoutez vos partenaires dans « Experts ».
@@ -765,7 +774,7 @@ function ProofPanel({ order, busy, run }: {
       {completed && (
         <div className="space-y-5">
           <Button asChild variant="whatsapp" className="w-full">
-            <a href={getWALink(reviewMessage)} target="_blank" rel="noopener noreferrer">
+            <a href={getCustomerWALink(order.customerPhone, reviewMessage)} target="_blank" rel="noopener noreferrer">
               <MessageCircle className="w-4 h-4 mr-2" /> Demander un avis
             </a>
           </Button>
@@ -830,12 +839,11 @@ function ProofPanel({ order, busy, run }: {
 /* --------------------------------- Leads ---------------------------------- */
 
 export function AdminLeads() {
-  const { data, loading, reload } = useAsync(fetchLeads, []);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { data, loading, loadError, reload } = useAsync(fetchLeads, []);
   const leads: AdminLead[] = data ?? [];
 
   if (loading) return <Loading />;
+  if (loadError) return <LoadError message={loadError} retry={reload} />;
   if (leads.length === 0) {
     return (
       <EmptyState
@@ -848,12 +856,6 @@ export function AdminLeads() {
 
   return (
     <>
-      {error && (
-        <div className="flex items-start gap-3 p-4 mb-6 rounded-xl bg-red-50 border border-red-200" role="alert">
-          <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
-          <p className="text-sm font-medium text-red-700">{error}</p>
-        </div>
-      )}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {leads.map((lead) => (
           <article key={lead.id} className="bg-brand-surface border border-brand-border rounded-2xl p-6 flex flex-col">
@@ -879,23 +881,12 @@ export function AdminLeads() {
               )}
               <div>Reçue le <span className="font-semibold text-brand-text">{dateFr(lead.createdAt)}</span></div>
             </dl>
-            <div className="flex flex-col sm:flex-row gap-3 mt-auto">
-              <Button
-                variant="primary" className="flex-1" disabled={busy === lead.id || lead.status === 'CONVERTED'}
-                onClick={async () => {
-                  setBusy(lead.id); setError(null);
-                  try { await convertLead(lead.id); reload(); }
-                  catch (e) { setError(e instanceof Error ? e.message : 'Conversion impossible.'); }
-                  finally { setBusy(null); }
-                }}
-              >
-                {busy === lead.id ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
-                Convertir en commande
-              </Button>
+            <LeadConversion lead={lead} />
+            <div className="flex flex-col sm:flex-row gap-3 mt-3">
               {lead.customerPhone && (
                 <Button asChild variant="whatsapp" className="flex-1">
                   <a
-                    href={getWALink(`Bonjour 👋, au sujet de votre demande ${lead.code} déposée sur le site Fika.`)}
+                    href={getCustomerWALink(lead.customerPhone, `Bonjour 👋, au sujet de votre demande ${lead.code} déposée sur le site Fika.`)}
                     target="_blank" rel="noopener noreferrer"
                   >
                     <MessageCircle className="w-4 h-4 mr-2" /> WhatsApp
@@ -913,22 +904,23 @@ export function AdminLeads() {
 /* -------------------------------- Experts --------------------------------- */
 
 export function AdminExperts() {
-  const { data, loading } = useAsync(fetchExperts, []);
+  const { data, loading, loadError, reload } = useAsync(fetchExperts, []);
   const experts: AdminExpert[] = data ?? [];
+  const [editing, setEditing] = useState<AdminExpert | null | undefined>(undefined);
+  const [saved, setSaved] = useState(false);
 
   if (loading) return <Loading />;
-  if (experts.length === 0) {
-    return (
-      <EmptyState
-        icon={Briefcase}
-        title="Aucun expert enregistré"
-        description="Ajoutez vos partenaires (nom, téléphone E.164, compétences, zone, coût habituel) pour pouvoir assigner les commandes."
-      />
-    );
-  }
-
+  if (loadError) return <LoadError message={loadError} retry={reload} />;
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <>
+      <div className="flex justify-between items-center gap-4 mb-6">
+        <p className="text-sm text-brand-text-muted">Partenaires sélectionnés par Fika.</p>
+        <Button variant="primary" onClick={() => { setEditing(null); setSaved(false); }}>Ajouter un expert</Button>
+      </div>
+      {saved && <p role="status" className="mb-4 text-emerald-700 text-sm">Fiche partenaire enregistrée.</p>}
+      {editing !== undefined && <ExpertForm key={editing?.id ?? 'new'} expert={editing} onCancel={() => setEditing(undefined)} onSaved={() => { setEditing(undefined); setSaved(true); reload(); }} />}
+      {experts.length === 0 && <EmptyState icon={Briefcase} title="Aucun expert enregistré" description="Utilisez le bouton Ajouter un expert pour enregistrer votre premier partenaire." />}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       {experts.map((expert) => (
         <article key={expert.id} className="bg-brand-surface p-6 rounded-2xl border border-brand-border shadow-sm">
           <div className="flex items-start justify-between mb-4 gap-4">
@@ -959,19 +951,23 @@ export function AdminExperts() {
               <p className="text-xs text-brand-text-muted font-medium">Coût habituel</p>
             </div>
           </div>
+          <p className="text-sm text-brand-text-muted mt-4">{expert.phone} · {expert.zone ?? 'Zone non renseignée'} · {expert.availability ? 'Disponible' : 'Indisponible'}</p>
+          <Button variant="secondary" className="mt-4 w-full" onClick={() => { setEditing(expert); setSaved(false); }}>Modifier {expert.name}</Button>
         </article>
       ))}
-    </div>
+      </div>
+    </>
   );
 }
 
 /* -------------------------------- Clients --------------------------------- */
 
 export function AdminClients() {
-  const { data, loading } = useAsync(fetchCustomers, []);
+  const { data, loading, loadError, reload } = useAsync(fetchCustomers, []);
   const customers: AdminCustomer[] = data ?? [];
 
   if (loading) return <Loading />;
+  if (loadError) return <LoadError message={loadError} retry={reload} />;
   if (customers.length === 0) {
     return (
       <EmptyState
@@ -999,7 +995,7 @@ export function AdminClients() {
               <td className="px-6 py-4 font-semibold text-brand-text">{c.name ?? '—'}</td>
               <td className="px-6 py-4">
                 <a
-                  href={getWALink('Bonjour 👋, ici Fika.')}
+                  href={getCustomerWALink(c.phone, 'Bonjour 👋, ici Fika.')}
                   target="_blank" rel="noopener noreferrer"
                   className="text-brand-wa font-bold hover:underline"
                 >
@@ -1069,11 +1065,12 @@ function GapBadge({ gap }: { gap: number | null }) {
 
 export function AdminAnalytics() {
   const [period, setPeriod] = useState<AnalyticsPeriodKey>('30d');
-  const { data, loading } = useAsync(() => fetchAnalytics(period), [period]);
-  const { data: orderRows } = useAsync(fetchAnalyticsOrders, []);
+  const { data, loading, loadError, reload } = useAsync(() => fetchAnalytics(period), [period]);
+  const { data: orderRows, loadError: exportError, reload: reloadExport } = useAsync(fetchAnalyticsOrders, []);
   const rows = orderRows ?? [];
 
   if (loading) return <Loading />;
+  if (loadError) return <LoadError message={loadError} retry={reload} />;
   if (!data) {
     return (
       <EmptyState
@@ -1083,6 +1080,8 @@ export function AdminAnalytics() {
       />
     );
   }
+
+  if (exportError) return <LoadError message={exportError} retry={reloadExport} />;
 
   const c = data.current;
   const trend = computeTrend(c.finance.revenueInvoiced, data.previous.revenueInvoiced);

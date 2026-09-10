@@ -1,3 +1,5 @@
+import { serialTransaction } from '../lib/transaction';
+import { paymentBalance } from '../../src/lib/admin/payments';
 import { z } from 'zod';
 import { prisma } from '../../src/lib/prisma';
 import { canAssignExpert, canTransitionTask, quoteDelivery } from '../../src/lib/proof';
@@ -11,7 +13,7 @@ import { getOrderMargin, type MarginView } from './admin-orders';
  * l'expert (invariant d'orchestration).
  */
 
-const unauthorized = (): MutationResult => ({
+const unauthorized = (): Extract<MutationResult, { status: 400 | 401 | 404 | 409 }> => ({
   status: 401, body: { ok: false, code: 'UNAUTHORIZED', message: 'Session expirée. Reconnectez-vous.' },
 });
 
@@ -36,41 +38,45 @@ export async function handleAssignExpert(
     return { status: 400, body: { ok: false, code: 'VALIDATION', message: 'Affectation invalide.' } };
   }
 
-  const [order, expert] = await Promise.all([
-    prisma.order.findUnique({
-      where: { id: parsed.data.orderId },
-      include: { items: { include: { service: { select: { name: true } } } } },
-    }),
-    prisma.expert.findUnique({
-      where: { id: parsed.data.expertId },
-      include: { assignments: { where: { status: { in: ['ASSIGNED', 'ACCEPTED'] } }, select: { id: true } } },
-    }),
-  ]);
+  return serialTransaction<MutationResult<{ taskId: string; margin: MarginView | null }>>(async tx => {
+    const [order, expert] = await Promise.all([
+      tx.order.findUnique({
+        where: { id: parsed.data.orderId },
+        include: { payments: true, items: { include: { service: { select: { name: true } } } } },
+      }),
+      tx.expert.findUnique({
+        where: { id: parsed.data.expertId },
+        include: { assignments: { where: { status: { in: ['ASSIGNED', 'ACCEPTED'] } }, select: { id: true } } },
+      }),
+    ]);
 
-  if (!order) return { status: 404, body: { ok: false, code: 'NOT_FOUND', message: 'Commande introuvable.' } };
-  if (!expert) return { status: 404, body: { ok: false, code: 'NOT_FOUND', message: 'Expert introuvable.' } };
+    if (!order) return { status: 404, body: { ok: false, code: 'NOT_FOUND', message: 'Commande introuvable.' } };
+    if (!expert) return { status: 404, body: { ok: false, code: 'NOT_FOUND', message: 'Expert introuvable.' } };
 
-  const check = canAssignExpert({
-    id: expert.id, name: expert.name, skills: expert.skills, zone: expert.zone,
-    usualCost: expert.usualCost, availability: expert.availability,
-    status: expert.status, activeTaskCount: expert.assignments.length,
-  });
-  if (!check.ok) {
-    return { status: 409, body: { ok: false, code: 'EXPERT_UNAVAILABLE', message: check.reason ?? 'Expert non assignable.' } };
-  }
+    if (!['PAID', 'ASSIGNED'].includes(order.status) || !paymentBalance(order.totalPrice, order.payments).fullyPaid) {
+      return { status: 409, body: { ok: false, code: 'PAYMENT_REQUIRED', message: 'Confirmez le paiement intégral et passez la commande en Payée avant toute affectation.' } };
+    }
 
-  const deliverables = order.items
-    .map((i) => `${i.service?.name ?? i.customName ?? 'Prestation'}${i.quantity > 1 ? ` ×${i.quantity}` : ''}`)
-    .join('\n');
-  const compensation = parsed.data.compensation ?? expert.usualCost ?? 0;
-  const mainServiceId = order.items.find((i) => i.serviceId)?.serviceId ?? null;
+    const check = canAssignExpert({
+      id: expert.id, name: expert.name, skills: expert.skills, zone: expert.zone,
+      usualCost: expert.usualCost, availability: expert.availability,
+      status: expert.status, activeTaskCount: expert.assignments.length,
+    });
+    if (!check.ok) {
+      return { status: 409, body: { ok: false, code: 'EXPERT_UNAVAILABLE', message: check.reason ?? 'Expert non assignable.' } };
+    }
 
-  const task = await prisma.$transaction(async (tx) => {
-    const created = await tx.task.create({
+    const deliverables = order.items
+      .map((i) => `${i.service?.name ?? i.customName ?? 'Prestation'}${i.quantity > 1 ? ` ×${i.quantity}` : ''}`)
+      .join('\n');
+    const compensation = parsed.data.compensation ?? expert.usualCost ?? 0;
+    const mainServiceId = order.items.find((i) => i.serviceId)?.serviceId ?? null;
+
+    const task = await tx.task.create({
       data: {
         orderId: order.id,
         serviceId: mainServiceId,
-        clientBrief: parsed.data.brief ?? order.items.map((i) => i.customName).filter(Boolean).join('\n') || null,
+        clientBrief: parsed.data.brief ?? (order.items.map((i) => i.customName).filter(Boolean).join('\n') || null),
         deliverables: deliverables || null,
         deadline: parsed.data.deadline ? new Date(parsed.data.deadline) : order.expectedDeliveryAt,
         internalCompensation: compensation,
@@ -99,10 +105,8 @@ export async function handleAssignExpert(
       },
     });
 
-    return created;
+    return { status: 200, body: { ok: true, taskId: task.id, margin: await getOrderMargin(order.id, tx) } };
   });
-
-  return { status: 200, body: { ok: true, taskId: task.id, margin: await getOrderMargin(order.id) } };
 }
 
 /* --------------------------- Avancement des tâches ------------------------- */

@@ -1,123 +1,130 @@
-# Fika — Setup base de données (fondation Prisma)
+# Fika
 
-Stack : PostgreSQL + Prisma 5 (`prisma/schema.prisma`). Les pages restent sur
-les données statiques (`src/lib/data.ts`) — la bascule DB est le chantier P03.
+Application React 19 + Vite, API Express 5 et PostgreSQL via Prisma 5.
+Le serveur sert le site **et** `/api` sur la même origine. Le catalogue public
+reste statique (`src/lib/catalog-data.ts`) ; le seed catalogue aligne ses IDs en base.
 
-## 1. Variables d'environnement
+## Hébergement retenu : Vercel + Supabase
+
+Le frontend Vite et l'API Node sont préparés pour Vercel. Voir
+[le guide Vercel/Supabase](docs/vercel-supabase.md) pour les variables privées,
+les connexions poolées, les migrations et la publication depuis GitHub.
+`DIRECT_URL` est désormais requis pour les migrations Prisma ; en local sans
+pooler, il peut être identique à `DATABASE_URL`.
+
+## Accéder au dashboard admin
+
+1. Ouvrir **`https://VOTRE-DOMAINE/#/admin`** (en local :
+   `http://localhost:3000/#/admin`). Le lien **« Espace équipe »** du pied de page
+   ouvre le même écran. `/admin` redirige aussi vers `/#/admin` avec le serveur Node.
+2. Se connecter avec l'e-mail défini dans **`ADMIN_EMAIL`** et le mot de passe
+   correspondant au **`ADMIN_PASSWORD_HASH`** utilisé pour créer le compte.
+   **Il n'existe plus de mot de passe par défaut.** Le hash n'est pas à saisir
+   dans le formulaire de connexion.
+3. Le compte doit exister dans `AdminUser` et être actif. Les rôles actuels
+   sont `SUPERADMIN` et `OPS` ; les deux accèdent aux opérations.
+
+### Première installation
 
 ```bash
+npm ci
 cp .env.example .env
-# Renseigner DATABASE_URL (PostgreSQL) et VITE_WA_PHONE (+23767164936, TODO_PROD)
+# Renseigner DATABASE_URL, DIRECT_URL, AUTH_SECRET, ADMIN_EMAIL et ADMIN_PASSWORD_HASH.
+npm run prisma:generate
+npm run prisma:deploy
+npm run prisma:seed
+npm run prisma:seed:catalog
+npm run dev
 ```
 
-## 2. Scripts npm à déclarer (package.json hors périmètre d'édition ici)
+**Avant toute migration d'une base existante : sauvegarde et vérification du
+schéma.** L'ancien serveur utilisait des tables Drizzle en snake_case, différentes
+des tables Prisma. `prisma:deploy` ne transfère pas ces anciennes données : prévoir
+un import contrôlé si cette ancienne base a servi. Ne pas utiliser `db:push` en production.
 
-> À ajouter manuellement dans `package.json` :
-
-```json
-{
-  "scripts": {
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:deploy": "prisma migrate deploy",
-    "prisma:seed": "tsx prisma/seed.ts"
-  },
-  "prisma": { "seed": "tsx prisma/seed.ts" }
-}
-```
-
-## 3. Mise en route
+Pour un essai local uniquement, `ADMIN_PASSWORD` (12 caractères minimum) peut
+remplacer le hash ; le seed le hache. En production, le hash est obligatoire.
+Générer un secret de session avec :
 
 ```bash
-npm ci                          # dépendances (prisma, @prisma/client, bcryptjs, tsx)
-npm run prisma:generate         # régénère le client typé
-npm run prisma:migrate          # crée/applique la migration « foundation » (dev)
-#  → si DATABASE_URL indisponible, appliquer le SQL de référence :
-#    psql "$DATABASE_URL" -f prisma/migrations/20260101000000_foundation/migration.sql
-npm run prisma:seed             # seed idempotent (ville, zones, AdminUser)
+node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 ```
 
-Le seed est **idempotent** (upserts sur clés uniques) : relancez-le autant de
-fois que nécessaire, aucun doublon.
+Stocker les secrets dans `.env` non versionné ou dans le gestionnaire de secrets
+de l'hébergeur, jamais dans le code ni dans la conversation.
 
-## 4. Ce que contient le seed
+### Créer le compte ou renouveler son mot de passe
 
-- **City** « Ngaoundéré » (active, position 1) ;
-- **25 zones** TODO_PROD issues de la liste fournie (Ngaoundéré I & II urbain),
-  toutes `deliveryIncluded=true` — à valider par le fondateur avant production ;
-- **AdminUser** SUPERADMIN depuis `ADMIN_EMAIL` / `ADMIN_PASSWORD_HASH`
-  (hash bcrypt généré à la volée si absent, mot de passe dev à corriger) ;
-- Catalogue (catégories/services/packs) : stubs vides en attente P03.
+Renseigner les nouvelles valeurs dans l'environnement, puis :
 
-## 5. Tunnel /demande — test manuel hors-ligne (P05)
+```bash
+npm run admin:seed
+```
 
-1. Ouvrir `/demande`, remplir le formulaire (validation française bloquante :
-   besoin ≥ 10 caractères, quartier obligatoire, téléphone E.164 si renseigné,
-   consentement obligatoire).
-2. **En ligne** : le POST `/api/leads` enregistre le Lead (`source SITE`,
-   `status NEW`, ville/quartier/budget) → écran de confirmation avec récap et
-   référence `LEAD-XXXXXX` + CTA WhatsApp prérempli « Réf : demande #LEAD-XXXXXX ».
-3. **Hors-ligne** (couper le réseau ou simuler l'absence d'API) : le fallback
-   ouvre WhatsApp automatiquement avec le même message, mention
-   « demande site, non enregistrée », puis affiche l'écran de repli.
-4. Aucune erreur console applicative ; le numéro est toujours masqué
-   (`+2376••• •• 78`) dans les récapitulatifs et logs serveur.
+Cette commande crée le compte ou **remplace son mot de passe** pour l'e-mail
+indiqué ; elle ne réactive pas un compte désactivé et ne change pas son rôle.
+Le seed général `prisma:seed` conserve le mot de passe d'un compte existant.
+Pour invalider toutes les anciennes sessions après une compromission, renouveler
+également `AUTH_SECRET` et redémarrer le serveur. Pas de récupération par e-mail en v1.
 
-## 6. Back-office /admin (P06)
+### Si la connexion ne marche pas
 
-- **Accès** : `/admin/*` exige une session. Sans cookie valide, l'écran de
-  connexion s'affiche ; chaque mutation serveur revérifie la session
-  (défense en profondeur). L'admin est en `noindex, nofollow`.
-- **Compte par défaut** (seed) : `ADMIN_EMAIL` / `ADMIN_PASSWORD_HASH`.
-  ⚠️ **Changement de mot de passe obligatoire avant mise en production** —
-  le seed génère sinon un mot de passe de développement.
-- **Secret de session** : `AUTH_SECRET` (≥ 32 caractères) — cookie httpOnly,
-  SameSite=Lax, Secure en production, durée 12 h, 5 tentatives/min/IP.
-- **Routes** : `/admin` (vue d'ensemble), `/admin/orders`, `/admin/orders/[id]`,
-  `/admin/leads`, `/admin/clients`, `/admin/experts`, `/admin/analytics` (P08).
-- **Aucun chiffre n'est codé en dur** : CA, marge, panier moyen, pipeline et top
-  services sont des agrégats calculés (`lib/admin/kpi.ts` + `lib/pricing.ts`).
-  Sans base connectée, l'interface affiche des états vides explicites.
-- **Transitions de statut** : validées par `lib/admin/status.ts` (graphe + règles
-  — un expert pour « Assignée », un paiement confirmé pour « Payée » et
-  « Terminée ») et tracées dans `OrderEvent`.
+- **Service indisponible** : vérifier `DATABASE_URL`, les migrations, le client
+  Prisma généré et `AUTH_SECRET` (32 caractères minimum).
+- **E-mail ou mot de passe incorrect** : vérifier le compte, son activation et
+  le mot de passe effectivement semé ; changer `.env` seul ne change pas la base.
+- **Trop de tentatives** : attendre une minute (5 essais/minute/IP).
+- **Hébergement statique seul** : il ne fournit pas les API ; démarrer le serveur
+  Node ou utiliser l'adaptateur Vercel fourni. Un simple déploiement du dossier `dist` n'est pas suffisant.
+- En production, HTTPS est requis pour le cookie `Secure`. Ne pas appeler une API
+  sur `localhost` depuis le navigateur déployé ; les URLs sont relatives à `/api`.
 
-## 7. Chaîne opérationnelle & preuve (P07)
+## Opérations ajoutées après l'audit
 
-Parcours complet, piloté de bout en bout par l'équipe Fika :
+Les écrans **Experts**, la conversion des demandes sans téléphone et les **paiements
+manuels** sont maintenant utilisables. Un reçu doit être vérifié explicitement,
+et seul le paiement intégral permet le statut « Payée ». Aucune opération MTN/Orange
+n'est déclenchée automatiquement. Une nouvelle migration protège les références de
+reçus, la conversion et la numérotation.
 
-1. **Demande** (`/demande`) → `Lead` (`SITE`, `NEW`).
-2. **Conversion** (admin › Demandes) → `Order` (`QUALIFYING`, `CMD-2026-xxxx`) + `OrderEvent`.
-3. **Devis** (détail commande) → `Quote` (`DEV-2026-xxxx`) qui fixe `totalPrice`.
-4. **Paiement confirmé** → transition `PAID` (bloquée sinon).
-5. **Affectation** → `Task` + `TaskAssignment` + ligne `Cost EXPERT`
-   (pré-remplie au coût habituel) ; l'expert passe indisponible ;
-   la marge se recalcule immédiatement.
-6. **Avancement** : tâche `ASSIGNED → IN_PROGRESS → REVIEW → COMPLETED`
-   (mise à jour par l'admin, canal WhatsApp externe — le client n'a jamais
-   de contact direct avec l'expert). À la clôture, l'expert redevient
-   disponible et son compteur de missions progresse.
-7. **Livraison** : statut `DeliveryStatus`, preuve (URL photo), coût interne
-   tracé en `Cost DELIVERY`. **Frais client : toujours 0 F** à Ngaoundéré.
-8. **Terminée** (`COMPLETED`, exige paiement confirmé) → « Demander un avis »
-   (message WhatsApp prérempli) puis enregistrement de l'avis.
-9. **Preuve publique** : `POST /api/reviews` n'accepte QUE des commandes
-   `COMPLETED` sans avis existant (`orderId` unique en base **et** contrôle
-   applicatif) ; note 1–5 ; `verified=true`. Le portfolio se publie depuis
-   une commande terminée (`PortfolioItem.orderId`).
-10. **Vitrine** : témoignages et réalisations proviennent de la base
-    (pseudo + ville uniquement, jamais de nom complet ni de téléphone).
-    Tant qu'aucune donnée réelle n'existe, la page affiche des exemples avec
-    un badge « Exemples · nos premiers avis vérifiés arrivent » — **aucune
-    fausse review n'est jamais écrite en base**.
+Voir [le guide des opérations](docs/admin-operations.md) avant activation.
+`npm run setup:check` contrôle la configuration en lecture seule, sans afficher
+les secrets. Les anciennes données Drizzle restent à reprendre si nécessaire.
 
-Le score des experts est **calculé à la lecture** (`computeExpertScore`), jamais stocké.
+## Connexions raccordées
 
-## 8. Invariants rappelés par le schéma
+| Parcours | API / stockage |
+|---|---|
+| Connexion, restauration de session, déconnexion | `/api/auth/login`, `/me`, `/logout` ; cookie signé httpOnly, 12 h |
+| Formulaire de demande → admin Demandes | `POST /api/leads` → Lead / Customer |
+| Conversion, devis, coûts, statuts | `/api/admin/leads/convert`, `/api/admin/orders/*` |
+| Reçus manuels et vérification | `/api/admin/payments`, `/api/admin/payments/review` |
+| Affectation, tâches, livraison | `/api/admin/orders/assign`, `/api/admin/tasks/status`, `/api/admin/orders/delivery` |
+| Clients, experts, KPI, analytics et export | `/api/admin/*` → données Prisma, DTO adaptés à l'interface |
+| Avis et réalisations | Écriture authentifiée, lectures publiques `/api/testimonials`, `/api/portfolio` |
+| Clics WhatsApp et vues | `/api/events/waclick`, `/api/events/leadview` → Event |
 
-- Argent en **Int FCFA** partout ; marge = `Order.totalPrice − Σ(Cost)`,
-  calculée à la lecture — jamais stockée en doublon sur `Order`.
-- **Livraison gratuite pour le client** à Ngaoundéré : règle métier
-  (`Zone.deliveryIncluded=true`), le coût interne reste tracé (`Delivery.fee`).
-- **1 avis public = 1 commande complétée** : `Review.orderId @unique`,
-  `rating` 1–5 contraint au niveau applicatif.
+Toutes les routes admin et la création d'avis vérifient la session serveur.
+Les erreurs ne basculent **jamais** sur des données de démonstration : elles sont
+signalées avec possibilité de réessayer. `preview-store.ts` est un ancien jeu de
+fixtures, non utilisé par le client API. Les anciens scripts `seed-data.ts`,
+`test-db.ts`, `update-server*.ts` et `src/db/` sont des vestiges Drizzle : **ne pas
+les utiliser** pour ce serveur ni pour mettre à jour une base réelle.
+
+WhatsApp utilise un lien `wa.me` avec `VITE_WA_PHONE` : ce n'est pas une intégration
+WhatsApp Business API. Les clics ne créent pas automatiquement de commandes.
+
+## Vérification et production
+
+```bash
+npm run typecheck
+npm test
+npm run build
+npm start
+```
+
+`npm start` active le mode production et écoute `0.0.0.0:$PORT` (3000 par défaut).
+`/api/health` vérifie que le serveur répond, **pas** la disponibilité de PostgreSQL.
+Voir [README-PRODUCTION.md](README-PRODUCTION.md) et
+[l'audit du 9 septembre 2026](docs/audit-2026-09-09.md) pour les limites et suites.
+Les anciens jalons d'`AUDIT_FINAL.md` sont historiques, pas une certification de production.

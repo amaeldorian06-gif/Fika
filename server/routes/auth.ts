@@ -40,7 +40,7 @@ export function signSession(payload: SessionPayload): string {
 }
 
 export function verifySession(token: string | undefined): SessionPayload | null {
-  if (!token || !token.includes('.')) return null;
+  if (!token || token.split('.').length !== 2) return null;
   const [body, sig] = token.split('.');
   try {
     const expected = createHmac('sha256', secret()).update(body).digest('base64url');
@@ -48,7 +48,8 @@ export function verifySession(token: string | undefined): SessionPayload | null 
     const b = Buffer.from(expected);
     if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
     const payload = JSON.parse(Buffer.from(body, 'base64url').toString()) as SessionPayload;
-    if (payload.exp < Date.now()) return null;
+    if (typeof payload.sub !== 'string' || !payload.sub || typeof payload.role !== 'string' ||
+      !Number.isFinite(payload.exp) || payload.exp <= Date.now()) return null;
     return payload;
   } catch {
     return null;

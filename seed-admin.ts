@@ -1,24 +1,18 @@
-import { db } from "./src/db/index.ts";
-import { adminUsers } from "./src/db/schema.ts";
-import bcrypt from "bcryptjs";
+import 'dotenv/config';
+import { prisma } from './src/lib/prisma';
+import { adminSeedCredentials } from './server/lib/admin-seed';
 
-async function seed() {
-    try {
-        const hash = bcrypt.hashSync("Kid1joyland'@", 10);
-        await db.insert(adminUsers).values({
-            id: "admin-" + Date.now(),
-            email: "admin@fika.cm",
-            passwordHash: hash,
-            role: "SUPERADMIN",
-            active: true
-        }).onConflictDoUpdate({
-            target: adminUsers.email,
-            set: { passwordHash: hash }
-        });
-        console.log("Admin user seeded successfully.");
-    } catch (e) {
-        console.error("Error seeding admin:", e);
-    }
-    process.exit(0);
+async function main() {
+  const { email, passwordHash } = adminSeedCredentials();
+  // Réinitialisation explicite du compte désigné par ADMIN_EMAIL.
+  await prisma.adminUser.upsert({
+    where: { email },
+    create: { email, passwordHash, role: 'SUPERADMIN', active: true },
+    update: { passwordHash },
+  });
+  console.log('Compte admin créé ou mot de passe renouvelé (rôle et activation existants conservés).');
 }
-seed();
+main().catch(() => {
+  console.error('Échec du seed admin : vérifier les variables, la base et les migrations.');
+  process.exitCode = 1;
+}).finally(() => prisma.$disconnect());

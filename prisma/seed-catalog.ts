@@ -1,3 +1,4 @@
+import 'dotenv/config';
 /**
  * Seed catalogue Fika (P03) — idempotent.
  * Sème les 7 univers, les services enrichis (+ ServiceRequirement), les packs

@@ -6,9 +6,20 @@
   "scripts": {
     "dev": "tsx server.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
-    "start": "node dist/server.cjs",
-    "db:push": "drizzle-kit push --force",
-    "db:studio": "drizzle-kit studio"
+    "start": "NODE_ENV=production node dist/server.cjs",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:seed": "tsx prisma/seed.ts",
+    "prisma:seed:catalog": "tsx prisma/seed-catalog.ts",
+    "admin:seed": "tsx seed-admin.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "postinstall": "prisma generate",
+    "setup:check": "tsx scripts/check-setup.ts",
+    "build:vercel": "prisma generate && vite build"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

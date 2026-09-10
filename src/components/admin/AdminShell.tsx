@@ -27,6 +27,7 @@ export function AdminShell({
 }: { path: string; title: string; breadcrumb?: string; children: ReactNode }) {
   const [admin, setAdmin] = useState<AdminIdentity | null>(null);
   const [checking, setChecking] = useState(true);
+  const [sessionError, setSessionError] = useState<string | null>(null);
   const [todoCount, setTodoCount] = useState<number | null>(null);
 
   useEffect(() => {
@@ -35,8 +36,18 @@ export function AdminShell({
       if (!alive) return;
       setAdmin(session);
       setChecking(false);
+    }).catch(() => {
+      if (!alive) return;
+      setSessionError('Serveur indisponible : la session ne peut pas être vérifiée. Réessayez dans quelques instants.');
+      setChecking(false);
     });
     return () => { alive = false; };
+  }, []);
+
+  useEffect(() => {
+    const expired = () => { setAdmin(null); setTodoCount(null); };
+    window.addEventListener('fika:unauthorized', expired);
+    return () => window.removeEventListener('fika:unauthorized', expired);
   }, []);
 
   useEffect(() => {
@@ -45,7 +56,7 @@ export function AdminShell({
     fetchOrders().then((orders) => {
       if (!alive) return;
       setTodoCount(orders.filter((o) => TODO_STATUSES.includes(o.status)).length);
-    });
+    }).catch(() => { if (alive) setTodoCount(null); });
     return () => { alive = false; };
   }, [admin]);
 
@@ -57,10 +68,13 @@ export function AdminShell({
     );
   }
 
-  if (!admin) return <AdminLoginPage onSuccess={setAdmin} />;
+  if (!admin) return <AdminLoginPage onSuccess={(identity) => { setSessionError(null); setAdmin(identity); }} initialError={sessionError} />;
 
   const handleLogout = async () => {
-    try { await logout(); } catch { /* session déjà expirée */ }
+    try { await logout(); } catch {
+      setSessionError('Déconnexion non confirmée par le serveur. Réessayez avant de quitter cet appareil.');
+      return;
+    }
     setAdmin(null);
     navigate('/admin');
   };
@@ -108,10 +122,10 @@ export function AdminShell({
       </aside>
 
       <div className="flex-1 min-w-0 overflow-auto">
-        {/* Bandeau statut fondateur */}
+        {/* Session vérifiée par le serveur */}
         <div className="bg-brand-wa/10 border-b border-brand-wa/20 px-4 sm:px-8 py-2.5 flex items-center justify-between text-xs font-semibold text-brand-wa flex-wrap gap-2">
-          <span>🟢 Connecté en tant que Fondateur ({admin.email}) · Rôle : {admin.role}</span>
-          <span className="text-brand-text-muted font-normal">Ngaoundéré · Données réactives</span>
+          <span>Connecté : {admin.email} · {admin.role === 'SUPERADMIN' ? 'Administration' : 'Opérations'}</span>
+          <span className="text-brand-text-muted font-normal">Ngaoundéré · Espace équipe</span>
         </div>
 
         <div className="p-4 md:p-8 max-w-7xl mx-auto">
@@ -145,6 +159,8 @@ export function AdminShell({
             ))}
           </div>
 
+          {sessionError && <p role="alert" className="mb-4 text-red-700">{sessionError}</p>}
+          <button type="button" onClick={handleLogout} className="md:hidden mb-4 text-sm font-bold underline">Se déconnecter</button>
           {children}
         </div>
       </div>
