@@ -1,0 +1,6 @@
+# robots.txt Fika
+User-agent: *
+Allow: /
+Disallow: /admin
+
+Sitemap: https://fika.cm/sitemap.xml

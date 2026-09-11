@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 514">
+  <defs>
+    <pattern id="d" width="46" height="46" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+      <line x1="0" y1="0" x2="0" y2="46" stroke="#F0EBE6" stroke-width="2"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="514" fill="#FDFCFB"/>
+  <rect width="1200" height="514" fill="url(#d)"/>
+  <rect x="60" y="60" width="1080" height="394" rx="24" fill="#FAF5FF" stroke="#D8B4FE" stroke-width="2"/>
+  <circle cx="600" cy="238" r="88" fill="#9333EA"/>
+  <path d="M600 176l14 42 44 2-34 28 12 43-36-24-36 24 12-43-34-28 44-2z" fill="#FFFFFF"/>
+  <circle cx="470" cy="320" r="22" fill="#B44A14"/>
+  <circle cx="730" cy="170" r="14" fill="#D8B4FE"/>
+  <text x="600" y="400" font-family="Arial, sans-serif" font-size="26" font-weight="700" fill="#191817" text-anchor="middle">Design</text>
+  <text x="600" y="440" font-family="Arial, sans-serif" font-size="15" fill="#6B6661" text-anchor="middle">Visuel d'exemple — photos réelles à venir (TODO_PROD)</text>
+  <text x="1116" y="478" font-family="Georgia, serif" font-style="italic" font-size="34" fill="#B44A14" text-anchor="end">Fika.</text>
+</svg>
