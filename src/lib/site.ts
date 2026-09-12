@@ -48,7 +48,7 @@ export function getDeliveryPromise(citySlug: string = DEFAULT_CITY_SLUG): string
 }
 
 /**
- * Numéro WhatsApp de production, format E.164 (+237 671 164 936).
+ * Numéro WhatsApp de production, format E.164 (+237 686382354).
  * VALIDÉ par le fondateur (2026-01-08). Une variable d'env VITE_WA_PHONE /
  * NEXT_PUBLIC_WA_PHONE peut le surcharger sans toucher au code.
  */
@@ -59,7 +59,7 @@ function isValidE164(phone: string): boolean {
 }
 
 export const WHATSAPP_PHONE_E164: string =
-  envPhone && isValidE164(envPhone) ? envPhone : '+237671164936';
+  envPhone && isValidE164(envPhone) ? envPhone : '+237686382354';
 
 /** wa.me exige le numéro sans le préfixe « + ». */
 export const WA_PHONE_DIGITS: string = WHATSAPP_PHONE_E164.replace(/^\+/, '');
