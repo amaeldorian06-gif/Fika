@@ -1,0 +1,16 @@
+{
+  "//": "Utilisé par Vercel pour compiler la fonction api/index.ts et tout ce qu'elle importe (server/, src/lib/). CommonJS : Node accepte alors les imports relatifs sans extension. Seul le graphe d'imports de index.ts est compilé (le code front, ex. src/lib/site.ts avec import.meta, n'en fait pas partie). Le front (Vite) et les tests ignorent ce fichier.",
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "target": "ES2022",
+    "esModuleInterop": true,
+    "allowImportingTsExtensions": false,
+    "noEmit": false
+  },
+  "files": [
+    "./index.ts"
+  ],
+  "include": []
+}

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 514">
+  <defs>
+    <pattern id="d" width="46" height="46" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+      <line x1="0" y1="0" x2="0" y2="46" stroke="#F0EBE6" stroke-width="2"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="514" fill="#FDFCFB"/>
+  <rect width="1200" height="514" fill="url(#d)"/>
+  <rect x="60" y="60" width="1080" height="394" rx="24" fill="#FFF7ED" stroke="#FED7AA" stroke-width="2"/>
+  <path d="M520 262l80-80 80 80z" fill="#EA580C"/>
+  <rect x="545" y="262" width="110" height="72" rx="6" fill="#FFFFFF" stroke="#EA580C" stroke-width="3"/>
+  <rect x="585" y="292" width="30" height="42" rx="4" fill="#EA580C"/>
+  <circle cx="700" cy="180" r="14" fill="#FED7AA"/>
+  <circle cx="480" cy="320" r="16" fill="#FED7AA"/>
+  <text x="600" y="400" font-family="Arial, sans-serif" font-size="26" font-weight="700" fill="#191817" text-anchor="middle">Maison</text>
+  <text x="600" y="440" font-family="Arial, sans-serif" font-size="15" fill="#6B6661" text-anchor="middle">Visuel d'exemple — photos réelles à venir (TODO_PROD)</text>
+  <text x="1116" y="478" font-family="Georgia, serif" font-style="italic" font-size="34" fill="#B44A14" text-anchor="end">Fika.</text>
+</svg>

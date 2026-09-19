@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000">
+  <rect width="800" height="1000" fill="#FDFCFB"/>
+  <rect x="90" y="90" width="620" height="820" rx="24" fill="#FFFFFF" stroke="#F0EBE6" stroke-width="3"/>
+  <rect x="140" y="150" width="520" height="430" rx="16" fill="#B44A14"/>
+  <circle cx="400" cy="330" r="72" fill="#FDFCFB"/>
+  <path d="M368 330c10-28 54-28 64 0 6 20-8 40-32 40s-38-20-32-40z" fill="#B44A14"/>
+  <rect x="240" y="450" width="320" height="22" rx="11" fill="#FDFCFB"/>
+  <rect x="290" y="492" width="220" height="14" rx="7" fill="#E8A87C"/>
+  <rect x="140" y="640" width="300" height="26" rx="13" fill="#191817"/>
+  <rect x="140" y="692" width="220" height="14" rx="7" fill="#D4CDC6"/>
+  <rect x="140" y="722" width="260" height="14" rx="7" fill="#D4CDC6"/>
+  <rect x="140" y="800" width="130" height="44" rx="22" fill="#B44A14"/>
+  <text x="205" y="829" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#FFFFFF" text-anchor="middle">Commander</text>
+  <text x="140" y="886" font-family="Arial, sans-serif" font-size="15" fill="#6B6661">Flyer Restaurant — visuel d'exemple (TODO_PROD)</text>
+  <text x="660" y="886" font-family="Georgia, serif" font-style="italic" font-size="28" fill="#B44A14" text-anchor="end">Fika.</text>
+</svg>
