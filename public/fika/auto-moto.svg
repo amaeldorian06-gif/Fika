@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 514">
+  <defs>
+    <pattern id="d" width="46" height="46" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+      <line x1="0" y1="0" x2="0" y2="46" stroke="#F0EBE6" stroke-width="2"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="514" fill="#FDFCFB"/>
+  <rect width="1200" height="514" fill="url(#d)"/>
+  <rect x="60" y="60" width="1080" height="394" rx="24" fill="#FFFBEB" stroke="#FDE68A" stroke-width="2"/>
+  <path d="M470 290l30-65h150l55 65z" fill="#FFFFFF" stroke="#D97706" stroke-width="3"/>
+  <rect x="455" y="285" width="270" height="45" rx="10" fill="#FEF3C7" stroke="#D97706" stroke-width="3"/>
+  <circle cx="520" cy="335" r="20" fill="#D97706"/><circle cx="520" cy="335" r="8" fill="#FFFFFF"/>
+  <circle cx="665" cy="335" r="20" fill="#D97706"/><circle cx="665" cy="335" r="8" fill="#FFFFFF"/>
+  <rect x="515" y="240" width="60" height="35" rx="4" fill="#FDE68A"/>
+  <rect x="590" y="240" width="45" height="35" rx="4" fill="#FDE68A"/>
+  <text x="600" y="400" font-family="Arial, sans-serif" font-size="26" font-weight="700" fill="#191817" text-anchor="middle">Auto &amp; Moto</text>
+  <text x="600" y="440" font-family="Arial, sans-serif" font-size="15" fill="#6B6661" text-anchor="middle">Visuel d'exemple — photos réelles à venir (TODO_PROD)</text>
+  <text x="1116" y="478" font-family="Georgia, serif" font-style="italic" font-size="34" fill="#B44A14" text-anchor="end">Fika.</text>
+</svg>

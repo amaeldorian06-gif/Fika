@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 514">
+  <defs>
+    <pattern id="d" width="46" height="46" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+      <line x1="0" y1="0" x2="0" y2="46" stroke="#F0EBE6" stroke-width="2"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="514" fill="#FDFCFB"/>
+  <rect width="1200" height="514" fill="url(#d)"/>
+  <rect x="60" y="60" width="1080" height="394" rx="24" fill="#ECFDF5" stroke="#A7F3D0" stroke-width="2"/>
+  <g transform="rotate(-4 600 240)">
+    <rect x="530" y="150" width="140" height="180" rx="10" fill="#FFFFFF" stroke="#A7F3D0" stroke-width="3"/>
+    <rect x="550" y="180" width="100" height="10" rx="5" fill="#059669"/>
+    <rect x="550" y="204" width="80" height="8" rx="4" fill="#A7F3D0"/>
+    <rect x="550" y="222" width="92" height="8" rx="4" fill="#A7F3D0"/>
+    <rect x="550" y="240" width="72" height="8" rx="4" fill="#A7F3D0"/>
+    <rect x="550" y="258" width="86" height="8" rx="4" fill="#A7F3D0"/>
+    <rect x="550" y="286" width="60" height="18" rx="9" fill="#059669"/>
+  </g>
+  <text x="600" y="400" font-family="Arial, sans-serif" font-size="26" font-weight="700" fill="#191817" text-anchor="middle">Documents</text>
+  <text x="600" y="440" font-family="Arial, sans-serif" font-size="15" fill="#6B6661" text-anchor="middle">Visuel d'exemple — photos réelles à venir (TODO_PROD)</text>
+  <text x="1116" y="478" font-family="Georgia, serif" font-style="italic" font-size="34" fill="#B44A14" text-anchor="end">Fika.</text>
+</svg>
