@@ -69,7 +69,7 @@ export function AdminLoginPage({ onSuccess, initialError = null }: { onSuccess: 
               autoComplete="username"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="fika@admin2027"
+              placeholder="Email admin"
               required
             />
           </Field>
@@ -81,7 +81,7 @@ export function AdminLoginPage({ onSuccess, initialError = null }: { onSuccess: 
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
+              placeholder="••••••••••••"
               required
             />
           </Field>
