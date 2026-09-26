@@ -140,7 +140,6 @@ export function Footer() {
             <h4 className="font-heading font-bold mb-2.5 text-brand-text uppercase tracking-wider text-[11px]">Navigation</h4>
             <ul className="space-y-1.5 text-xs">
               <li><button onClick={() => navigate('/#services')} className="text-brand-text-muted hover:text-brand-accent transition-colors cursor-pointer">Services & Packs</button></li>
-              <li><button onClick={() => navigate('/#realisations')} className="text-brand-text-muted hover:text-brand-accent transition-colors cursor-pointer">Réalisations</button></li>
               <li><button onClick={() => navigate('/#a-propos')} className="text-brand-text-muted hover:text-brand-accent transition-colors cursor-pointer">Comment ça marche</button></li>
               <li><button onClick={() => navigate('/#faq')} className="text-brand-text-muted hover:text-brand-accent transition-colors cursor-pointer">FAQ</button></li>
             </ul>
