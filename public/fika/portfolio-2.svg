@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000">
+  <rect width="800" height="1000" fill="#FDFCFB"/>
+  <rect x="90" y="90" width="620" height="820" rx="24" fill="#FFFFFF" stroke="#F0EBE6" stroke-width="3"/>
+  <rect x="150" y="170" width="500" height="480" rx="16" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="2"/>
+  <rect x="150" y="170" width="500" height="46" rx="16" fill="#191817"/>
+  <circle cx="184" cy="193" r="6" fill="#B44A14"/>
+  <circle cx="206" cy="193" r="6" fill="#F0EBE6"/>
+  <circle cx="228" cy="193" r="6" fill="#F0EBE6"/>
+  <rect x="190" y="250" width="220" height="24" rx="12" fill="#191817"/>
+  <rect x="190" y="296" width="160" height="12" rx="6" fill="#93C5FD"/>
+  <rect x="190" y="322" width="140" height="12" rx="6" fill="#BFDBFE"/>
+  <rect x="190" y="360" width="110" height="36" rx="18" fill="#1B9A45"/>
+  <rect x="190" y="440" width="130" height="130" rx="12" fill="#BFDBFE"/>
+  <rect x="335" y="440" width="130" height="130" rx="12" fill="#DBEAFE"/>
+  <rect x="480" y="440" width="130" height="130" rx="12" fill="#BFDBFE"/>
+  <text x="140" y="760" font-family="Arial, sans-serif" font-size="15" fill="#6B6661">Site Vitrine — visuel d'exemple (TODO_PROD)</text>
+  <text x="660" y="886" font-family="Georgia, serif" font-style="italic" font-size="28" fill="#B44A14" text-anchor="end">Fika.</text>
+  <rect x="140" y="640" width="300" height="26" rx="13" fill="#191817"/>
+  <rect x="140" y="692" width="240" height="14" rx="7" fill="#D4CDC6"/>
+</svg>

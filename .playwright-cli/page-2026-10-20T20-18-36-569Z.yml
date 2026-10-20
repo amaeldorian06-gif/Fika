@@ -1,0 +1,308 @@
+- generic [ref=e3]:
+  - link "Aller au contenu" [ref=e4] [cursor=pointer]:
+    - /url: "#contenu"
+  - banner [ref=e5]:
+    - generic [ref=e7]:
+      - link "Fika ." [ref=e9] [cursor=pointer]:
+        - /url: "#/"
+        - text: Fika
+        - generic [ref=e10]: .
+      - navigation [ref=e11]:
+        - button "Services" [ref=e12] [cursor=pointer]
+        - button "Comment ça marche" [ref=e13] [cursor=pointer]
+        - link "WhatsApp" [ref=e14] [cursor=pointer]:
+          - /url: https://wa.me/237686382354?text=Bonjour%20Fika.
+  - main [ref=e15]:
+    - generic [ref=e18]:
+      - link "Retour à l'accueil" [ref=e19] [cursor=pointer]:
+        - /url: "#/"
+      - heading "Tous nos services" [level=1] [ref=e22]
+      - paragraph [ref=e23]: Trouvez la solution adaptée à votre besoin parmi nos différentes catégories.
+      - region [ref=e24]:
+        - heading "Parcourir par univers" [level=2] [ref=e25]
+        - generic [ref=e26]:
+          - link [ref=e27] [cursor=pointer]:
+            - /url: "#/univers/maison-travaux"
+            - heading "Maison & Travaux" [level=3] [ref=e32]
+            - paragraph [ref=e33]: Fuite d'eau · Panne électrique · Maçonnerie · Peinture · Carrelage · Menuiserie
+            - generic [ref=e34]: Voir l'univers
+          - link [ref=e37] [cursor=pointer]:
+            - /url: "#/univers/reparation-maintenance"
+            - heading "Réparation & Maintenance" [level=3] [ref=e41]
+            - paragraph [ref=e42]: Écran cassé · Frigo ou congélateur · Climatisation · Ordinateur & PC
+            - generic [ref=e43]: Voir l'univers
+          - link [ref=e46] [cursor=pointer]:
+            - /url: "#/univers/auto-moto"
+            - heading "Auto & Moto" [level=3] [ref=e52]
+            - paragraph [ref=e53]: Panne de démarrage · Vidange · Batterie à plat · Diagnostic moteur
+            - generic [ref=e54]: Voir l'univers
+          - link [ref=e57] [cursor=pointer]:
+            - /url: "#/univers/transport-logistique"
+            - heading "Transport & Logistique" [level=3] [ref=e64]
+            - paragraph [ref=e65]: Déménagement local · Transport matériaux · Courses & Colis express
+            - generic [ref=e66]: Voir l'univers
+          - link [ref=e69] [cursor=pointer]:
+            - /url: "#/univers/numerique-documents"
+            - heading "Numérique & Documents" [level=3] [ref=e74]
+            - paragraph [ref=e75]: CV & Lettre · Impression & Reliure · Saisie · Site vitrine
+            - generic [ref=e76]: Voir l'univers
+          - link [ref=e79] [cursor=pointer]:
+            - /url: "#/demande"
+            - heading "Autre besoin" [level=3] [ref=e83]
+            - paragraph [ref=e84]: Vous ne trouvez pas votre besoin ? Parlez-nous.
+            - generic [ref=e85]: Décrire mon besoin
+      - region [ref=e88]:
+        - heading "Les plus demandés" [level=2] [ref=e89]
+        - generic [ref=e90]:
+          - article [ref=e91]:
+            - heading "Dépannage Plomberie" [level=3] [ref=e92]
+            - paragraph [ref=e93]: Devis selon le besoin
+            - paragraph [ref=e94]: Fuite d'eau, robinet cassé, débouchage et raccordement sanitaire.
+            - link "Voir le service" [ref=e95] [cursor=pointer]:
+              - /url: "#/service/intervention-plomberie"
+          - article [ref=e96]:
+            - heading "Dépannage Électricité" [level=3] [ref=e97]
+            - paragraph [ref=e98]: Devis selon le besoin
+            - paragraph [ref=e99]: Court-circuit, disjoncteur qui saute, prises défectueuses et éclairage.
+            - link "Voir le service" [ref=e100] [cursor=pointer]:
+              - /url: "#/service/intervention-electricite"
+          - article [ref=e101]:
+            - heading "Réparation Téléphone & Tablette" [level=3] [ref=e102]
+            - paragraph [ref=e103]: Diagnostic / intervention selon le problème
+            - paragraph [ref=e104]: Écran cassé, remplacement de batterie, connecteur de charge et logiciel.
+            - link "Voir le service" [ref=e105] [cursor=pointer]:
+              - /url: "#/service/reparation-telephone"
+          - article [ref=e106]:
+            - heading "Déménagement Local & Transport" [level=3] [ref=e107]
+            - paragraph [ref=e108]: Devis selon le besoin
+            - paragraph [ref=e109]: Transport de meubles, cartons, chargement et déchargement sécurisés.
+            - link "Voir le service" [ref=e110] [cursor=pointer]:
+              - /url: "#/service/demenagement-local"
+      - heading "Catalogue complet" [level=2] [ref=e111]
+      - generic [ref=e112]:
+        - generic [ref=e113]:
+          - button "Tout" [ref=e114]
+          - button "Maison & Travaux" [ref=e115]
+          - button "Réparation & Maintenance" [ref=e116]
+          - button "Auto & Moto" [ref=e117]
+          - button "Transport & Logistique" [ref=e118]
+          - button "Numérique & Documents" [ref=e119]
+        - textbox "Rechercher..." [ref=e124]
+      - generic [ref=e125]:
+        - link [ref=e127] [cursor=pointer]:
+          - /url: "#/service/creation-cv-professionnel"
+          - generic [ref=e128]:
+            - img "CV & Lettre de Motivation Pro" [ref=e129]
+            - generic [ref=e130]: Livré
+          - generic [ref=e137]:
+            - paragraph [ref=e138]: Numérique & Documents
+            - heading "CV & Lettre de Motivation Pro" [level=3] [ref=e139]
+            - paragraph [ref=e140]: 3 000 F
+            - paragraph [ref=e141]: Mise en valeur de votre parcours, design moderne et format PDF prêt à postuler.
+            - generic [ref=e142]: Commander en 1 message
+        - link [ref=e146] [cursor=pointer]:
+          - /url: "#/service/demenagement-local"
+          - generic [ref=e147]:
+            - img "Déménagement Local & Transport" [ref=e148]
+            - generic [ref=e149]: Populaire
+          - generic [ref=e153]:
+            - paragraph [ref=e154]: Transport & Logistique
+            - heading "Déménagement Local & Transport" [level=3] [ref=e155]
+            - paragraph [ref=e156]: Devis selon le besoin
+            - paragraph [ref=e157]: Transport de meubles, cartons, chargement et déchargement sécurisés.
+            - generic [ref=e158]: Demander un devis
+        - link [ref=e162] [cursor=pointer]:
+          - /url: "#/service/depannage-mecanique-auto"
+          - img "Dépannage & Entretien Auto" [ref=e164]
+          - generic [ref=e165]:
+            - paragraph [ref=e166]: Auto & Moto
+            - heading "Dépannage & Entretien Auto" [level=3] [ref=e167]
+            - paragraph [ref=e168]: Diagnostic / intervention selon le problème
+            - paragraph [ref=e169]: Panne de démarrage, diagnostic moteur, vidange, freins et électricité auto.
+            - generic [ref=e170]: Demander un diagnostic
+        - link [ref=e174] [cursor=pointer]:
+          - /url: "#/service/intervention-plomberie"
+          - generic [ref=e175]:
+            - img "Dépannage Plomberie" [ref=e176]
+            - generic [ref=e177]: Populaire
+          - generic [ref=e181]:
+            - paragraph [ref=e182]: Maison & Travaux
+            - heading "Dépannage Plomberie" [level=3] [ref=e183]
+            - paragraph [ref=e184]: Devis selon le besoin
+            - paragraph [ref=e185]: Fuite d'eau, robinet cassé, débouchage et raccordement sanitaire.
+            - generic [ref=e186]: Demander un devis
+        - link [ref=e190] [cursor=pointer]:
+          - /url: "#/service/reparation-telephone"
+          - generic [ref=e191]:
+            - img "Réparation Téléphone & Tablette" [ref=e192]
+            - generic [ref=e193]: Populaire
+          - generic [ref=e197]:
+            - paragraph [ref=e198]: Réparation & Maintenance
+            - heading "Réparation Téléphone & Tablette" [level=3] [ref=e199]
+            - paragraph [ref=e200]: Diagnostic / intervention selon le problème
+            - paragraph [ref=e201]: Écran cassé, remplacement de batterie, connecteur de charge et logiciel.
+            - generic [ref=e202]: Demander un diagnostic
+        - link [ref=e206] [cursor=pointer]:
+          - /url: "#/service/bureautique-impression"
+          - generic [ref=e207]:
+            - img "Impression, Reliure & Saisie" [ref=e208]
+            - generic [ref=e209]: Livré
+          - generic [ref=e216]:
+            - paragraph [ref=e217]: Numérique & Documents
+            - heading "Impression, Reliure & Saisie" [level=3] [ref=e218]
+            - paragraph [ref=e219]: À partir de 500 F
+            - paragraph [ref=e220]: Impression noir & couleur, reliure de rapports/mémoires et saisie de documents.
+            - generic [ref=e221]: Commander en 1 message
+        - link [ref=e225] [cursor=pointer]:
+          - /url: "#/service/depannage-moto"
+          - img "Entretien & Réparation Moto" [ref=e227]
+          - generic [ref=e228]:
+            - paragraph [ref=e229]: Auto & Moto
+            - heading "Entretien & Réparation Moto" [level=3] [ref=e230]
+            - paragraph [ref=e231]: Diagnostic / intervention selon le problème
+            - paragraph [ref=e232]: Vidange, carburation, transmission, freins, électricité et révision deux-roues.
+            - generic [ref=e233]: Demander un diagnostic
+        - link [ref=e237] [cursor=pointer]:
+          - /url: "#/service/intervention-electricite"
+          - generic [ref=e238]:
+            - img "Dépannage Électricité" [ref=e239]
+            - generic [ref=e240]: Populaire
+          - generic [ref=e244]:
+            - paragraph [ref=e245]: Maison & Travaux
+            - heading "Dépannage Électricité" [level=3] [ref=e246]
+            - paragraph [ref=e247]: Devis selon le besoin
+            - paragraph [ref=e248]: Court-circuit, disjoncteur qui saute, prises défectueuses et éclairage.
+            - generic [ref=e249]: Demander un devis
+        - link [ref=e253] [cursor=pointer]:
+          - /url: "#/service/livraison-courses-express"
+          - img "Courses & Livraison Express" [ref=e255]
+          - generic [ref=e256]:
+            - paragraph [ref=e257]: Transport & Logistique
+            - heading "Courses & Livraison Express" [level=3] [ref=e258]
+            - paragraph [ref=e259]: Devis selon le besoin
+            - paragraph [ref=e260]: Récupération de colis, plis urgents, courses de marché et achats en ville.
+            - generic [ref=e261]: Demander un devis
+        - link [ref=e265] [cursor=pointer]:
+          - /url: "#/service/reparation-electromenager"
+          - img "Dépannage Électroménager & Climatisation" [ref=e267]
+          - generic [ref=e268]:
+            - paragraph [ref=e269]: Réparation & Maintenance
+            - heading "Dépannage Électroménager & Climatisation" [level=3] [ref=e270]
+            - paragraph [ref=e271]: Diagnostic / intervention selon le problème
+            - paragraph [ref=e272]: Réfrigérateur, congélateur, climatiseur, machine à laver, micro-ondes.
+            - generic [ref=e273]: Demander un diagnostic
+        - link [ref=e277] [cursor=pointer]:
+          - /url: "#/service/presence-digitale-pro"
+          - img "Site Vitrine & Présence Google" [ref=e279]
+          - generic [ref=e280]:
+            - paragraph [ref=e281]: Numérique & Documents
+            - heading "Site Vitrine & Présence Google" [level=3] [ref=e282]
+            - paragraph [ref=e283]: À partir de 25 000 F
+            - paragraph [ref=e284]: Site web mobile rapide, fiche Google Maps vérifiée et catalogue WhatsApp Business.
+            - generic [ref=e285]: Commander en 1 message
+        - link [ref=e289] [cursor=pointer]:
+          - /url: "#/service/reparation-informatique"
+          - img "Dépannage Ordinateur & Imprimante" [ref=e291]
+          - generic [ref=e292]:
+            - paragraph [ref=e293]: Réparation & Maintenance
+            - heading "Dépannage Ordinateur & Imprimante" [level=3] [ref=e294]
+            - paragraph [ref=e295]: Diagnostic / intervention selon le problème
+            - paragraph [ref=e296]: PC portable lent, écran noir, formatage, nettoyage virus, imprimante bloquée.
+            - generic [ref=e297]: Demander un diagnostic
+        - link [ref=e301] [cursor=pointer]:
+          - /url: "#/service/travaux-maconnerie"
+          - img "Maçonnerie & Gros Œuvre" [ref=e303]
+          - generic [ref=e304]:
+            - paragraph [ref=e305]: Maison & Travaux
+            - heading "Maçonnerie & Gros Œuvre" [level=3] [ref=e306]
+            - paragraph [ref=e307]: Sur devis
+            - paragraph [ref=e308]: Élévation de murs, crépissage, dallage, clôtures et petites rénovations.
+            - generic [ref=e309]: Demander un devis
+        - link [ref=e313] [cursor=pointer]:
+          - /url: "#/service/peinture-batiment"
+          - img "Peinture & Finition" [ref=e315]
+          - generic [ref=e316]:
+            - paragraph [ref=e317]: Maison & Travaux
+            - heading "Peinture & Finition" [level=3] [ref=e318]
+            - paragraph [ref=e319]: Sur devis
+            - paragraph [ref=e320]: Peinture intérieure, extérieure, enduit et rafraîchissement complet.
+            - generic [ref=e321]: Demander un devis
+        - link [ref=e325] [cursor=pointer]:
+          - /url: "#/service/menuiserie-bois-alu"
+          - img "Menuiserie Bois & Aluminium" [ref=e327]
+          - generic [ref=e328]:
+            - paragraph [ref=e329]: Maison & Travaux
+            - heading "Menuiserie Bois & Aluminium" [level=3] [ref=e330]
+            - paragraph [ref=e331]: Sur devis
+            - paragraph [ref=e332]: Portes, fenêtres, placards, étagères et réparation de serrures/châssis.
+            - generic [ref=e333]: Demander un devis
+        - link [ref=e337] [cursor=pointer]:
+          - /url: "#/service/soudure-metallerie"
+          - img "Soudure & Métallerie" [ref=e339]
+          - generic [ref=e340]:
+            - paragraph [ref=e341]: Maison & Travaux
+            - heading "Soudure & Métallerie" [level=3] [ref=e342]
+            - paragraph [ref=e343]: Sur devis
+            - paragraph [ref=e344]: Portails, grilles antivol, garde-corps et réparations de ferronnerie.
+            - generic [ref=e345]: Demander un devis
+        - link [ref=e349] [cursor=pointer]:
+          - /url: "#/service/pose-carrelage"
+          - img "Carrelage & Revêtement Sol" [ref=e351]
+          - generic [ref=e352]:
+            - paragraph [ref=e353]: Maison & Travaux
+            - heading "Carrelage & Revêtement Sol" [level=3] [ref=e354]
+            - paragraph [ref=e355]: Sur devis
+            - paragraph [ref=e356]: Pose de carrelage sol et mural, faïence, terrasses et plinthes.
+            - generic [ref=e357]: Demander un devis
+        - link [ref=e361] [cursor=pointer]:
+          - /url: "#/service/toiture-charpente"
+          - img "Toiture & Étanchéité" [ref=e363]
+          - generic [ref=e364]:
+            - paragraph [ref=e365]: Maison & Travaux
+            - heading "Toiture & Étanchéité" [level=3] [ref=e366]
+            - paragraph [ref=e367]: Sur devis
+            - paragraph [ref=e368]: Réparation de fuite de toit, tôles ondulées, charpente bois/métal et étanchéité.
+            - generic [ref=e369]: Demander un devis
+      - generic [ref=e372]:
+        - heading "Vous ne trouvez pas votre besoin ?" [level=2] [ref=e373]
+        - paragraph [ref=e374]: Décrivez-nous simplement ce que vous cherchez, nous verrons comment le prendre en charge.
+        - generic [ref=e375]:
+          - button "Décrire mon besoin" [ref=e376]
+          - link "Nous écrire" [ref=e377] [cursor=pointer]:
+            - /url: https://wa.me/237686382354?text=Bonjour%20Fika%20%F0%9F%91%8B%2C%20je%20ne%20trouve%20pas%20mon%20service%20dans%20le%20catalogue.
+  - contentinfo [ref=e380]:
+    - generic [ref=e381]:
+      - generic [ref=e382]:
+        - generic [ref=e383]:
+          - link "Fika ." [ref=e384] [cursor=pointer]:
+            - /url: "#/"
+            - text: Fika
+            - generic [ref=e385]: .
+          - paragraph [ref=e386]: Plateforme de coordination des services du quotidien et artisans à Ngaoundéré.
+        - generic [ref=e387]:
+          - heading "Navigation" [level=4] [ref=e388]
+          - list [ref=e389]:
+            - listitem [ref=e390]:
+              - button "Services" [ref=e391] [cursor=pointer]
+            - listitem [ref=e392]:
+              - button "Comment ça marche" [ref=e393] [cursor=pointer]
+            - listitem [ref=e394]:
+              - button "FAQ" [ref=e395] [cursor=pointer]
+        - generic [ref=e396]:
+          - heading "Légal & Équipe" [level=4] [ref=e397]
+          - list [ref=e398]:
+            - listitem [ref=e399]:
+              - link "Mentions légales" [ref=e400] [cursor=pointer]:
+                - /url: "#/mentions-legales"
+            - listitem [ref=e401]:
+              - link "CGV" [ref=e402] [cursor=pointer]:
+                - /url: "#/cgv"
+            - listitem [ref=e403]:
+              - link "Confidentialité" [ref=e404] [cursor=pointer]:
+                - /url: "#/confidentialite"
+            - listitem [ref=e405]:
+              - link "Espace équipe" [ref=e406] [cursor=pointer]:
+                - /url: "#/admin"
+      - generic [ref=e410]:
+        - paragraph [ref=e411]: © 2026 Fika. Tous droits réservés.
+        - paragraph [ref=e412]: Déplacement organisé par Fika · Ngaoundéré

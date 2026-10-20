@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 514">
+  <defs>
+    <pattern id="d" width="46" height="46" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+      <line x1="0" y1="0" x2="0" y2="46" stroke="#F0EBE6" stroke-width="2"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="514" fill="#FDFCFB"/>
+  <rect width="1200" height="514" fill="url(#d)"/>
+  <rect x="60" y="60" width="1080" height="394" rx="24" fill="#EEF2FF" stroke="#C7D2FE" stroke-width="2"/>
+  <rect x="545" y="150" width="110" height="200" rx="18" fill="#FFFFFF" stroke="#C7D2FE" stroke-width="3"/>
+  <rect x="561" y="172" width="78" height="120" rx="8" fill="#4F46E5"/>
+  <circle cx="600" cy="322" r="9" fill="#C7D2FE"/>
+  <path d="M681 190l44-44m0 22v-22h-22" stroke="#B44A14" stroke-width="10" stroke-linecap="round" fill="none"/>
+  <circle cx="725" cy="146" r="16" fill="#B44A14"/>
+  <text x="600" y="400" font-family="Arial, sans-serif" font-size="26" font-weight="700" fill="#191817" text-anchor="middle">Technologie</text>
+  <text x="600" y="440" font-family="Arial, sans-serif" font-size="15" fill="#6B6661" text-anchor="middle">Visuel d'exemple — photos réelles à venir (TODO_PROD)</text>
+  <text x="1116" y="478" font-family="Georgia, serif" font-style="italic" font-size="34" fill="#B44A14" text-anchor="end">Fika.</text>
+</svg>
