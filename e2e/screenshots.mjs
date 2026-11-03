@@ -1,0 +1,47 @@
+import { chromium } from 'playwright';
+const BASE = 'http://localhost:3000';
+const b = await chromium.launch();
+// Desktop
+let p = await b.newPage({ viewport: { width: 1280, height: 800 } });
+await p.goto(BASE + '/', { waitUntil: 'load' });
+await p.waitForSelector('text=Découvrir les services', { timeout: 15000 });
+await p.waitForTimeout(1200);
+await p.screenshot({ path: '/home/user/captures-phase1/01-entree-desktop.png', fullPage: true });
+await p.goto(BASE + '/#/services', { waitUntil: 'load' });
+await p.waitForSelector('#faq details', { timeout: 15000 });
+await p.waitForTimeout(600);
+await p.screenshot({ path: '/home/user/captures-phase1/02-services-desktop.png' });
+await p.evaluate(() => window.scrollTo(0, 900));
+await p.waitForTimeout(400);
+await p.screenshot({ path: '/home/user/captures-phase1/03-services-catalogue.png' });
+await p.goto(BASE + '/#/boutique', { waitUntil: 'load' });
+await p.waitForSelector('text=Écouteurs Bluetooth E2E', { timeout: 15000 });
+await p.screenshot({ path: '/home/user/captures-phase1/04-boutique-desktop.png' });
+await p.goto(BASE + '/#/boutique/produit/e2e-nav-ecouteurs-bluetooth', { waitUntil: 'load' });
+await p.waitForSelector('fieldset legend', { timeout: 15000 });
+await p.screenshot({ path: '/home/user/captures-phase1/05-produit-variantes.png' });
+// recherche
+await p.locator('header button[aria-label*="Rechercher"]').click();
+await p.waitForTimeout(300);
+await p.locator('input[type="search"]').fill('plomberie');
+await p.waitForSelector('[aria-labelledby="search-services"] li a', { timeout: 10000 });
+await p.screenshot({ path: '/home/user/captures-phase1/06-recherche-globale.png' });
+await p.close();
+// Mobile
+const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+p = await ctx.newPage();
+await p.goto(BASE + '/', { waitUntil: 'load' });
+await p.waitForSelector('nav[aria-label="Navigation mobile"]', { timeout: 15000 });
+await p.waitForTimeout(1000);
+await p.screenshot({ path: '/home/user/captures-phase1/07-entree-mobile.png' });
+await p.goto(BASE + '/#/boutique/produit/e2e-nav-ecouteurs-bluetooth', { waitUntil: 'load' });
+await p.waitForSelector('fieldset legend', { timeout: 15000 });
+await p.getByRole('button', { name: 'Blanc', exact: true }).click();
+await p.getByRole('button', { name: /Ajouter au panier/ }).click();
+await p.waitForTimeout(500);
+await p.screenshot({ path: '/home/user/captures-phase1/08-produit-mobile-badge.png' });
+await p.goto(BASE + '/#/boutique/panier', { waitUntil: 'load' });
+await p.waitForSelector('text=Total indicatif', { timeout: 15000 });
+await p.screenshot({ path: '/home/user/captures-phase1/09-panier-mobile.png' });
+await b.close();
+console.log('captures ok');

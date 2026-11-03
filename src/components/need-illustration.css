@@ -1,0 +1,62 @@
+/*
+ * Illustration locale : aucune requête d'image, ratio fixe = aucun shift de mise
+ * en page. Composition en bandes verticales disjointes :
+ *
+ *   ┌─────────────────────────────┐
+ *   │  sceau « Local et humain »  │  ← décor, coin haut-droit
+ *   │  ┌───────────────────────┐  │
+ *   │  │  DEMANDE (sombre)     │  │  ← point focal, entièrement visible
+ *   │  └───────────────────────┘  │
+ *   │        · (respiration)      │  ← ~20 % de garde : aucun chevauchement,
+ *   │  ┌───────────────────────┐  │     même si le texte wrappe davantage
+ *   │  │  MESSAGE ÉDITORIAL    │  │  ← ancré en bas, largeur de lecture
+ *   │  └───────────────────────┘  │     naturelle (~86 %)
+ *   └─────────────────────────────┘
+ */
+.need-illustration { position: relative; width: 100%; max-width: 440px; aspect-ratio: 4 / 5; margin: 0 auto; text-align: left; isolation: isolate; }
+
+/* Toile crème : lie les deux blocs sans les contenir de force. */
+.need-illustration__canvas { position: absolute; inset: 6% 5% 5.5% 7%; border-radius: 32px; background: #efe5d6; animation: need-fade .7s ease-out both; }
+
+/* Sceau — décor contrôlé, ne recouvre aucun contenu. */
+.need-illustration__seal { position: absolute; top: 2.5%; right: 2.5%; width: 21%; aspect-ratio: 1; border: 1px solid #e7ded2; border-radius: 50%; display: grid; place-content: center; text-align: center; background: #fdfcfb; color: #a44212; font: 600 12px/1.35 ui-monospace, monospace; letter-spacing: .04em; }
+.need-illustration__dot { position: absolute; top: 47%; left: 11%; width: 4px; height: 4px; border-radius: 50%; background: #b44a14; }
+
+/* Demande — panneau sombre, point focal de l'illustration. */
+.need-illustration__request { position: absolute; top: 9%; right: 8%; width: 70%; padding: 20px 22px; border-radius: 16px; background: #191817; color: #fdfcfb; box-shadow: 0 13px 20px -10px #19181755; animation: need-arrive .7s ease-out both; }
+.need-illustration__eyebrow { display: block; font: 10px/1.5 ui-monospace, monospace; text-transform: uppercase; letter-spacing: .12em; color: #d0c5b9; }
+.need-illustration__request p { margin: 12px 0; font: 14px/1.65 ui-monospace, monospace; }
+.need-illustration__relay { display: flex; align-items: center; gap: 6px; font: 11px/1.5 ui-monospace, monospace; color: #cfc4b7; }
+
+/* Message éditorial — bande dédiée en bas, jamais au-dessus de la demande. */
+.need-illustration__answer { position: absolute; left: 7%; right: 7%; bottom: 5%; padding: 26px 28px; border-radius: 24px; background: #fff; border: 1px solid #f0ebe6; box-shadow: 0 22px 30px -17px #41332550; animation: need-arrive .8s .12s ease-out both; }
+.need-illustration__spark { color: #b44a14; margin-bottom: 14px; }
+.need-illustration__answer p { margin: 0 0 12px; font: 24px/1.32 Georgia, 'Times New Roman', serif; color: #191817; letter-spacing: -0.01em; }
+.need-illustration__answer > span { display: block; max-width: 34ch; font: 12.5px/1.8 ui-monospace, monospace; color: #6b6661; }
+
+/* Variante visuelle seule (carte d'entrée) : la demande devient le sujet,
+   recentrée, sans message éditorial — la copie de la carte joue ce rôle. */
+.need-illustration--visual { max-width: 300px; aspect-ratio: 10 / 11; }
+.need-illustration--visual .need-illustration__request { top: 26%; left: 10%; right: 10%; width: auto; padding: 18px 20px; }
+.need-illustration--visual .need-illustration__request p { font-size: 13.5px; }
+.need-illustration--visual .need-illustration__dot { top: 66%; left: 16%; }
+
+@keyframes need-arrive { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes need-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes need-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Un flottement court et fini : aucun mouvement perpétuel face au CTA. */
+  .need-illustration__seal { animation: need-float 4s 1s 2 ease-in-out; }
+}
+@media (prefers-reduced-motion: reduce) { .need-illustration *, .need-illustration { animation: none !important; } }
+
+/* Petites largeurs : typographie et marges resserrées, lecture préservée. */
+@media (max-width: 420px) {
+  .need-illustration__answer { padding: 22px 20px; border-radius: 20px; }
+  .need-illustration__answer p { font-size: 21px; }
+  .need-illustration__answer > span { font-size: 12px; }
+  .need-illustration__request { padding: 16px 18px; }
+  .need-illustration__request p { font-size: 13px; }
+  .need-illustration__spark { margin-bottom: 10px; }
+}

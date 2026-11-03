@@ -1,0 +1,1080 @@
+// Fika — data foundation (P03 groundwork, catalog pages still static)
+// Conventions: money is ALWAYS Int (FCFA, no cents). Closed value sets use
+// enums, never free strings. Brief comments in English.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// -------------------------------- Geography -------------------------------
+
+model City {
+  id         String             @id @default(cuid())
+  name       String             @unique
+  active     Boolean            @default(true)
+  position   Int                @default(0) // display order for multi-city rollout
+  zones      Zone[]
+  experts    Expert[]
+  orders     Order[]
+  leads      Lead[]
+  cityPrices ServiceCityPrice[]
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+}
+
+model Zone {
+  id               String     @id @default(cuid())
+  name             String
+  cityId           String
+  city             City       @relation(fields: [cityId], references: [id])
+  // Business rule: every zone in Ngaoundéré ships free to the customer.
+  // Free-for-customer ≠ free-for-Fika — internal cost is traced on Delivery.fee.
+  deliveryIncluded Boolean    @default(true)
+  orders           Order[]
+  deliveries       Delivery[]
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  @@unique([cityId, name])
+}
+
+// -------------------------------- Catalog ---------------------------------
+
+model Category {
+  id          String    @id @default(cuid())
+  slug        String    @unique
+  title       String
+  description String?
+  icon        String?
+  services    Service[]
+  featured    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+enum PriceType {
+  FIXED
+  FROM
+  PER_UNIT
+  QUOTE
+  DIAGNOSTIC
+  PROJECT
+}
+
+// Catalog browsing facets (mirrors the former TS-only filters).
+enum BudgetLevel {
+  FAIBLE
+  MOYEN
+  ELEVE
+}
+
+enum DelayLevel {
+  RAPIDE
+  STANDARD
+  LONG
+}
+
+enum NeedType {
+  CREATION
+  OPTIMISATION
+  CONSULTING
+  PRODUCTION
+  SUPPORT
+  INTERVENTION
+}
+
+model Service {
+  id                  String               @id @default(cuid())
+  slug                String               @unique
+  name                String
+  categoryId          String
+  category            Category             @relation(fields: [categoryId], references: [id])
+  shortDescription    String
+  fullDescription     String?              @db.Text
+  priceType           PriceType            @default(FIXED)
+  startingPrice       Int? // FCFA
+  priceMin            Int? // FCFA
+  priceMax            Int? // FCFA
+  estimatedDuration   String?
+  deliveryIncluded    Boolean              @default(false)
+  complexity          String?
+  requiredInformation String?              @db.Text
+  includedItems       String[]
+  excludedItems       String[]
+  whatsappTemplate    String?              @db.Text
+  active              Boolean              @default(true)
+  featured            Boolean              @default(false)
+  popular             Boolean              @default(false)
+  displayOrder        Int                  @default(0) // manual ordering inside a category
+  image               String? // local brand asset path (/fika/*.svg|jpg) — real photos TODO_PROD
+  seoTitle            String?
+  seoDescription      String?
+  budget              BudgetLevel          @default(FAIBLE)
+  delai               DelayLevel           @default(STANDARD)
+  typeBesoin          NeedType             @default(CREATION)
+  howItWorks          Json? // [{ title, description }] — validated at write time
+  faqs                Json? // [{ q, a }]
+  cityPrices          ServiceCityPrice[]
+  orderItems          OrderItem[]
+  tasks               Task[]
+  portfolioItems      PortfolioItem[]
+  packageServices     PackageService[]
+  requirements        ServiceRequirement[]
+  reviews             Review[]
+  leads               Lead[]
+  events              Event[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  @@index([categoryId, active])
+}
+
+model Package {
+  id               String           @id @default(cuid())
+  slug             String           @unique
+  title            String
+  description      String?          @db.Text
+  price            Int // FCFA
+  targetCustomer   String?
+  services         PackageService[] // replaces the former String[] of ids
+  savings          String?
+  whatsappTemplate String?          @db.Text
+  active           Boolean          @default(true)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+}
+
+// Join table: a package bundles catalog services with quantities.
+model PackageService {
+  packageId  String
+  package    Package @relation(fields: [packageId], references: [id])
+  serviceId  String
+  service    Service @relation(fields: [serviceId], references: [id])
+  quantity   Int     @default(1)
+  customName String? // overrides display name inside the bundle
+
+  @@id([packageId, serviceId])
+}
+
+enum RequirementKind {
+  TEXT
+  FILE
+  OPTION
+  QUANTITY
+}
+
+// What the customer must provide to start a service (WhatsApp engine, P04).
+model ServiceRequirement {
+  id        String          @id @default(cuid())
+  serviceId String
+  service   Service         @relation(fields: [serviceId], references: [id])
+  label     String
+  kind      RequirementKind @default(TEXT)
+  required  Boolean         @default(true)
+  options   String[] // only for kind = OPTION
+  position  Int             @default(0)
+}
+
+// Per-city pricing override for a service (+ margin target and delivery rule).
+// Falls back to the service base price when no row exists (lib/pricing).
+model ServiceCityPrice {
+  id               String  @id @default(cuid())
+  serviceId        String
+  service          Service @relation(fields: [serviceId], references: [id])
+  cityId           String
+  city             City    @relation(fields: [cityId], references: [id])
+  priceMin         Int? // FCFA — overrides startingPrice
+  priceMax         Int? // FCFA
+  targetMargin     Float? // target gross margin ratio (ex. 0.45)
+  deliveryIncluded Boolean @default(true) // true for every Ngaoundéré zone
+
+  @@unique([serviceId, cityId])
+}
+
+// --------------------------------- People ---------------------------------
+
+model Customer {
+  marketOrders MarketOrder[]
+  id           String        @id @default(cuid())
+  phone        String        @unique // E.164 (+2376XXXXXXXX)
+  name         String?
+  email        String?
+  orders       Order[]
+  leads        Lead[]
+  reviews      Review[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+enum ExpertStatus {
+  ACTIVE
+  PAUSED
+  SUSPENDED
+  BACKUP
+}
+
+// Vérification progressive et traçable d'un professionnel (src/lib/trust.ts est la
+// seule définition de ce que chaque niveau exige et de ce qui peut être dit au client).
+enum ExpertVerificationLevel {
+  NEW // 1. Nouveau : fiche créée, rien contrôlé
+  PHONE_VERIFIED // 2. Téléphone vérifié : appel/WhatsApp réel avec le numéro enregistré
+  PROFILE_VERIFIED // 3. Profil vérifié : identité vue (pièce), nom/métier/zone confirmés
+  SKILL_DECLARED // 4. Compétence déclarée : métier et compétences décrits par le pro, références notées
+  SKILL_VERIFIED // 5. Compétence vérifiée : test pratique, chantier vu ou référence rappelée par Fika
+  FIKA_JOB_DONE // 6. Intervention Fika réalisée : au moins une tâche Fika terminée (automatique)
+  ACTIVE_PRO // 7. Professionnel actif : plusieurs interventions terminées, sans annulation récente
+}
+
+// Ce que Fika a réellement fait pour vérifier (jamais déduit).
+enum ExpertVerificationType {
+  PHONE_CALL // appel téléphonique ou échange WhatsApp
+  ID_DOCUMENT // pièce d'identité vue
+  IN_PERSON // rencontre physique
+  PRACTICAL_TEST // test pratique / démonstration
+  SITE_VISIT // chantier ou atelier visité
+  REFERENCE_CHECK // référence rappelée
+  COMPLETED_JOB // intervention Fika terminée (système)
+  ADMIN_REVIEW // revue interne du dossier (rétrogradation, suspension…)
+}
+
+// Journal des changements de niveau : qui, quand, comment, pourquoi.
+model ExpertVerification {
+  id        String                   @id @default(cuid())
+  expertId  String
+  expert    Expert                   @relation(fields: [expertId], references: [id])
+  from      ExpertVerificationLevel?
+  to        ExpertVerificationLevel
+  type      ExpertVerificationType
+  note      String?                  @db.Text
+  actorId   String? // admin (null = système)
+  actor     AdminUser?               @relation(fields: [actorId], references: [id])
+  createdAt DateTime                 @default(now())
+
+  @@index([expertId])
+}
+
+model Expert {
+  id                   String                  @id @default(cuid())
+  name                 String
+  phone                String                  @unique // E.164
+  skills               String[]
+  cityId               String?
+  city                 City?                   @relation(fields: [cityId], references: [id])
+  zone                 String? // free-text usual area (not a FK on purpose)
+  usualCost            Int? // FCFA
+  averageDuration      String?
+  completedOrders      Int                     @default(0)
+  reworkRate           Float                   @default(0)
+  cancellationRate     Float                   @default(0)
+  reliabilityScore     Float                   @default(5.0)
+  availability         Boolean                 @default(true)
+  status               ExpertStatus            @default(ACTIVE)
+  // --- Confiance progressive (voir src/lib/trust.ts) ---
+  verificationLevel    ExpertVerificationLevel @default(NEW)
+  lastVerifiedAt       DateTime? // date de la dernière vérification réelle
+  lastVerificationType ExpertVerificationType?
+  trade                String? // métier principal déclaré (ex. « Plombier »)
+  internalNotes        String?                 @db.Text // notes internes Fika, jamais publiques
+  references           String?                 @db.Text // références déclarées (noms/contacts de clients précédents)
+  documents            String?                 @db.Text // documents fournis (libellés / liens), jamais publics
+  firstAssignedAt      DateTime? // première mission Fika confiée
+  verifications        ExpertVerification[]
+  assignments          TaskAssignment[]
+  deliveries           Delivery[]
+  reviews              Review[]
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+}
+
+// --------------------------------- Orders ---------------------------------
+
+enum OrderStatus {
+  NEW
+  QUALIFYING
+  QUOTED
+  AWAITING_CONFIRMATION
+  PAID
+  ASSIGNED
+  IN_PROGRESS
+  QUALITY_CHECK
+  READY
+  DELIVERED
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
+enum OrderSource {
+  SITE
+  WHATSAPP
+  CALL
+  WALKIN
+}
+
+model Order {
+  archiveBatchId     String?
+  archiveBatch       ExportBatch?    @relation(fields: [archiveBatchId], references: [id])
+  id                 String          @id @default(cuid())
+  orderNumber        String          @unique
+  customerId         String
+  customer           Customer        @relation(fields: [customerId], references: [id])
+  status             OrderStatus     @default(NEW)
+  source             OrderSource     @default(WHATSAPP) // primary intake channel
+  channelRef         String? // WhatsApp conversation reference
+  totalPrice         Int? // FCFA — final customer price (quotes may change it)
+  cityId             String?
+  city               City?           @relation(fields: [cityId], references: [id])
+  zoneId             String?
+  zone               Zone?           @relation(fields: [zoneId], references: [id])
+  clientAddress      String? // free-text delivery address complements the zone
+  leadId             String?         @unique
+  lead               Lead?           @relation(fields: [leadId], references: [id])
+  expectedDeliveryAt DateTime?
+  completedAt        DateTime? // anchors "1 review = 1 completed order"
+  items              OrderItem[]
+  payments           Payment[]
+  deliveries         Delivery[]
+  tasks              Task[]
+  quotes             Quote[]
+  costs              Cost[] // single source of truth for ALL order costs
+  events             OrderEvent[]
+  review             Review?
+  portfolioItems     PortfolioItem[]
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  @@index([archiveBatchId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id         String   @id @default(cuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id])
+  serviceId  String?
+  service    Service? @relation(fields: [serviceId], references: [id])
+  customName String?
+  price      Int? // FCFA — null while being quoted
+  quantity   Int      @default(1)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// Append-only status history of an order (who/what/when).
+model OrderEvent {
+  id        String       @id @default(cuid())
+  orderId   String
+  order     Order        @relation(fields: [orderId], references: [id])
+  from      OrderStatus? // null = creation event
+  to        OrderStatus
+  note      String?
+  actorId   String? // admin who triggered the change (null = system)
+  actor     AdminUser?   @relation(fields: [actorId], references: [id])
+  createdAt DateTime     @default(now())
+
+  @@index([orderId])
+}
+
+// ------------------------------ Money & quotes -----------------------------
+
+enum PaymentStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+  REFUNDED
+}
+
+model Payment {
+  id             String        @id @default(cuid())
+  orderId        String
+  order          Order         @relation(fields: [orderId], references: [id])
+  amount         Int // FCFA
+  method         String? // MTN_MOMO, ORANGE_MONEY, CASH for new manual entries
+  reference      String? // provider transaction ID or numbered cash receipt
+  idempotencyKey String?       @unique
+  createdById    String?
+  createdBy      AdminUser?    @relation("PaymentCreator", fields: [createdById], references: [id])
+  confirmedById  String?
+  confirmedBy    AdminUser?    @relation("PaymentConfirmer", fields: [confirmedById], references: [id])
+  confirmedAt    DateTime?
+  status         PaymentStatus @default(PENDING)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@unique([method, reference])
+  @@index([orderId])
+}
+
+enum QuoteStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+model Quote {
+  id          String      @id @default(cuid())
+  quoteNumber String      @unique
+  orderId     String
+  order       Order       @relation(fields: [orderId], references: [id])
+  amount      Int // FCFA
+  details     String?     @db.Text
+  status      QuoteStatus @default(DRAFT)
+  validUntil  DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+enum CostType {
+  EXPERT
+  MATERIAL
+  DELIVERY
+  OTHER
+}
+
+// Every internal cost line of an order; margin = totalPrice - sum(costs).
+// Computed at read time (lib/pricing) — never duplicated back on Order.
+model Cost {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id])
+  type      CostType
+  amount    Int // FCFA
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+}
+
+// -------------------------------- Delivery --------------------------------
+
+enum DeliveryStatus {
+  PENDING
+  PICKUP
+  IN_TRANSIT
+  DELIVERED
+  FAILED
+}
+
+model Delivery {
+  id              String         @id @default(cuid())
+  orderId         String
+  order           Order          @relation(fields: [orderId], references: [id])
+  address         String?
+  zoneId          String?
+  zone            Zone?          @relation(fields: [zoneId], references: [id])
+  status          DeliveryStatus @default(PENDING)
+  courierExpertId String?
+  courier         Expert?        @relation(fields: [courierExpertId], references: [id])
+  fee             Int            @default(0) // INTERNAL cost in FCFA (always traced; never billed to the customer)
+  trackingUrl     String?
+  proofUrl        String? // photo/signature proof of delivery
+  note            String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+// ------------------------------ Tasks & experts ----------------------------
+
+enum TaskStatus {
+  PENDING
+  ASSIGNED
+  IN_PROGRESS
+  REVIEW
+  COMPLETED
+  CANCELLED
+}
+
+enum AssignmentStatus {
+  ASSIGNED
+  ACCEPTED
+  DECLINED
+  COMPLETED
+}
+
+model Task {
+  id                   String           @id @default(cuid())
+  orderId              String
+  order                Order            @relation(fields: [orderId], references: [id])
+  serviceId            String?
+  service              Service?         @relation(fields: [serviceId], references: [id])
+  clientBrief          String?          @db.Text
+  deliverables         String?          @db.Text
+  deadline             DateTime?
+  internalCompensation Int? // FCFA agreed with the expert
+  status               TaskStatus       @default(PENDING)
+  notes                String?          @db.Text
+  assignments          TaskAssignment[]
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+}
+
+model TaskAssignment {
+  id         String           @id @default(cuid())
+  taskId     String
+  task       Task             @relation(fields: [taskId], references: [id])
+  expertId   String
+  expert     Expert           @relation(fields: [expertId], references: [id])
+  assignedAt DateTime         @default(now())
+  status     AssignmentStatus @default(ASSIGNED)
+}
+
+// ------------------------------- Social proof ------------------------------
+
+// Invariant: one public review = one real completed order (orderId unique).
+// rating is 1–5, enforced at the application level (P03).
+model Review {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  orderId    String   @unique
+  order      Order    @relation(fields: [orderId], references: [id])
+  serviceId  String // inherited from the order item
+  service    Service  @relation(fields: [serviceId], references: [id])
+  expertId   String?
+  expert     Expert?  @relation(fields: [expertId], references: [id])
+  rating     Int // 1–5, application-level constraint
+  comment    String?  @db.Text
+  verified   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Testimonial {
+  id        String   @id @default(cuid())
+  name      String
+  role      String?
+  city      String?
+  content   String   @db.Text
+  service   String?
+  verified  Boolean  @default(true)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Published work sample. Always derived from a real completed order (orderId)
+// so the public portfolio can never drift into fiction.
+model PortfolioItem {
+  id          String    @id @default(cuid())
+  title       String
+  category    String
+  serviceId   String?
+  service     Service?  @relation(fields: [serviceId], references: [id])
+  orderId     String? // source transaction (COMPLETED order)
+  order       Order?    @relation(fields: [orderId], references: [id])
+  description String?   @db.Text
+  image       String // local asset path only — never a random remote URL
+  clientType  String?
+  date        DateTime?
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([serviceId, active])
+}
+
+// ------------------------------ Leads & growth -----------------------------
+
+enum LeadStatus {
+  NEW
+  QUALIFYING
+  CONVERTED
+  LOST
+}
+
+enum LeadSource {
+  SITE
+  WHATSAPP
+  CALL
+  WALKIN
+}
+
+// ----------------------- Fichiers (Supabase Storage) ------------------------
+// La base ne stocke que des métadonnées + chemins ; jamais de binaire.
+// Buckets créés en production : market-products, portfolio (publics en
+// lecture), delivery-proofs, service-files (privés, service_role uniquement).
+
+model ServiceRequestFile {
+  id               String   @id @default(cuid())
+  leadId           String? // renseigné à la soumission de la demande (rattachement tardif)
+  lead             Lead?    @relation(fields: [leadId], references: [id])
+  requirementLabel String? @db.Text // snapshot du libellé d'exigence : « Votre logo »
+  bucket           String
+  path             String   @unique
+  mimeType         String
+  sizeBytes        Int
+  originalName     String
+  uploadedAt       DateTime @default(now())
+
+  @@index([leadId])
+}
+
+model MarketDeliveryProof {
+  id           String       @id @default(cuid())
+  orderId      String
+  order        MarketOrder  @relation(fields: [orderId], references: [id])
+  bucket       String
+  path         String       @unique
+  mimeType     String
+  sizeBytes    Int
+  originalName String
+  createdAt    DateTime     @default(now())
+
+  @@index([orderId])
+}
+
+model Lead {
+  requestKey      String?      @unique
+  history         LeadEvent[]
+  files           ServiceRequestFile[]
+  operationsNotes String?      @db.Text
+  lostReason      String?
+  archiveBatchId  String?
+  archiveBatch    ExportBatch? @relation(fields: [archiveBatchId], references: [id])
+  id              String       @id @default(cuid())
+  customerId      String?
+  customer        Customer?    @relation(fields: [customerId], references: [id])
+  source          LeadSource   @default(WHATSAPP)
+  campaign        String?
+  serviceId       String?
+  service         Service?     @relation(fields: [serviceId], references: [id])
+  cityId          String?
+  city            City?        @relation(fields: [cityId], references: [id])
+  description     String?      @db.Text // raw customer need as expressed
+  deadline        String?
+  budgetMin       Int? // FCFA
+  budgetMax       Int? // FCFA
+  zoneName        String? // free-text quartier as typed by the customer (fine Zone mapping later)
+  meta            Json? // collection context: clientType, referrer, landing, device, consentAt
+  status          LeadStatus   @default(NEW)
+  orders          Order[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([archiveBatchId])
+  @@index([status])
+}
+
+enum EventType {
+  WACLICK // click on a WhatsApp CTA
+  LEAD_VIEW // catalog/service view worth tracking
+}
+
+// Lightweight product analytics (no PII beyond what is strictly needed).
+model Event {
+  id        String    @id @default(cuid())
+  type      EventType
+  serviceId String?
+  service   Service?  @relation(fields: [serviceId], references: [id])
+  campaign  String?
+  source    String?
+  meta      Json?
+  createdAt DateTime  @default(now())
+
+  @@index([createdAt])
+}
+
+// ---------------------------------- Admin ----------------------------------
+
+enum AdminRole {
+  SUPERADMIN
+  OPS
+}
+
+// Back-office authentication (P06).
+model AdminUser {
+  marketOrderEvents       MarketOrderEvent[]
+  marketPaymentsCreated   MarketPayment[]      @relation("MarketPaymentCreator")
+  marketPaymentsConfirmed MarketPayment[]      @relation("MarketPaymentConfirmer")
+  marketQuotesCreated     MarketQuote[]        @relation("MarketQuoteCreator")
+  marketRefundsRecorded   MarketRefund[]       @relation("MarketRefundRecorder")
+  marketExpensesCreated   MarketExpense[]      @relation("MarketExpenseCreator")
+  leadEvents              LeadEvent[]
+  exports                 ExportBatch[]
+  id                      String               @id @default(cuid())
+  email                   String               @unique
+  passwordHash            String // bcrypt — never store plaintext
+  role                    AdminRole            @default(OPS)
+  active                  Boolean              @default(true)
+  orderEvents             OrderEvent[]
+  expertVerifications     ExpertVerification[]
+  paymentsCreated         Payment[]            @relation("PaymentCreator")
+  paymentsConfirmed       Payment[]            @relation("PaymentConfirmer")
+  createdAt               DateTime             @default(now())
+  updatedAt               DateTime             @updatedAt
+}
+
+// Transactional annual numbering, initialized from legacy numbers on first use.
+model DocumentCounter {
+  key   String @id
+  value Int
+}
+
+// Immutable export snapshot + reversible archive audit. Never a destructive reset.
+model ExportBatch {
+  id             String    @id @default(cuid())
+  fromDate       String
+  toDate         String
+  createdAt      DateTime  @default(now())
+  createdById    String
+  createdBy      AdminUser @relation(fields: [createdById], references: [id])
+  files          Json
+  candidates     Json
+  downloadedAt   DateTime?
+  archivedAt     DateTime?
+  restoredAt     DateTime?
+  archivedOrders Int       @default(0)
+  archivedLeads  Int       @default(0)
+  orders         Order[]
+  leads          Lead[]
+
+  @@index([createdAt])
+}
+
+model LeadEvent {
+  id        String    @id @default(cuid())
+  leadId    String
+  lead      Lead      @relation(fields: [leadId], references: [id])
+  actorId   String
+  actor     AdminUser @relation(fields: [actorId], references: [id])
+  changes   Json
+  createdAt DateTime  @default(now())
+
+  @@index([leadId, createdAt])
+}
+
+// ============================== FIKA MARKET =================================
+// Branche commerciale : précommande et achat-revente, approvisionnement Chine,
+// livraison Ngaoundéré. Coûts fournisseurs JAMAIS exposés publiquement :
+// les lectures publiques sélectionnent explicitement les champs.
+
+enum MarketAvailability {
+  AVAILABLE
+  PREORDER
+  UNAVAILABLE
+}
+
+enum MarketOrderStatus {
+  REQUESTED // demande reçue
+  SUPPLIER_CHECK // vérification fournisseur
+  AWAITING_CLIENT // devis envoyé — attente réponse client
+  AWAITING_PAYMENT // devis accepté — en attente de paiement vérifié
+  CONFIRMED // paiement vérifié : commande ferme
+  PROCURING // approvisionnement en cours
+  SHIPPED_INBOUND // expédition internationale en cours
+  RECEIVED // réception et contrôle
+  READY // prête à livrer
+  DELIVERING // livraison locale en cours
+  DELIVERED // livrée et confirmée par le client
+  CANCELLED
+  DELAYED
+  REFUND_PENDING
+  REFUNDED
+  SUPPLY_FAILED
+}
+
+enum MarketPaymentStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+}
+
+enum MarketBatchStatus {
+  PLANNED
+  ORDERED
+  SUPPLIER_PROCESSING
+  SHIPPED
+  CUSTOMS_PROCESSING
+  RECEIVED
+  INSPECTED
+  CANCELLED
+}
+
+enum MarketDeliveryStatus {
+  PENDING
+  SCHEDULED
+  IN_TRANSIT
+  DELIVERED
+  FAILED
+}
+
+model MarketCategory {
+  id        String          @id @default(cuid())
+  slug      String          @unique
+  name      String
+  position  Int             @default(0)
+  active    Boolean         @default(true)
+  products  MarketProduct[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+}
+
+model MarketSupplier {
+  id        String                   @id @default(cuid())
+  name      String
+  contact   String?
+  note      String?
+  active    Boolean                  @default(true)
+  products  MarketProduct[]
+  batches   MarketProcurementBatch[]
+  createdAt DateTime                 @default(now())
+  updatedAt DateTime                 @updatedAt
+}
+
+model MarketProduct {
+  id                  String                @id @default(cuid())
+  slug                String                @unique
+  reference           String                @unique
+  name                String
+  categoryId          String
+  category            MarketCategory        @relation(fields: [categoryId], references: [id])
+  supplierId          String?
+  supplier            MarketSupplier?       @relation(fields: [supplierId], references: [id])
+  description         String?               @db.Text
+  specs               Json? // [{ label, value }] — caractéristiques techniques
+  images              Json? // [url] —photos (max 6), jamais de fichier binaire en base
+  variants            Json? // [{ name, values }] — variantes dynamiques (couleur, taille…)
+  priceSale           Int // FCFA — prix de vente public
+  supplierPrice       Int                   @default(0) // ADMIN ONLY — prix fournisseur unitaire
+  estimatedLandedCost Int                   @default(0) // ADMIN ONLY — coût rendu estimé (transport, taxes…)
+  delayLabel          String? // délai estimé, jamais promis sans vérification
+  availability        MarketAvailability    @default(PREORDER)
+  active              Boolean               @default(true)
+  popular             Boolean               @default(false)
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  orderItems          MarketOrderItem[]
+  analyticEvents      MarketAnalyticEvent[]
+
+  @@index([categoryId])
+  @@index([active])
+}
+
+model MarketOrder {
+  id          String             @id @default(cuid())
+  orderNumber String             @unique
+  trackCode   String             @unique // code de suivi public (sans données personnelles)
+  customerId  String?
+  customer    Customer?          @relation(fields: [customerId], references: [id])
+  status      MarketOrderStatus  @default(REQUESTED)
+  source      String             @default("SITE")
+  requestKey  String?            @unique // anti double-clic
+  name        String //nom au moment de la commande
+  phone       String // E.164
+  zoneName    String
+  address     String?
+  notes       String?            @db.Text
+  deliveryFee Int? // frais de livraison confirmés (client)
+  confirmedAt DateTime?
+  deliveredAt DateTime?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  items       MarketOrderItem[]
+  events      MarketOrderEvent[]
+  deliveryProofs MarketDeliveryProof[]
+  payments    MarketPayment[]
+  quotes      MarketQuote[]
+  refunds     MarketRefund[]
+  delivery    MarketDelivery?
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model MarketOrderItem {
+  id                 String                  @id @default(cuid())
+  orderId            String
+  order              MarketOrder             @relation(fields: [orderId], references: [id])
+  productId          String?
+  product            MarketProduct?          @relation(fields: [productId], references: [id])
+  productName        String // intitulé au moment de la commande
+  variantLabel       String? // variante choisie, snapshot (ex. « Couleur : Noir »)
+  quantity           Int                     @default(1)
+  unitPrice          Int? // prix final confirmé (FCFA) — null avant confirmation
+  unitCostReal       Int? // coût rendu réel (FCFA) — ADMIN ONLY, saisi à la réception
+  procurementBatchId String?
+  batch              MarketProcurementBatch? @relation(fields: [procurementBatchId], references: [id])
+
+  @@index([orderId])
+}
+
+model MarketOrderEvent {
+  id        String      @id @default(cuid())
+  orderId   String
+  order     MarketOrder @relation(fields: [orderId], references: [id])
+  from      String?
+  to        String
+  note      String?
+  actorId   String?
+  actor     AdminUser?  @relation(fields: [actorId], references: [id])
+  createdAt DateTime    @default(now())
+
+  @@index([orderId, createdAt])
+}
+
+model MarketPayment {
+  id            String              @id @default(cuid())
+  orderId       String
+  order         MarketOrder         @relation(fields: [orderId], references: [id])
+  amount        Int // FCFA
+  method        String? // MTN_MOMO, ORANGE_MONEY, CASH
+  reference     String? // référence transaction ou reçu
+  status        MarketPaymentStatus @default(PENDING)
+  createdById   String?
+  createdBy     AdminUser?          @relation("MarketPaymentCreator", fields: [createdById], references: [id])
+  confirmedById String?
+  confirmedBy   AdminUser?          @relation("MarketPaymentConfirmer", fields: [confirmedById], references: [id])
+  confirmedAt   DateTime?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@index([orderId])
+}
+
+model MarketProcurementBatch {
+  id         String            @id @default(cuid())
+  reference  String            @unique
+  supplierId String?
+  supplier   MarketSupplier?   @relation(fields: [supplierId], references: [id])
+  status     MarketBatchStatus @default(PLANNED)
+  totalCost  Int               @default(0) // dépenses réelles du lot (transport, douane…)
+  note       String?           @db.Text
+  expectedAt DateTime?
+  receivedAt DateTime?
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  items      MarketOrderItem[]
+  expenses   MarketExpense[]
+}
+
+// ------------------------------- Devis V2 ----------------------------------
+
+enum MarketQuoteStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  CANCELLED
+}
+
+model MarketQuote {
+  id          String            @id @default(cuid())
+  quoteNumber String            @unique // MQT-2026-0001
+  orderId     String
+  order       MarketOrder       @relation(fields: [orderId], references: [id])
+  status      MarketQuoteStatus @default(SENT)
+  items       Json // snapshot [{ productName, reference, variantLabel, quantity, unitPrice }] — prix verrouillés
+  deliveryFee Int               @default(0)
+  totalAmount Int
+  note        String?           @db.Text
+  validUntil  DateTime?
+  sentAt      DateTime?
+  acceptedAt  DateTime?
+  rejectedAt  DateTime?
+  createdById String?
+  createdBy   AdminUser?        @relation("MarketQuoteCreator", fields: [createdById], references: [id])
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([orderId])
+}
+
+// ---------------------------- Remboursements V2 -----------------------------
+
+model MarketRefund {
+  id           String      @id @default(cuid())
+  orderId      String
+  order        MarketOrder @relation(fields: [orderId], references: [id])
+  amount       Int // FCFA — fait enregistré, pas de cycle de vérification en MVP
+  method       String? // MTN_MOMO, ORANGE_MONEY, CASH
+  reference    String?
+  reason       String?
+  recordedById String?
+  recordedBy   AdminUser?  @relation("MarketRefundRecorder", fields: [recordedById], references: [id])
+  createdAt    DateTime    @default(now())
+
+  @@index([orderId])
+}
+
+// ------------------------ Dépenses & allocation V2 --------------------------
+
+enum MarketExpenseCategory {
+  FREIGHT // fret international
+  INSURANCE
+  CUSTOMS // droits et taxes
+  CLEARANCE // frais de dédouanement
+  LOCAL_TRANSPORT
+  PACKAGING
+  OTHER
+}
+
+enum MarketAllocation {
+  VALUE // répartition au prorata de la valeur des items
+  QUANTITY // au prorata des quantités
+  FLAT // parts égales entre items distincts
+}
+
+model MarketExpense {
+  id               String                  @id @default(cuid())
+  batchId          String?
+  batch            MarketProcurementBatch? @relation(fields: [batchId], references: [id])
+  label            String
+  category         MarketExpenseCategory
+  amount           Int // FCFA
+  allocationMethod MarketAllocation        @default(VALUE)
+  note             String?
+  incurredAt       DateTime                @default(now())
+  createdById      String?
+  createdBy        AdminUser?              @relation("MarketExpenseCreator", fields: [createdById], references: [id])
+  createdAt        DateTime                @default(now())
+
+  @@index([batchId])
+}
+
+// -------------------------- Analytics funnel V2 -----------------------------
+
+enum MarketAnalyticEventType {
+  SHOP_VIEWED
+  CATEGORY_VIEWED
+  PRODUCT_VIEWED
+  ADD_TO_CART
+  CHECKOUT_STARTED
+  ORDER_SUBMITTED
+}
+
+model MarketAnalyticEvent {
+  id        String                  @id @default(cuid())
+  type      MarketAnalyticEventType
+  productId String?
+  product   MarketProduct?          @relation(fields: [productId], references: [id])
+  meta      Json? // { slug, category } — jamais de données personnelles
+  createdAt DateTime                @default(now())
+
+  @@index([type, createdAt])
+  @@index([productId])
+}
+
+model MarketDelivery {
+  id          String               @id @default(cuid())
+  orderId     String               @unique
+  order       MarketOrder          @relation(fields: [orderId], references: [id])
+  status      MarketDeliveryStatus @default(PENDING)
+  fee         Int                  @default(0) // payé par le client
+  cost        Int                  @default(0) // coût interne réel (ADMIN ONLY)
+  courier     String? // livreur (nom libre)
+  scheduledAt DateTime?
+  deliveredAt DateTime?
+  note        String?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+}
