@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  CheckCircle2, Loader2, Pencil, Plus, Search, ShoppingCart, Store, Tag, Truck,
+  CheckCircle2, ImagePlus, Loader2, Pencil, Plus, Search, ShoppingCart, Store, Tag, Truck, X,
 } from 'lucide-react';
 import { EmptyState } from './AdminShell';
 import { Link } from '../../router';
@@ -12,7 +12,7 @@ import {
   assignMarketItem, fetchMarketBatches, fetchMarketCatalogAdmin, fetchMarketOrder, fetchMarketOrders,
   fetchMarketOverview, recordMarketPayment, reviewMarketPayment, saveMarketCategory, saveMarketDelivery,
   saveMarketProduct, saveMarketSupplier, confirmMarketPrice, saveMarketBatch, updateMarketBatchStatus,
-  updateMarketOrderStatus,
+  updateMarketOrderStatus, uploadProductImage,
   type MarketBatchStatus, type MarketCategoryDto, type MarketDeliveryStatus,
   type MarketOrderDetailDto, type MarketOrderSummaryDto, type MarketProductDto,
   type MarketSupplierDto,
@@ -183,8 +183,32 @@ function ProductDialog({ product, categories, suppliers, onSaved, onClose }: {
   } : { ...emptyProduct, categoryId: categories[0]?.id ?? '' });
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
+  const [imgUploading, setImgUploading] = useState(false);
+  const [imgError, setImgError] = useState('');
 
   const set = <K extends keyof ProductForm>(key: K, value: ProductForm[K]) => setForm((f) => ({ ...f, [key]: value }));
+
+  const removeImage = (url: string) => set('images', parseImages(form.images).filter((u) => u !== url).join('\n'));
+
+  /** Téléversement des photos sélectionnées → URLs ajoutées au champ images. */
+  const onPickImages = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = ''; // permet de re-sélectionner le même fichier après une erreur
+    if (files.length === 0) return;
+    setImgError('');
+    const current = parseImages(form.images);
+    const room = 6 - current.length;
+    if (room <= 0) { setImgError('6 photos maximum par produit : retirez-en une d’abord.'); return; }
+    if (files.length > room) setImgError(`6 photos maximum : seules les ${room} première(s) ont été envoyées.`);
+    setImgUploading(true);
+    try {
+      const urls: string[] = [];
+      for (const f of files.slice(0, room)) urls.push((await uploadProductImage(f)).url);
+      set('images', [...current, ...urls].join('\n'));
+    } catch (err) {
+      setImgError(err instanceof Error ? err.message : 'Envoi de l’image impossible.');
+    } finally { setImgUploading(false); }
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -250,7 +274,25 @@ function ProductDialog({ product, categories, suppliers, onSaved, onClose }: {
             <Input id="p-delay" value={form.delayLabel} onChange={(e) => set('delayLabel', e.target.value)} placeholder="ex. 2 à 3 semaines" maxLength={120} />
           </Field>
         </div>
-        <Field label="Photos (URLs, max 6)" htmlFor="p-img" hint="Une URL par ligne (https://… ou /…)">
+        <Field label="Photos du produit (max 6)" htmlFor="p-img" hint="Téléversez depuis l’appareil ou collez une URL par ligne">
+          {parseImages(form.images).length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-2">
+              {parseImages(form.images).map((url, i) => (
+                <span key={url} className="relative">
+                  <img src={url} alt="" loading="lazy" className="w-16 h-16 object-cover rounded-lg border border-brand-border bg-brand-bg" />
+                  <button type="button" aria-label={`Retirer la photo ${i + 1}`} onClick={() => removeImage(url)} className="absolute -top-1.5 -right-1.5 bg-white border border-brand-border rounded-full p-0.5 shadow-sm cursor-pointer hover:bg-red-50">
+                    <X className="w-3.5 h-3.5 text-brand-text" aria-hidden="true" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          <label className={`inline-flex items-center gap-2 rounded-xl border border-brand-border px-4 py-2 text-sm font-semibold mb-2 ${imgUploading ? 'opacity-60 pointer-events-none' : 'cursor-pointer hover:bg-brand-bg'}`}>
+            {imgUploading ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <ImagePlus className="w-4 h-4" aria-hidden="true" />}
+            {imgUploading ? 'Envoi en cours…' : 'Ajouter des photos'}
+            <input type="file" className="hidden" accept="image/jpeg,image/png,image/webp" multiple onChange={onPickImages} disabled={imgUploading} />
+          </label>
+          {imgError && <p role="alert" className="text-xs text-red-700 mb-1">{imgError}</p>}
           <Textarea id="p-img" rows={2} value={form.images} onChange={(e) => set('images', e.target.value)} />
         </Field>
         <Field label="Caractéristiques (max 12)" htmlFor="p-specs" hint="Une par ligne : Étiquette: valeur">

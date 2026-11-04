@@ -18,7 +18,8 @@
     "postinstall": "prisma generate",
     "setup:check": "tsx scripts/check-setup.ts",
     "build:vercel": "prisma generate && vite build",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "db:backup": "node prisma/backup-database.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

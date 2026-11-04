@@ -34,3 +34,6 @@ yarn-debug.log*
 # Vercel (build local) et livraisons
 .vercel/
 *.bundle
+
+# Sauvegardes locales (jamais commitées, ne quittent pas le workspace)
+backups/

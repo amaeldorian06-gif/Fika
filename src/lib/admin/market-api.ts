@@ -129,6 +129,24 @@ export async function saveMarketProduct(payload: MarketProductPayload): Promise<
   return await postJson('/api/admin/market/products', payload);
 }
 
+/**
+ * Téléverse une image produit vers le bucket public (5 Mo, JPEG/PNG/WebP
+ * vérifiés par magic bytes côté serveur) et renvoie l'URL publique à ranger
+ * dans images[]. Multipart : n'utilise pas postJson (JSON uniquement).
+ */
+export async function uploadProductImage(file: File): Promise<{ url: string }> {
+  const fd = new FormData();
+  fd.append('file', file, file.name);
+  const res = await fetch('/api/admin/files/product-image', { method: 'POST', credentials: 'same-origin', body: fd });
+  if (res.status === 401) {
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('fika:unauthorized'));
+    throw new Error('Session expirée. Reconnectez-vous.');
+  }
+  const data = (await res.json().catch(() => null)) as { ok?: boolean; url?: string; message?: string } | null;
+  if (!res.ok || !data?.ok || !data.url) throw new Error(data?.message ?? 'Envoi de l’image impossible.');
+  return { url: data.url };
+}
+
 export async function updateMarketOrderStatus(orderId: string, to: MarketOrderStatus, note?: string): Promise<{ ok: true }> {
   return await postJson('/api/admin/market/orders/status', { orderId, to, note });
 }
