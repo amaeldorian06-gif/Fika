@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import {
-  Activity, BarChart, Briefcase, Inbox, LogOut, Package, Store, Users, ChevronRight, Loader2,
+  Activity, BarChart, Briefcase, Inbox, LogOut, Package, Store, Tags, Users, ChevronRight, Loader2,
 } from 'lucide-react';
 import { Link, navigate } from '../../router';
 import { fetchSession, fetchOrders, logout, type AdminIdentity } from '../../lib/admin/api';
@@ -22,6 +22,7 @@ export const ADMIN_NAV = [
   { path: '/admin/reports', label: 'Exports & archives', icon: Inbox },
   { path: '/admin/analytics', label: 'Analytiques', icon: BarChart },
   { path: '/admin/market', label: 'Fika Market', icon: Store },
+  { path: '/admin/market/catalog', label: 'Catalogue produits', icon: Tags },
 ] as const;
 
 export function AdminShell({
@@ -72,6 +73,12 @@ export function AdminShell({
 
   if (!admin) return <AdminLoginPage onSuccess={(identity) => { setSessionError(null); setAdmin(identity); }} initialError={sessionError} />;
 
+  // Entrée active = correspondance par préfixe LA PLUS LONGUE (sinon « Fika Market »
+  // et « Catalogue produits » seraient actifs en même temps sur /admin/market/catalog).
+  const activeNav = ADMIN_NAV
+    .filter((item) => (item.path === '/admin' ? path === '/admin' : path.startsWith(item.path)))
+    .sort((a, b) => b.path.length - a.path.length)[0];
+
   const handleLogout = async () => {
     try { await logout(); } catch {
       setSessionError('Déconnexion non confirmée par le serveur. Réessayez avant de quitter cet appareil.');
@@ -93,7 +100,7 @@ export function AdminShell({
 
         <nav className="flex-1 py-6 px-4 space-y-1" aria-label="Navigation back-office">
           {ADMIN_NAV.map((item) => {
-            const active = item.path === '/admin' ? path === '/admin' : path.startsWith(item.path);
+            const active = item === activeNav;
             return (
               <Link
                 key={item.path}
@@ -153,7 +160,7 @@ export function AdminShell({
                 key={item.path}
                 to={item.path}
                 className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap border transition-colors ${
-                  path === item.path ? 'bg-brand-text text-white border-brand-text' : 'bg-brand-surface text-brand-text-muted border-brand-border'
+                  item === activeNav ? 'bg-brand-text text-white border-brand-text' : 'bg-brand-surface text-brand-text-muted border-brand-border'
                 }`}
               >
                 {item.label}

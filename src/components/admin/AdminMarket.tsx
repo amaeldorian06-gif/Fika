@@ -100,6 +100,12 @@ export function AdminMarketOverview() {
   const b = data.byStatus;
   return (
     <div className="space-y-8">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-brand-text-muted">Pilotage des ventes de la boutique Fika Market.</p>
+        <Button asChild size="sm">
+          <Link to="/admin/market/catalog"><Store className="w-4 h-4 mr-1" aria-hidden="true" />Gérer le catalogue</Link>
+        </Button>
+      </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard label="Marge nette (livrées)" value={data.deliveredMargin != null ? formatPriceFCFA(data.deliveredMargin) : '—'} hint={data.deliveredCount > 0 ? `${data.deliveredCount} commande(s) livrée(s)` : 'Aucune commande livrée'} accent />
         <KpiCard label="Chiffre d'affaires confirmé" value={formatPriceFCFA(data.revenue)} hint={data.avgOrderValue != null ? `Panier moyen : ${formatPriceFCFA(data.avgOrderValue)}` : undefined} />
