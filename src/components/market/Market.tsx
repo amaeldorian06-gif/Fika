@@ -42,13 +42,25 @@ const AVAILABILITY_STYLES: Record<string, string> = {
   UNAVAILABLE: 'bg-brand-bg text-brand-text-muted border-brand-border',
 };
 
+/**
+ * Image produit avec repli gracieux : URL absente OU morte → icône de repli.
+ * Jamais l'icône « image cassée » du navigateur (dégradation honnête et propre).
+ */
+function ProductImage({ src, alt, className, iconClassName }: {
+  src?: string | null; alt: string; className?: string; iconClassName?: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (!src || failed) {
+    return <PackageSearch className={iconClassName ?? 'w-10 h-10 text-brand-text-muted/40'} aria-hidden="true" />;
+  }
+  return <img src={src} alt={alt} loading="lazy" onError={() => setFailed(true)} className={className} />;
+}
+
 function ProductCard({ product }: { product: MarketProductPublic }) {
   return (
     <Link to={`/boutique/produit/${product.slug}`} className="group flex flex-col rounded-2xl border border-brand-border bg-white overflow-hidden hover:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent">
       <div className="aspect-square bg-brand-bg flex items-center justify-center overflow-hidden">
-        {product.images[0]
-          ? <img src={product.images[0]} alt={product.name} loading="lazy" className="w-full h-full object-cover" />
-          : <PackageSearch className="w-10 h-10 text-brand-text-muted/40" aria-hidden="true" />}
+        <ProductImage src={product.images[0]} alt={product.name} className="w-full h-full object-cover" />
       </div>
       <div className="p-4 flex flex-col gap-1.5 flex-1">
         <span className="text-[10px] font-bold uppercase tracking-wider text-brand-text-muted">{product.category.name}</span>
@@ -193,15 +205,13 @@ export function MarketProductPage({ slug }: { slug: string }) {
       <div className="grid lg:grid-cols-2 gap-8 mt-6">
         <div>
           <div className="rounded-2xl border border-brand-border bg-brand-bg aspect-square overflow-hidden flex items-center justify-center">
-            {product.images[image]
-              ? <img src={product.images[image]} alt={product.name} className="w-full h-full object-cover" />
-              : <PackageSearch className="w-16 h-16 text-brand-text-muted/40" />}
+            <ProductImage src={product.images[image]} alt={product.name} className="w-full h-full object-cover" iconClassName="w-16 h-16 text-brand-text-muted/40" />
           </div>
           {product.images.length > 1 && (
             <div className="flex gap-2 mt-3">
               {product.images.map((src, i) => (
                 <button key={src + i} type="button" onClick={() => setImage(i)} className={`w-16 h-16 rounded-xl overflow-hidden border-2 ${i === image ? 'border-brand-accent' : 'border-transparent'}`} aria-label={`Photo ${i + 1}`}>
-                  <img src={src} alt="" className="w-full h-full object-cover" />
+                  <ProductImage src={src} alt="" className="w-full h-full object-cover" iconClassName="w-5 h-5 text-brand-text-muted/40" />
                 </button>
               ))}
             </div>
@@ -372,7 +382,7 @@ export function MarketOrderPage() {
       {product && !fromCart && (
         <div className="mt-6 flex items-center gap-4 bg-white border border-brand-border rounded-2xl p-4">
           <div className="w-16 h-16 rounded-xl overflow-hidden bg-brand-bg flex items-center justify-center shrink-0">
-            {product.images[0] ? <img src={product.images[0]} alt="" className="w-full h-full object-cover" /> : <PackageSearch className="w-6 h-6 text-brand-text-muted/50" />}
+            <ProductImage src={product.images[0]} alt="" className="w-full h-full object-cover" iconClassName="w-6 h-6 text-brand-text-muted/50" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-bold truncate">{product.name}</p>
@@ -395,7 +405,7 @@ export function MarketOrderPage() {
               {cartItems.map((i) => (
                 <li key={i.productId + (i.variantLabel ?? '')} className="flex items-center gap-4 p-4">
                   <div className="w-14 h-14 rounded-xl overflow-hidden bg-brand-bg flex items-center justify-center shrink-0">
-                    {i.image ? <img src={i.image} alt="" className="w-full h-full object-cover" /> : <PackageSearch className="w-5 h-5 text-brand-text-muted/50" />}
+                    <ProductImage src={i.image} alt="" className="w-full h-full object-cover" iconClassName="w-5 h-5 text-brand-text-muted/50" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-bold truncate">{i.name}</p>
