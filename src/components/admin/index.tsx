@@ -1,4 +1,5 @@
 import { AdminReports } from './AdminReports';
+import { AdminMarketLedger } from './AdminMarketLedger';
 import {
   AdminMarketBatches, AdminMarketCatalog, AdminMarketOrderDetail, AdminMarketOrders, AdminMarketOverview,
 } from './AdminMarket';
@@ -27,6 +28,8 @@ export function AdminRouter({ path }: { path: string }) {
       return <AdminShell path={path} title="Fika Market — pilotage"><AdminMarketOverview /></AdminShell>;
     case '/admin/market/catalog':
       return <AdminShell path={path} title="Fika Market — catalogue"><AdminMarketCatalog /></AdminShell>;
+    case '/admin/market/releves':
+      return <AdminShell path={path} title="Fika Market — relevés & marges"><AdminMarketLedger /></AdminShell>;
     case '/admin/market/orders':
       return <AdminShell path={path} title="Fika Market — commandes"><AdminMarketOrders /></AdminShell>;
     case '/admin/market/batches':

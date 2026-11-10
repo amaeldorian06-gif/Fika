@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Check, CheckCircle2, Loader2, MessageCircle, Minus, PackageSearch, Plus, Search, ShoppingBag, ShoppingCart, Store, Trash2, Truck } from 'lucide-react';
+import { ArrowRight, Check, CheckCircle2, Loader2, MessageCircle, Minus, PackageSearch, Plus, ShoppingBag, ShoppingCart, Store, Trash2, Truck } from 'lucide-react';
 import { Button } from '../ui';
 import { Field, Input, Textarea } from '../forms';
-import { Link, navigate } from '../../router';
+import { Link } from '../../router';
 import { AVAILABILITY_LABELS, type MarketProductPublic } from '../../lib/market';
 import { cart, type CartItem } from '../../lib/cart';
 import { trackMarketEvent } from '../../lib/market-analytics';
@@ -111,7 +111,6 @@ export function MarketHomePage() {
               </p>
               <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
                 <Button asChild variant="whatsapp"><a href={getWALink('Bonjour Fika Market 👋\nJe cherche un produit. Pouvez-vous me dire si vous pouvez le commander ?')} target="_blank" rel="noopener noreferrer"><MessageCircle className="w-4 h-4 mr-2" />Demander un produit</a></Button>
-                <Button asChild variant="outline"><Link to="/boutique/suivi">Suivre ma commande</Link></Button>
               </div>
             </div>
           ) : (
@@ -122,10 +121,9 @@ export function MarketHomePage() {
         </>
       )}
 
-      <div className="mt-14 grid sm:grid-cols-3 gap-6 text-sm">
+      <div className="mt-14 grid sm:grid-cols-2 gap-6 text-sm max-w-2xl">
         <div className="flex gap-3"><CheckCircle2 className="w-5 h-5 text-brand-accent shrink-0" /><p><strong>Prix confirmé avant paiement.</strong> Aucune surprise : le coût final vous est communiqué avant tout engagement.</p></div>
         <div className="flex gap-3"><Truck className="w-5 h-5 text-brand-accent shrink-0" /><p><strong>Livraison à Ngaoundéré.</strong> Frais indiqués clairement avec le prix final.</p></div>
-        <div className="flex gap-3"><PackageSearch className="w-5 h-5 text-brand-accent shrink-0" /><p><strong>Suivi simple.</strong> Un code personnel pour suivre votre commande étape par étape.</p></div>
       </div>
     </div>
   );
@@ -308,7 +306,7 @@ export function MarketOrderPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
-  const [done, setDone] = useState<{ orderNumber: string; trackCode: string } | null>(null);
+  const [done, setDone] = useState<{ orderNumber: string } | null>(null);
 
   const slug = useMemo(() => new URLSearchParams((location.hash.split('?')[1] ?? '').split('#')[0]).get('product'), []);
   const fromCart = !slug;
@@ -327,13 +325,12 @@ export function MarketOrderPage() {
       <CheckCircle2 className="w-10 h-10 text-brand-wa mx-auto mb-5" />
       <h1 className="font-heading text-3xl font-bold">Votre demande est envoyée.</h1>
       <p className="text-brand-text-muted mt-4">Fika vérifie la disponibilité, puis vous communique le <strong>prix final et le délai</strong>. Rien n'est engagé avant votre accord.</p>
-      <div className="mt-6 inline-flex flex-col gap-1 items-center bg-brand-bg border border-brand-border rounded-2xl px-6 py-4">
-        <span className="text-xs font-bold uppercase tracking-wider text-brand-text-muted">Votre code de suivi</span>
-        <strong className="font-mono text-xl tracking-widest text-brand-accent">{done.trackCode}</strong>
-        <span className="text-xs text-brand-text-muted">Commande {done.orderNumber}</span>
-      </div>
+      <p className="mt-6 inline-flex flex-col gap-1 items-center bg-brand-bg border border-brand-border rounded-2xl px-6 py-4">
+        <span className="text-xs font-bold uppercase tracking-wider text-brand-text-muted">Votre référence</span>
+        <strong className="font-mono text-xl tracking-widest text-brand-accent">{done.orderNumber}</strong>
+      </p>
+      <p className="text-sm text-brand-text-muted mt-4">Conservez cette référence : elle facilite nos échanges. Fika vous contacte dès que possible.</p>
       <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-        <Button asChild><Link to={`/boutique/suivi?code=${encodeURIComponent(done.trackCode)}`}>Suivre ma commande</Link></Button>
         <Button asChild variant="outline"><Link to="/boutique">Continuer mes achats</Link></Button>
       </div>
     </div>
@@ -369,7 +366,7 @@ export function MarketOrderPage() {
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.message ?? 'Envoi impossible.');
       if (fromCart) cart.clear();
-      setDone({ orderNumber: data.orderNumber, trackCode: data.trackCode });
+      setDone({ orderNumber: data.orderNumber });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Envoi impossible. Réessayez.');
     } finally { setPending(false); }
@@ -524,73 +521,6 @@ export function MarketCartPage() {
             </div>
           </div>
         </>
-      )}
-    </div>
-  );
-}
-
-/* ------------------------------- Suivi ------------------------------------ */
-
-const STEP_LABELS: Record<string, string> = {
-  REQUESTED: 'Demande reçue', SUPPLIER_CHECK: 'Vérification fournisseur', CONFIRMED: 'Commande confirmée',
-  PROCURING: 'Approvisionnement', SHIPPED_INBOUND: 'Expédition', RECEIVED: 'Réception et contrôle',
-  READY: 'Prête à livrer', DELIVERING: 'Livraison en cours', DELIVERED: 'Livrée',
-  CANCELLED: 'Annulée', DELAYED: 'Retardée', REFUND_PENDING: 'Remboursement en attente',
-  REFUNDED: 'Remboursée', SUPPLY_FAILED: 'Approvisionnement impossible',
-};
-
-export function MarketTrackPage() {
-  const [code, setCode] = useState(() => new URLSearchParams((location.hash.split('?')[1] ?? '').split('#')[0]).get('code') ?? '');
-  const [order, setOrder] = useState<null | { orderNumber: string; status: string; steps: { label: string; at: string | null; done: boolean }[]; items: { name: string; quantity: number }[]; total: number | null }>(null);
-  const [error, setError] = useState('');
-  const [pending, setPending] = useState(false);
-
-  const search = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    setPending(true); setError(''); setOrder(null);
-    try {
-      const res = await fetch(`/api/market/orders/track?code=${encodeURIComponent(code.trim())}`);
-      const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.message ?? 'Commande introuvable.');
-      setOrder(data.order);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Commande introuvable.');
-    } finally { setPending(false); }
-  };
-  useEffect(() => { if (code.length >= 6) void search(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
-
-  return (
-    <div className="max-w-xl mx-auto px-5 py-10 sm:py-14">
-      <h1 className="font-heading text-3xl font-bold">Suivre ma commande</h1>
-      <p className="text-brand-text-muted mt-3">Entrez le code reçu lors de votre demande (exemple : A1B2C3D4E5).</p>
-      <form onSubmit={search} className="flex gap-3 mt-6">
-        <Input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="Code de suivi" className="flex-1 font-mono tracking-widest" aria-label="Code de suivi" maxLength={24} />
-        <Button type="submit" disabled={pending || code.trim().length < 6}>{pending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}</Button>
-      </form>
-      {error && <p role="alert" className="mt-6 rounded-xl bg-red-50 border border-red-200 text-red-700 p-4">{error}</p>}
-      {order && (
-        <div className="mt-8">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <p className="font-mono font-bold">{order.orderNumber}</p>
-            {order.total != null && <p className="font-bold">Total : {formatPrice(order.total)}</p>}
-          </div>
-          <p className="text-sm text-brand-text-muted mt-1">{order.items.map((i) => `${i.name} ×${i.quantity}`).join(' · ')}</p>
-          <ol className="mt-6 space-y-0">
-            {order.steps.map((s) => (
-              <li key={s.label} className="flex gap-4">
-                <div className="flex flex-col items-center">
-                  <span className={`w-3.5 h-3.5 rounded-full border-2 ${s.done ? 'bg-brand-accent border-brand-accent' : 'bg-white border-brand-border'}`} />
-                  <span className="w-0.5 flex-1 bg-brand-border" />
-                </div>
-                <div className="pb-6">
-                  <p className={`font-semibold text-sm ${s.done ? '' : 'text-brand-text-muted'}`}>{STEP_LABELS[s.label] ?? s.label}</p>
-                  {s.at && <p className="text-xs text-brand-text-muted mt-0.5">{new Date(s.at).toLocaleString('fr-FR', { timeZone: 'Africa/Douala' })}</p>}
-                </div>
-              </li>
-            ))}
-          </ol>
-          <p className="text-sm"><Button variant="outline" onClick={() => navigate('/boutique')}>Retour à la boutique</Button></p>
-        </div>
       )}
     </div>
   );

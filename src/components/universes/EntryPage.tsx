@@ -108,9 +108,6 @@ export function EntryPage() {
         <Link to="/demande" className="font-semibold text-brand-text underline-offset-4 hover:text-brand-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent rounded">
           {COPY_NAV.entry.shortcuts.describe} →
         </Link>
-        <Link to="/boutique/suivi" className="font-semibold text-brand-text underline-offset-4 hover:text-brand-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent rounded">
-          {COPY_NAV.entry.shortcuts.track} →
-        </Link>
         <a
           href={getWALink('Bonjour Fika 👋, j’ai une question.')}
           target="_blank"

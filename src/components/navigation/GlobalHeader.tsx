@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { MessageCircle, PackageSearch, Search, ShoppingBag, Wrench } from 'lucide-react';
+import { MessageCircle, Search, ShoppingBag, Wrench } from 'lucide-react';
 import { getWALink } from '../../lib/whatsapp';
 import { trackWaClick } from '../../lib/tracking';
 import { cart } from '../../lib/cart';
@@ -99,22 +99,13 @@ export function GlobalHeader() {
                 <Search className="w-5 h-5" aria-hidden="true" />
               </button>
 
-              {universe === 'services' ? (
+              {universe === 'services' && (
                 <Link
                   to="/demande"
                   className="hidden sm:inline-flex items-center gap-2 h-10 px-4 rounded-full bg-brand-text text-white text-sm font-bold hover:bg-black transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
                 >
                   <Wrench className="w-4 h-4" aria-hidden="true" />
                   {COPY_NAV.actions.describeNeed}
-                </Link>
-              ) : (
-                <Link
-                  to="/boutique/suivi"
-                  aria-label={COPY_NAV.actions.track}
-                  title={COPY_NAV.actions.track}
-                  className="p-2.5 rounded-xl text-brand-text-muted hover:text-brand-text hover:bg-brand-bg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
-                >
-                  <PackageSearch className="w-5 h-5" aria-hidden="true" />
                 </Link>
               )}
 

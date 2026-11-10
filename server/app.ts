@@ -2,7 +2,7 @@ import { parseReportRange } from '../src/lib/report-period';
 import { z } from 'zod';
 import { prisma } from '../src/lib/prisma';
 import {
-  getMarketCatalog, getMarketProduct, createMarketOrder, trackMarketOrder, recordMarketAnalyticEvent,
+  getMarketCatalog, getMarketProduct, createMarketOrder, recordMarketAnalyticEvent,
 } from './routes/market';
 import {
   listMarketProducts, saveMarketProduct, saveMarketCategory, listMarketSuppliers, saveMarketSupplier,
@@ -10,7 +10,7 @@ import {
   recordMarketPayment, reviewMarketPayment, listMarketBatches, saveMarketBatch,
   updateMarketBatchStatus, assignMarketItem, saveMarketDelivery, getMarketOverview,
   createMarketQuote, respondMarketQuote, recordMarketRefund, saveMarketExpense,
-  deleteMarketExpense, getMarketBatchAllocation, applyMarketBatchAllocation,
+  deleteMarketExpense, getMarketBatchAllocation, applyMarketBatchAllocation, getMarketLedger,
 } from './routes/admin-market';
 import { listReports, createReport, downloadReport, archiveReport, restoreReport, ReportError } from './routes/admin-reports';
 import { handleRecordPayment, handleReviewPayment } from './routes/admin-payments';
@@ -81,7 +81,6 @@ export function createApp() {
     res.status(product ? 200 : 404).json(product ?? { ok: false, message: 'Produit introuvable.' });
   });
   app.post('/api/market/orders', async (req, res) => send(res, await createMarketOrder(req.body, req.ip ?? 'unknown')));
-  app.get('/api/market/orders/track', async (req, res) => send(res, await trackMarketOrder(req.query.code)));
   app.post('/api/market/events', async (req, res) => send(res, await recordMarketAnalyticEvent(req.body, req.ip ?? 'unknown')));
 
 
@@ -138,6 +137,7 @@ export function createApp() {
   app.get('/api/admin/market/categories', async (_req, res) => res.json(await prisma.marketCategory.findMany({ orderBy: { position: 'asc' } })));
   app.get('/api/admin/market/suppliers', async (_req, res) => res.json(await listMarketSuppliers()));
   app.get('/api/admin/market/orders', async (req, res) => res.json(await listMarketOrders(query(req.query.status), query(req.query.q))));
+  app.get('/api/admin/market/ledger', async (_req, res) => send(res, await getMarketLedger()));
   app.get('/api/admin/market/batches', async (_req, res) => res.json(await listMarketBatches()));
   app.get('/api/admin/market/batches/:id/allocation', async (req, res) => {
     const allocation = await getMarketBatchAllocation(String(req.params.id));

@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import { prisma } from '../../src/lib/prisma';
 import {
-  MARKET_ANALYTIC_TYPES, MARKET_MAIN_FLOW, marketOrderPayloadSchema, marketVariantsSchema,
+  MARKET_ANALYTIC_TYPES, marketOrderPayloadSchema, marketVariantsSchema,
   type MarketProductPublic, type MarketProductVariant,
 } from '../../src/lib/market';
 import { normalizePhoneE164 } from '../../src/lib/lead';
@@ -81,7 +81,7 @@ export async function getMarketProduct(slug: string): Promise<MarketProductPubli
 }
 
 export type MarketOrderResult =
-  | { status: 200; body: { ok: true; orderNumber: string; trackCode: string } }
+  | { status: 200; body: { ok: true; orderNumber: string } }
   | { status: 400 | 429; body: { ok: false; code: string; message: string; issues?: Record<string, string[]> } };
 
 export async function createMarketOrder(body: unknown, ip: string): Promise<MarketOrderResult> {
@@ -101,7 +101,7 @@ export async function createMarketOrder(body: unknown, ip: string): Promise<Mark
   // Idempotence : un double-clic ne crée jamais deux commandes.
   if (data.requestKey) {
     const existing = await prisma.marketOrder.findUnique({ where: { requestKey: data.requestKey } });
-    if (existing) return { status: 200, body: { ok: true, orderNumber: existing.orderNumber, trackCode: existing.trackCode } };
+    if (existing) return { status: 200, body: { ok: true, orderNumber: existing.orderNumber } };
   }
 
   // Produits : tous doivent exister et être actifs. Indisponible => précommande impossible.
@@ -142,57 +142,15 @@ export async function createMarketOrder(body: unknown, ip: string): Promise<Mark
     } catch (e) {
       if (data.requestKey && typeof e === 'object' && e && 'code' in e && e.code === 'P2002') {
         const existing = await tx.marketOrder.findUnique({ where: { requestKey: data.requestKey } });
-        if (existing) return { status: 200, body: { ok: true, orderNumber: existing.orderNumber, trackCode: existing.trackCode } };
+        if (existing) return { status: 200, body: { ok: true, orderNumber: existing.orderNumber } };
       }
       throw e;
     }
-    return { status: 200, body: { ok: true, orderNumber: order.orderNumber, trackCode: order.trackCode } };
+    return { status: 200, body: { ok: true, orderNumber: order.orderNumber } };
   });
 }
 
 /** Suivi public : étapes datées + produits, sans coordonnées client. */
-export async function trackMarketOrder(rawCode: unknown): Promise<
-  { status: 200; body: { ok: true; order: { orderNumber: string; status: string; statusLabel: string; steps: { label: string; at: string | null; done: boolean }[]; items: { name: string; quantity: number }[]; total: number | null; delayLabel: string | null } } }
-  | { status: 404; body: { ok: false; message: string } }
-> {
-  const parsed = z.string().trim().min(6).max(24).safeParse(rawCode);
-  if (!parsed.success) return { status: 404, body: { ok: false, message: 'Commande introuvable. Vérifiez votre code de suivi.' } };
-  const order = await prisma.marketOrder.findUnique({
-    where: { trackCode: parsed.data.toUpperCase() },
-    include: {
-      items: { select: { productName: true, variantLabel: true, quantity: true, unitPrice: true } },
-      events: { orderBy: { createdAt: 'asc' }, select: { to: true, createdAt: true } },
-    },
-  });
-  if (!order) return { status: 404, body: { ok: false, message: 'Commande introuvable. Vérifiez votre code de suivi.' } };
-
-  const reached = new Set(order.events.map((e) => e.to));
-  const at = (s: string) => order.events.find((e) => e.to === s)?.createdAt.toISOString() ?? null;
-  const mainFlow = MARKET_MAIN_FLOW;
-  const exception = ['CANCELLED', 'DELAYED', 'REFUND_PENDING', 'REFUNDED', 'SUPPLY_FAILED'].includes(order.status);
-
-  return {
-    status: 200,
-    body: {
-      ok: true,
-      order: {
-        orderNumber: order.orderNumber,
-        status: order.status,
-        statusLabel: order.status,
-        steps: [
-          ...mainFlow.map((s) => ({ label: s, at: at(s), done: reached.has(s) })),
-          ...(exception ? [{ label: order.status, at: order.events[order.events.length - 1]?.createdAt.toISOString() ?? null, done: true }] : []),
-        ],
-        items: order.items.map((i) => ({ name: i.productName, variant: i.variantLabel, quantity: i.quantity })),
-        total: order.items.every((i) => i.unitPrice != null)
-          ? order.items.reduce((sum, i) => sum + i.unitPrice! * i.quantity, 0) + (order.deliveryFee ?? 0)
-          : null,
-        delayLabel: null,
-      },
-    },
-  };
-}
-
 /* ------------------------- Événements analytiques -------------------------- */
 
 const analyticEventSchema = z.object({

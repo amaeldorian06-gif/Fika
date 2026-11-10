@@ -12,6 +12,16 @@ const ok = (cond, label) => {
   else { fail++; console.log(`  ✗ ${label}`); }
 };
 
+// Précondition honnête : le nombre de cartes attendu vient de l'API réelle.
+// Catalogue vide côté API → test sans objet (SKIP), pas un faux succès.
+const api = await (await fetch(`${BASE}/api/market/catalog`)).json();
+const apiCount = api.products?.length ?? 0;
+if (apiCount === 0) {
+  console.log('  − catalogue vide côté API (0 produit actif) — repli d’image sans objet, SKIP');
+  console.log(`\n===== REPLI IMAGES MARKET : SKIP (catalogue vide) =====`);
+  process.exit(0);
+}
+
 const browser = await chromium.launch();
 try {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -26,7 +36,7 @@ try {
   await p.waitForTimeout(4000); // laisser les <img> échouer et le repli s'installer
 
   const cards = await p.locator('a[href*="/boutique/produit/"]').count();
-  ok(cards >= 1, `catalogue chargé (${cards} carte(s) produit)`);
+  ok(cards === apiCount, `catalogue chargé (${cards} carte(s) = ${apiCount} produit(s) API)`);
 
   // Aucune carte ne doit contenir un <img> (toutes les URL sont mortes)…
   const cardsWithImg = await p.locator('a[href*="/boutique/produit/"] img').count();

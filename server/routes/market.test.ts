@@ -28,7 +28,7 @@ const db = vi.hoisted(() => ({
 
 vi.mock('../../src/lib/prisma', () => ({ prisma: db }));
 
-import { createMarketOrder, getMarketCatalog, trackMarketOrder, recordMarketAnalyticEvent } from './market';
+import { createMarketOrder, getMarketCatalog, recordMarketAnalyticEvent } from './market';
 import {
   confirmMarketPrice, createMarketQuote, recordMarketRefund,
   respondMarketQuote, reviewMarketPayment, updateMarketOrderStatus,
@@ -91,12 +91,12 @@ describe('Validation des commandes publiques', () => {
 /* --------------------------- Création & idempotence ------------------------ */
 
 describe('createMarketOrder', () => {
-  it('crée la commande : numéro MKT, code suivi, client upserté en E.164, événement initial', async () => {
+  it('crée la commande : numéro MKT, client upserté en E.164, événement initial', async () => {
     const res = await createMarketOrder(validPayload, 'ip-test');
     expect(res.status).toBe(200);
     if (res.status !== 200) return;
     expect(res.body.orderNumber).toBe('MKT-2026-0007');
-    expect(res.body.trackCode).toHaveLength(8);
+    expect('trackCode' in res.body).toBe(false); // suivi public supprimé : jamais exposé au client
 
     expect(db.customer.upsert).toHaveBeenCalledWith(expect.objectContaining({
       where: { phone: '+237677123456' },
@@ -165,41 +165,6 @@ describe('Catalogue public : aucune fuite de coûts', () => {
     expect(p.images).toEqual(['https://exemple.com/a.jpg']);
   });
 });
-
-/* --------------------------------- Suivi ----------------------------------- */
-
-describe('trackMarketOrder', () => {
-  it('retourne les étapes datées et le total uniquement si tout est prix', async () => {
-    db.marketOrder.findUnique.mockResolvedValue({
-      orderNumber: 'MKT-2026-0007', status: 'PROCURING', deliveryFee: 1000,
-      items: [
-        { productName: 'Aspirateur compact', quantity: 2, unitPrice: 45000 },
-        { productName: 'Bouilloire inox', quantity: 1, unitPrice: null },
-      ],
-      events: [
-        { to: 'REQUESTED', createdAt: new Date('2026-10-25T08:00:00Z') },
-        { to: 'SUPPLIER_CHECK', createdAt: new Date('2026-10-25T09:30:00Z') },
-        { to: 'CONFIRMED', createdAt: new Date('2026-10-26T10:00:00Z') },
-        { to: 'PROCURING', createdAt: new Date('2026-10-27T07:00:00Z') },
-      ],
-    });
-    const res = await trackMarketOrder('AB12CD34EF');
-    expect(res.status).toBe(200);
-    if (res.status !== 200) return;
-    const steps = res.body.order.steps as { label: string; done: boolean }[];
-    expect(steps.find((s) => s.label === 'CONFIRMED')?.done).toBe(true);
-    expect(steps.find((s) => s.label === 'DELIVERED')?.done).toBe(false);
-    expect(res.body.order.total).toBeNull(); // un article sans prix → pas de total
-  });
-
-  it('404 pour un code inconnu', async () => {
-    db.marketOrder.findUnique.mockResolvedValue(null);
-    const res = await trackMarketOrder('INCONNU1');
-    expect(res.status).toBe(404);
-  });
-});
-
-/* --------------------- Gardes métier côté administrateur -------------------- */
 
 const pricedOrder = {
   id: 'order-1', status: 'AWAITING_CLIENT', confirmedAt: null, deliveredAt: null,

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Home, PackageSearch, ShoppingBag, Store, Wrench } from 'lucide-react';
+import { Home, ShoppingBag, Store, Wrench } from 'lucide-react';
 import { cart } from '../../lib/cart';
 import { COPY_NAV } from '../../lib/copy/navigation';
 import { Link, useRoute } from '../../router';
@@ -21,16 +21,14 @@ export function MobileBottomNav() {
   if (path.startsWith('/admin')) return null;
 
   const universe = currentUniverse(path);
-  // Boutique reste active sur tout l'univers Market, sauf les pages personnelles (suivi, panier).
-  const boutiqueActive = universe === 'market' && path !== '/boutique/suivi' && path !== '/boutique/panier';
-  const suiviActive = path === '/boutique/suivi' || path.startsWith('/boutique/suivi/');
+  // Boutique reste active sur tout l'univers Market, sauf la page personnelle (panier).
+  const boutiqueActive = universe === 'market' && path !== '/boutique/panier';
   const panierActive = path === '/boutique/panier';
 
   const items = [
     { to: '/', label: COPY_NAV.bottomNav.home, Icon: Home, active: path === '/', badge: 0 },
     { to: '/boutique', label: COPY_NAV.bottomNav.boutique, Icon: Store, active: boutiqueActive, badge: 0 },
     { to: '/services', label: COPY_NAV.bottomNav.services, Icon: Wrench, active: universe === 'services', badge: 0 },
-    { to: '/boutique/suivi', label: COPY_NAV.bottomNav.suivi, Icon: PackageSearch, active: suiviActive, badge: 0 },
     { to: '/boutique/panier', label: COPY_NAV.bottomNav.panier, Icon: ShoppingBag, active: panierActive, badge: cartCount },
   ];
 
@@ -40,7 +38,7 @@ export function MobileBottomNav() {
       className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-brand-surface/97 backdrop-blur-xl border-t border-brand-border"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
-      <ul className="grid grid-cols-5">
+      <ul className="grid grid-cols-4">
         {items.map(({ to, label, Icon, active, badge }) => {
           return (
             <li key={to + label}>

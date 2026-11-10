@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, MessageSquare, Search, ChevronDown, SlidersHorizontal } from 'lucide-react';
-import { getCategoryBySlug, getFeaturedServices, getServices } from '../lib/catalog';
+import { getCategoryBySlug, getServices } from '../lib/catalog';
 import { getWALink } from '../lib/whatsapp';
 import { trackWaClick } from '../lib/tracking';
 import { Button, UniverseIcon } from './ui';
@@ -44,11 +44,6 @@ export function UniversePage({ slug }: { slug: string }) {
   const [typeBesoin, setTypeBesoin] = useState('');
 
   const allServices = useMemo(() => (universe ? getServices({ categoryId: universe.id }) : []), [universe]);
-
-  const vedette = useMemo(
-    () => (universe ? getFeaturedServices(universe.id).slice(0, 3) : []),
-    [universe],
-  );
 
   const filteredServices = allServices.filter((s) => {
     if (searchQuery) {
@@ -106,18 +101,6 @@ export function UniversePage({ slug }: { slug: string }) {
           </motion.div>
         </motion.div>
       </div>
-
-      {/* Featured / Popular Services */}
-      {vedette.length > 0 && (
-        <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto py-8">
-          <h2 className="text-2xl font-heading font-bold mb-8 text-brand-text">En vedette</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {vedette.map((service, idx) => (
-              <ServiceCard key={service.id} service={service} idx={idx} />
-            ))}
-          </div>
-        </section>
-      )}
 
       {/* Search and Filter Section */}
       <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto py-12">

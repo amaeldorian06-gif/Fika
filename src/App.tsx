@@ -8,7 +8,7 @@ import { UniversePage } from './components/UniversePage';
 import { ServicePage } from './components/ServicePage';
 import { ServicesPage } from './components/ServicesPage';
 import { DemandePage } from './components/DemandePage';
-import { MarketCartPage, MarketCategoryPage, MarketHomePage, MarketOrderPage, MarketProductPage, MarketTrackPage } from './components/market/Market';
+import { MarketCartPage, MarketCategoryPage, MarketHomePage, MarketOrderPage, MarketProductPage } from './components/market/Market';
 import { LegalPage, type LegalKind } from './components/LegalPage';
 import { Button } from './components/ui';
 import { getWALink } from './lib/whatsapp';
@@ -100,8 +100,6 @@ export default function App() {
     page = <MarketOrderPage />;
   } else if (path === '/boutique/panier') {
     page = <MarketCartPage />;
-  } else if (path === '/boutique/suivi') {
-    page = <MarketTrackPage />;
   } else if (path.startsWith('/boutique/categorie/')) {
     page = <MarketCategoryPage slug={decodeURIComponent(path.slice('/boutique/categorie/'.length))} />;
   } else if (path.startsWith('/boutique/produit/')) {

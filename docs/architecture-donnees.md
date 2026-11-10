@@ -56,7 +56,7 @@ Storage (buckets, voir §3).
 | `MarketProduct` | Le produit (détail ci-dessous) |
 | `MarketOrder`, `MarketOrderItem`, `MarketOrderEvent` | Commandes boutique + historique d'états |
 | `MarketPayment` | Paiements MTN MoMo / Orange Money / cash, confirmés en admin |
-| `MarketRefund`, `MarketExpense` | Remboursements et dépenses (allocation des coûts) |
+| `MarketRefund`, `MarketExpense` | Remboursements et dépenses (allocation des coûts). `MarketExpense.orderId` (nullable) rattache une dépense à une commande : c'est la base des **relevés & marges** en admin (`GET /api/admin/market/ledger`) |
 | `MarketDelivery` | Livraisons (zones, frais, statuts) |
 | `MarketDeliveryProof` | **Métadonnées** des photos de preuve de livraison (bucket privé) |
 | `MarketProcurementBatch` | Lots d'approvisionnement (marge traçable par lot) |
@@ -168,6 +168,18 @@ Règle CSP (vercel.json) : img-src autorise l'hôte exact du projet
    - sauvegarde base : `npm run db:backup` → `backups/` (lecture seule,
      jamais commité) ;
    - fichiers hébergés dans votre projet Supabase (sous votre contrôle).
+4. **Suivi de commandes public supprimé** (décision fondateur) : la page
+   `/boutique/suivi`, les liens de navigation et la route publique
+   `GET /api/market/orders/track` n'existent plus ; le client ne reçoit plus
+   de code de suivi (seulement sa référence `MKT-…`). La colonne
+   `MarketOrder.trackCode` reste en base (interne, non exposée).
+5. **Relevés & marges (admin uniquement)** : `GET /api/admin/market/ledger`
+   agrège paiements confirmés et dépenses (par commande, par lot ou
+   générales) → totaux, solde, ventilation par catégorie, marge par
+   commande. La marge n'est **pas** un profit net : les coûts partagés
+   (lots, charges générales) n'y sont pas alloués. Le fondateur y écrit ses
+   relevés directement (encaissements confirmés à la saisie, coûts payés,
+   dépenses générales).
 
 ## 5. Fichiers concernés (pour s'y retrouver)
 

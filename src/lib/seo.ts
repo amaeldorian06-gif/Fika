@@ -153,10 +153,6 @@ const STATIC_META: Record<string, { title: string; description: string }> = {
     title: 'Mon panier Fika Market',
     description: "Votre sélection de produits Fika Market. Total indicatif : le prix final (produits + livraison) est confirmé par devis avant tout paiement.",
   },
-  '/boutique/suivi': {
-    title: 'Suivre ma commande Fika Market',
-    description: 'Entrez votre code de suivi pour voir où en est votre commande Fika Market, étape par étape.',
-  },
   '/_404': {
     title: 'Page introuvable',
     description: "La page demandée n'existe pas. Retournez à l'accueil Fika, on s'occupe du reste.",

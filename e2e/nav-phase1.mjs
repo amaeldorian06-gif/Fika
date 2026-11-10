@@ -58,7 +58,14 @@ ok('E3 nav Services active', await p.locator('header nav a[aria-current="page"]'
 ok('E3 CTA Décrire mon besoin (header, univers services)', await p.locator('header a[href="#/demande"]').first().isVisible());
 ok('E3 comment-ca-marche', await p.locator('#comment-ca-marche').count() === 1);
 ok('E3 catalogue : recherche locale', await p.locator('input[aria-label="Rechercher un service"]').count() === 1);
-ok('E3 catalogue : 18 services publics rendus', await p.locator('a[href^="#/service/"]').count() >= 22, `${await p.locator('a[href^="#/service/"]').count()} liens`);
+// Catalogue : au moins 18 services publics, et AUCUN doublon (les liens
+// « Les plus demandés »/« En vedette » dupliqués ont été supprimés — la
+// présence d'un href répété doit faire échouer ce test).
+{
+  const links = await p.locator('a[href^="#/service/"]').evaluateAll((els) => els.map((e) => e.getAttribute('href')));
+  const uniques = new Set(links).size;
+  ok('E3 catalogue : services publics rendus sans doublon', links.length >= 18 && links.length === uniques, `${links.length} liens, ${uniques} uniques`);
+}
 const faq = await p.locator('#faq details').count();
 ok('E3 FAQ héritée (4 questions)', faq >= 4, `${faq} questions`);
 
@@ -86,7 +93,7 @@ await p.waitForSelector('text=Écouteurs Bluetooth E2E', { timeout: 10000 });
 ok('E5 nav Boutique active', await p.locator('header nav a[aria-current="page"]').filter({ hasText: 'Boutique' }).count() === 1);
 ok('E5 panier visible en univers Market', await p.locator('header a[href="#/boutique/panier"]').isVisible());
 ok('E5 produits e2e rendus', true);
-ok('E5 lien suivi (header Market)', await p.locator('header a[href="#/boutique/suivi"]').isVisible());
+ok('E5 plus de lien suivi (supprimé)', (await p.locator('header a[href="#/boutique/suivi"]').count()) === 0);
 
 // --- 6. Fiche produit : variantes + ajout panier ---
 await p.goto(BASE + '/#/boutique/produit/e2e-nav-ecouteurs-bluetooth', { waitUntil: 'load' });
@@ -131,21 +138,16 @@ await p.locator('input[type="checkbox"]').check();
 await p.getByRole('button', { name: /Envoyer ma demande de commande/ }).click();
 await p.waitForSelector('text=Votre demande est envoyée', { timeout: 8000 });
 ok('E8 succès commande', true);
-const trackCode = (await p.locator('strong.font-mono').first().innerText()).trim();
-ok('E8 code de suivi reçu', /^[A-Z0-9]{4,8}-\d{3,}$/.test(trackCode) || trackCode.length >= 6, trackCode);
+const orderRef = (await p.locator('strong.font-mono').first().innerText()).trim();
+ok('E8 référence commande reçue (suivi public supprimé)', /^MKT-/.test(orderRef), orderRef);
+ok('E8 aucun code de suivi affiché', (await p.locator('text=code de suivi').count()) === 0);
 ok('E8 panier vidé après commande (badge disparu)', (await p.locator('header a[href="#/boutique/panier"] span').count()) === 0);
-
-// --- 9. Suivi de la commande ---
-await p.locator(`a[href="#/boutique/suivi?code=${trackCode}"]`).click();
-await p.waitForSelector(`text=${trackCode}`, { timeout: 10000 });
-ok('E9 suivi : commande trouvée', true);
 
 // --- 10. Routes fonctionnelles préservées ---
 for (const [path, marker] of [
   ['/demande', 'Décrivez votre besoin'],
   ['/univers/' + 'bricolage-reparations', ''],
   ['/service/intervention-plomberie', ''],
-  ['/boutique/suivi', 'code'],
   ['/mentions-legales', 'Mentions légales'],
   ['/cgv', 'Conditions'],
   ['/confidentialite', 'Confidentialité'],
@@ -178,7 +180,7 @@ await p.waitForSelector('nav[aria-label="Navigation mobile"]', { timeout: 10000 
 // --- 12. Bottom nav ---
 ok('M12 bottom nav visible (mobile)', await p.locator('nav[aria-label="Navigation mobile"]').isVisible());
 const items = await p.locator('nav[aria-label="Navigation mobile"] a').all();
-ok('M12 cinq destinations', items.length === 5, `${items.length}`);
+ok('M12 quatre destinations (suivi supprimé)', items.length === 4, `${items.length}`);
 ok('M12 libellés', (await p.locator('nav[aria-label="Navigation mobile"]').innerText()).includes('Accueil') && (await p.locator('nav[aria-label="Navigation mobile"]').innerText()).includes('Panier'));
 const navBox = await p.locator('nav[aria-label="Navigation mobile"]').boundingBox();
 ok('M12 collée en bas de l’écran', Math.abs(navBox.y + navBox.height - 844) <= 60, JSON.stringify(navBox));

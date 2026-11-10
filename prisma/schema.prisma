@@ -607,7 +607,7 @@ model ServiceRequestFile {
   id               String   @id @default(cuid())
   leadId           String? // renseigné à la soumission de la demande (rattachement tardif)
   lead             Lead?    @relation(fields: [leadId], references: [id])
-  requirementLabel String? @db.Text // snapshot du libellé d'exigence : « Votre logo »
+  requirementLabel String?  @db.Text // snapshot du libellé d'exigence : « Votre logo »
   bucket           String
   path             String   @unique
   mimeType         String
@@ -619,46 +619,46 @@ model ServiceRequestFile {
 }
 
 model MarketDeliveryProof {
-  id           String       @id @default(cuid())
+  id           String      @id @default(cuid())
   orderId      String
-  order        MarketOrder  @relation(fields: [orderId], references: [id])
+  order        MarketOrder @relation(fields: [orderId], references: [id])
   bucket       String
-  path         String       @unique
+  path         String      @unique
   mimeType     String
   sizeBytes    Int
   originalName String
-  createdAt    DateTime     @default(now())
+  createdAt    DateTime    @default(now())
 
   @@index([orderId])
 }
 
 model Lead {
-  requestKey      String?      @unique
+  requestKey      String?              @unique
   history         LeadEvent[]
   files           ServiceRequestFile[]
-  operationsNotes String?      @db.Text
+  operationsNotes String?              @db.Text
   lostReason      String?
   archiveBatchId  String?
-  archiveBatch    ExportBatch? @relation(fields: [archiveBatchId], references: [id])
-  id              String       @id @default(cuid())
+  archiveBatch    ExportBatch?         @relation(fields: [archiveBatchId], references: [id])
+  id              String               @id @default(cuid())
   customerId      String?
-  customer        Customer?    @relation(fields: [customerId], references: [id])
-  source          LeadSource   @default(WHATSAPP)
+  customer        Customer?            @relation(fields: [customerId], references: [id])
+  source          LeadSource           @default(WHATSAPP)
   campaign        String?
   serviceId       String?
-  service         Service?     @relation(fields: [serviceId], references: [id])
+  service         Service?             @relation(fields: [serviceId], references: [id])
   cityId          String?
-  city            City?        @relation(fields: [cityId], references: [id])
-  description     String?      @db.Text // raw customer need as expressed
+  city            City?                @relation(fields: [cityId], references: [id])
+  description     String?              @db.Text // raw customer need as expressed
   deadline        String?
   budgetMin       Int? // FCFA
   budgetMax       Int? // FCFA
   zoneName        String? // free-text quartier as typed by the customer (fine Zone mapping later)
   meta            Json? // collection context: clientType, referrer, landing, device, consentAt
-  status          LeadStatus   @default(NEW)
+  status          LeadStatus           @default(NEW)
   orders          Order[]
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
 
   @@index([archiveBatchId])
   @@index([status])
@@ -860,31 +860,32 @@ model MarketProduct {
 }
 
 model MarketOrder {
-  id          String             @id @default(cuid())
-  orderNumber String             @unique
-  trackCode   String             @unique // code de suivi public (sans données personnelles)
-  customerId  String?
-  customer    Customer?          @relation(fields: [customerId], references: [id])
-  status      MarketOrderStatus  @default(REQUESTED)
-  source      String             @default("SITE")
-  requestKey  String?            @unique // anti double-clic
-  name        String //nom au moment de la commande
-  phone       String // E.164
-  zoneName    String
-  address     String?
-  notes       String?            @db.Text
-  deliveryFee Int? // frais de livraison confirmés (client)
-  confirmedAt DateTime?
-  deliveredAt DateTime?
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-  items       MarketOrderItem[]
-  events      MarketOrderEvent[]
+  id             String                @id @default(cuid())
+  orderNumber    String                @unique
+  trackCode      String                @unique // code de suivi public (sans données personnelles)
+  customerId     String?
+  customer       Customer?             @relation(fields: [customerId], references: [id])
+  status         MarketOrderStatus     @default(REQUESTED)
+  source         String                @default("SITE")
+  requestKey     String?               @unique // anti double-clic
+  name           String //nom au moment de la commande
+  phone          String // E.164
+  zoneName       String
+  address        String?
+  notes          String?               @db.Text
+  deliveryFee    Int? // frais de livraison confirmés (client)
+  confirmedAt    DateTime?
+  deliveredAt    DateTime?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  items          MarketOrderItem[]
+  events         MarketOrderEvent[]
   deliveryProofs MarketDeliveryProof[]
-  payments    MarketPayment[]
-  quotes      MarketQuote[]
-  refunds     MarketRefund[]
-  delivery    MarketDelivery?
+  payments       MarketPayment[]
+  quotes         MarketQuote[]
+  refunds        MarketRefund[]
+  delivery       MarketDelivery?
+  expenses       MarketExpense[]       @relation("MarketOrderExpenses")
 
   @@index([status])
   @@index([createdAt])
@@ -1015,6 +1016,9 @@ enum MarketExpenseCategory {
   CLEARANCE // frais de dédouanement
   LOCAL_TRANSPORT
   PACKAGING
+  PURCHASE // achat marchandise (relevé par commande)
+  RENT // loyer
+  COMMUNICATION // data / téléphone / internet
   OTHER
 }
 
@@ -1028,6 +1032,8 @@ model MarketExpense {
   id               String                  @id @default(cuid())
   batchId          String?
   batch            MarketProcurementBatch? @relation(fields: [batchId], references: [id])
+  orderId          String?
+  order            MarketOrder?            @relation("MarketOrderExpenses", fields: [orderId], references: [id])
   label            String
   category         MarketExpenseCategory
   amount           Int // FCFA
@@ -1039,6 +1045,7 @@ model MarketExpense {
   createdAt        DateTime                @default(now())
 
   @@index([batchId])
+  @@index([orderId])
 }
 
 // -------------------------- Analytics funnel V2 -----------------------------

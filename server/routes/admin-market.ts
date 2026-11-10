@@ -7,6 +7,7 @@ import {
   MARKET_STATUS_LABELS, type MarketAllocationMethod, type MarketBatchStatusV2, type MarketOrderStatus, type MarketPaymentStatus,
 } from '../../src/lib/market';
 import { nextDocumentNumber, serialTransaction } from '../lib/transaction';
+import { computeLedger, EXPENSE_CATEGORY_LABELS, PAYMENT_METHOD_LABELS, type LedgerPaymentStatus } from '../../src/lib/market-ledger';
 
 /**
  * API admin Fika Market 2.0 — catalogue, devis, commandes, paiements,
@@ -436,6 +437,9 @@ const paymentSchema = z.object({
   amount: z.number().int().min(100).max(50_000_000),
   method: z.enum(['MTN_MOMO', 'ORANGE_MONEY', 'CASH']),
   reference: z.string().trim().max(80).optional(),
+  /* Relevés : le fondateur qui écrit un encaissement déjà reçu le confirme
+     directement (une seule écriture au lieu de saisir puis confirmer). */
+  confirm: z.boolean().default(false),
 });
 
 export async function recordMarketPayment(body: unknown, adminId: string): Promise<R> {
@@ -445,8 +449,19 @@ export async function recordMarketPayment(body: unknown, adminId: string): Promi
   return serialTransaction(async tx => {
     const order = await tx.marketOrder.findUnique({ where: { id: d.orderId } });
     if (!order) return fail(404, 'Commande introuvable.');
-    await tx.marketPayment.create({ data: { orderId: d.orderId, amount: d.amount, method: d.method, reference: d.reference ?? null, status: 'PENDING', createdById: adminId } });
-    return ok();
+    const payment = await tx.marketPayment.create({
+      data: {
+        orderId: d.orderId, amount: d.amount, method: d.method, reference: d.reference ?? null,
+        status: d.confirm ? 'CONFIRMED' : 'PENDING', createdById: adminId,
+        confirmedById: d.confirm ? adminId : null, confirmedAt: d.confirm ? new Date() : null,
+      },
+    });
+    // Première confirmation : la commande devient ferme (même logique que la revue).
+    if (d.confirm && ['AWAITING_CLIENT', 'AWAITING_PAYMENT'].includes(order.status)) {
+      await tx.marketOrder.update({ where: { id: order.id }, data: { status: 'CONFIRMED', confirmedAt: new Date() } });
+      await tx.marketOrderEvent.create({ data: { orderId: order.id, from: order.status, to: 'CONFIRMED', actorId: adminId, note: 'Paiement vérifié (relevé).' } });
+    }
+    return ok({ paymentId: payment.id });
   });
 }
 
@@ -614,28 +629,34 @@ export async function assignMarketItem(body: unknown): Promise<R> {
 /* ----------------------- Dépenses & allocation des lots -------------------- */
 
 const expenseSchema = z.object({
-  batchId: z.string().min(1),
+  batchId: z.string().min(1).optional(),
+  /* Relevés : dépense rattachée à une commande (coût payé pour elle). */
+  orderId: z.string().min(1).optional(),
   label: z.string().trim().min(2).max(120),
-  category: z.enum(['FREIGHT', 'INSURANCE', 'CUSTOMS', 'CLEARANCE', 'LOCAL_TRANSPORT', 'PACKAGING', 'OTHER']),
+  category: z.enum(['FREIGHT', 'INSURANCE', 'CUSTOMS', 'CLEARANCE', 'LOCAL_TRANSPORT', 'PACKAGING', 'PURCHASE', 'RENT', 'COMMUNICATION', 'OTHER']),
   amount: z.number().int().min(0).max(100_000_000),
   allocationMethod: z.enum(['VALUE', 'QUANTITY', 'FLAT']).default('VALUE'),
   note: z.string().trim().max(500).optional(),
 });
 
-export const MARKET_EXPENSE_LABELS: Record<string, string> = {
-  FREIGHT: 'Fret international', INSURANCE: 'Assurance', CUSTOMS: 'Droits et taxes',
-  CLEARANCE: 'Dédouanement', LOCAL_TRANSPORT: 'Transport local', PACKAGING: 'Emballage', OTHER: 'Autre',
-};
+export const MARKET_EXPENSE_LABELS: Record<string, string> = EXPENSE_CATEGORY_LABELS;
 
 export async function saveMarketExpense(body: unknown, adminId: string): Promise<R> {
   const parsed = expenseSchema.safeParse(body);
   if (!parsed.success) return fail(400, parsed.error.issues[0].message);
   const d = parsed.data;
-  const batch = await prisma.marketProcurementBatch.findUnique({ where: { id: d.batchId } });
-  if (!batch) return fail(404, 'Lot introuvable.');
+  if (d.batchId) {
+    const batch = await prisma.marketProcurementBatch.findUnique({ where: { id: d.batchId } });
+    if (!batch) return fail(404, 'Lot introuvable.');
+  }
+  if (d.orderId) {
+    const order = await prisma.marketOrder.findUnique({ where: { id: d.orderId } });
+    if (!order) return fail(404, 'Commande introuvable.');
+  }
   await prisma.marketExpense.create({
     data: {
-      batchId: d.batchId, label: d.label, category: d.category, amount: d.amount,
+      batchId: d.batchId ?? null, orderId: d.orderId ?? null,
+      label: d.label, category: d.category, amount: d.amount,
       allocationMethod: d.allocationMethod, note: d.note ?? null, createdById: adminId,
     },
   });
@@ -826,5 +847,61 @@ export async function getMarketOverview(): Promise<Record<string, unknown>> {
     topProducts: Object.entries(orders.flatMap((o) => o.items.map((i) => i.productName))
       .reduce<Record<string, number>>((acc, name) => { acc[name] = (acc[name] ?? 0) + 1; return acc; }, {}))
       .sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, n]) => ({ name, count: n })),
+  };
+}
+
+/* --------------------------------- Relevés --------------------------------- */
+
+/**
+ * GET /api/admin/market/ledger — relevés & marges.
+ * Le fondateur écrit ses relevés (encaissements / coûts payés) ; cette vue
+ * calcule directement : totaux, solde, ventilation par catégorie et marge
+ * par commande. La marge n'est pas un « profit net » : les coûts partagés
+ * (lots, charges générales) n'y sont pas alloués.
+ */
+export async function getMarketLedger(): Promise<
+  { status: 200; body: {
+    totals: { encaisse: number; depense: number; solde: number };
+    byCategory: { category: string; label: string; total: number }[];
+    orders: {
+      id: string; orderNumber: string; customerName: string | null; status: string; statusLabel: string;
+      encaisse: number; paye: number; marge: number;
+    }[];
+    payments: { id: string; orderNumber: string; amount: number; method: string; methodLabel: string; status: LedgerPaymentStatus; reference: string | null; createdAt: string }[];
+    expenses: { id: string; orderNumber: string | null; label: string; category: string; categoryLabel: string; amount: number; note: string | null; incurredAt: string }[];
+  } }
+> {
+  const [payments, expenses, orders] = await Promise.all([
+    prisma.marketPayment.findMany({ orderBy: { createdAt: 'desc' }, select: { id: true, orderId: true, amount: true, method: true, status: true, reference: true, createdAt: true } }),
+    prisma.marketExpense.findMany({ orderBy: { incurredAt: 'desc' }, select: { id: true, orderId: true, label: true, category: true, amount: true, note: true, incurredAt: true } }),
+    prisma.marketOrder.findMany({ orderBy: { createdAt: 'desc' }, select: { id: true, orderNumber: true, status: true, createdAt: true, customer: { select: { name: true } } } }),
+  ]);
+
+  const numberById = new Map(orders.map((o) => [o.id, o.orderNumber]));
+  const calc = computeLedger(
+    payments.map((p) => ({ orderId: p.orderId, amount: p.amount, status: p.status, method: p.method })),
+    expenses.map((e) => ({ orderId: e.orderId, amount: e.amount, category: e.category })),
+    orders.map((o) => ({ id: o.id, orderNumber: o.orderNumber, customerName: o.customer?.name ?? null, status: o.status })),
+  );
+
+  return {
+    status: 200,
+    body: {
+      totals: calc.totals,
+      byCategory: calc.byCategory,
+      orders: calc.orders.map((o) => ({
+        ...o, statusLabel: MARKET_STATUS_LABELS[o.status as MarketOrderStatus] ?? o.status,
+      })),
+      payments: payments.map((p) => ({
+        id: p.id, orderNumber: numberById.get(p.orderId) ?? '—', amount: p.amount,
+        method: p.method ?? '—', methodLabel: p.method ? (PAYMENT_METHOD_LABELS[p.method] ?? p.method) : '—',
+        status: p.status, reference: p.reference, createdAt: p.createdAt.toISOString(),
+      })),
+      expenses: expenses.map((e) => ({
+        id: e.id, orderNumber: e.orderId ? (numberById.get(e.orderId) ?? '—') : null,
+        label: e.label, category: e.category, categoryLabel: EXPENSE_CATEGORY_LABELS[e.category] ?? e.category,
+        amount: e.amount, note: e.note, incurredAt: e.incurredAt.toISOString(),
+      })),
+    },
   };
 }

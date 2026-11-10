@@ -48,7 +48,6 @@ export function Footer() {
             <ul className="space-y-1.5 text-xs">
               <li><Link to="/boutique" className="text-brand-text-muted hover:text-brand-accent transition-colors py-1 inline-block">Fika Market</Link></li>
               <li><Link to="/boutique/panier" className="text-brand-text-muted hover:text-brand-accent transition-colors py-1 inline-block">Mon panier</Link></li>
-              <li><Link to="/boutique/suivi" className="text-brand-text-muted hover:text-brand-accent transition-colors py-1 inline-block">Suivre ma commande</Link></li>
             </ul>
           </div>
 

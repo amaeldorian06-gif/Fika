@@ -2,11 +2,10 @@ import { useState } from 'react';
 import { ArrowRight, ChevronDown, MessageCircle, Search } from 'lucide-react';
 import { getWALink } from '../lib/whatsapp';
 import { trackWaClick } from '../lib/tracking';
-import { getCategories, getPopularServices, getServices } from '../lib/catalog';
-import { displayPrice, getCityPricing } from '../lib/pricing';
+import { getCategories, getServices } from '../lib/catalog';
 import { FAQS } from '../lib/data';
 import { Button, UniverseIcon } from './ui';
-import { Link, navigate } from '../router';
+import { Link } from '../router';
 import { NeedIllustration } from './NeedIllustration';
 import { ServiceCard } from './ServiceCard';
 
@@ -40,7 +39,6 @@ export function ServicesPage() {
   const [query, setQuery] = useState('');
 
   const universes = getCategories();
-  const topServices = getPopularServices(4);
   const services = getServices();
 
   const filtered = services.filter((s) => {
@@ -99,27 +97,9 @@ export function ServicesPage() {
         </div>
       </section>
 
-      {/* Top services avec prix */}
-      <section aria-labelledby="top-services" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-16">
-        <h2 id="top-services" className="text-2xl font-heading font-bold mb-6 text-brand-text">Les plus demandés</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {topServices.map((s) => (
-            <article
-              key={s.id}
-              className="p-6 rounded-3xl bg-brand-surface border border-brand-border flex flex-col hover:shadow-premium transition-shadow"
-            >
-              <h3 className="font-heading font-bold text-xl mb-2 text-brand-text">{s.name}</h3>
-              <p className="font-heading font-bold text-brand-accent mb-2">{displayPrice(s, getCityPricing(s.id))}</p>
-              <p className="text-sm text-brand-text-muted leading-relaxed flex-1 mb-6">{s.shortDescription}</p>
-              <Button asChild variant="outline" className="w-full">
-                <Link to={`/service/${s.slug}`}>Voir le service</Link>
-              </Button>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      {/* Catalogue complet */}
+      {/* Catalogue complet — seule liste de services de la page : les services
+          populaires y portent déjà le badge « Populaire » et le prix (ServiceCard),
+          pas de section « Les plus demandés » dupliquée. */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <h2 className="text-2xl font-heading font-bold mb-6 text-brand-text">Catalogue complet</h2>
         <div className="flex flex-col lg:flex-row lg:items-center gap-6 mb-10">
@@ -168,29 +148,6 @@ export function ServicesPage() {
           </div>
         )}
       </section>
-
-      {/* Besoin hors catalogue */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-16 p-8 md:p-12 rounded-3xl bg-brand-surface border border-brand-border text-center">
-        <h2 className="font-heading text-2xl md:text-3xl font-bold mb-4 text-brand-text">Vous ne trouvez pas votre besoin ?</h2>
-        <p className="text-brand-text-muted mb-8 max-w-xl mx-auto">
-          Décrivez-nous simplement ce que vous cherchez, nous verrons comment le prendre en charge.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Button variant="primary" className="rounded-full px-8" onClick={() => navigate('/demande')}>
-            Décrire mon besoin
-          </Button>
-          <Button asChild variant="whatsapp" className="rounded-full px-8">
-            <a
-              href={getWALink('Bonjour Fika 👋, je ne trouve pas mon service dans le catalogue.')}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => trackWaClick({ context: 'services-page' })}
-            >
-              <MessageCircle className="w-4 h-4 mr-2" /> Nous écrire
-            </a>
-          </Button>
-        </div>
-      </div>
 
       {/* FAQ */}
       <section id="faq" className="max-w-3xl mx-auto px-5 pt-16 pb-4">

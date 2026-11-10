@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import {
-  Activity, BarChart, Briefcase, Inbox, LogOut, Package, Store, Tags, Users, ChevronRight, Loader2,
+  Activity, BarChart, Briefcase, Calculator, Inbox, LogOut, Package, Store, Tags, Users, ChevronRight, Loader2,
 } from 'lucide-react';
 import { Link, navigate } from '../../router';
 import { fetchSession, fetchOrders, logout, type AdminIdentity } from '../../lib/admin/api';
@@ -23,6 +23,7 @@ export const ADMIN_NAV = [
   { path: '/admin/analytics', label: 'Analytiques', icon: BarChart },
   { path: '/admin/market', label: 'Fika Market', icon: Store },
   { path: '/admin/market/catalog', label: 'Catalogue produits', icon: Tags },
+  { path: '/admin/market/releves', label: 'Relevés & marges', icon: Calculator },
 ] as const;
 
 export function AdminShell({

@@ -180,3 +180,31 @@ export async function saveMarketDelivery(orderId: string, payload: {
 }): Promise<{ ok: true }> {
   return await postJson('/api/admin/market/delivery', { orderId, ...payload });
 }
+
+/* --------------------------------- Relevés --------------------------------- */
+
+export interface MarketLedgerDto {
+  totals: { encaisse: number; depense: number; solde: number };
+  byCategory: { category: string; label: string; total: number }[];
+  orders: {
+    id: string; orderNumber: string; customerName: string | null; status: string; statusLabel: string;
+    encaisse: number; paye: number; marge: number;
+  }[];
+  payments: { id: string; orderNumber: string; amount: number; method: string; methodLabel: string; status: 'PENDING' | 'CONFIRMED' | 'REJECTED'; reference: string | null; createdAt: string }[];
+  expenses: { id: string; orderNumber: string | null; label: string; category: string; categoryLabel: string; amount: number; note: string | null; incurredAt: string }[];
+}
+
+export async function fetchMarketLedger(): Promise<MarketLedgerDto> {
+  return await getJson('/api/admin/market/ledger');
+}
+
+/** Encaissement écrit par le fondateur : confirmé directement (relevé). */
+export async function recordLedgerPayment(orderId: string, amount: number, method: MarketPaymentMethod, reference?: string): Promise<{ ok: true }> {
+  return await postJson('/api/admin/market/payments', { orderId, amount, method, reference, confirm: true });
+}
+
+export async function saveLedgerExpense(payload: {
+  orderId?: string; label: string; category: string; amount: number; note?: string;
+}): Promise<{ ok: true }> {
+  return await postJson('/api/admin/market/expenses', payload);
+}

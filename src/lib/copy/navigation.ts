@@ -12,7 +12,6 @@ export const COPY_NAV = {
   },
   actions: {
     search: 'Rechercher un service ou un produit',
-    track: 'Suivre ma commande',
     cart: 'Mon panier',
     describeNeed: 'Décrire mon besoin',
     whatsapp: 'WhatsApp',
@@ -21,7 +20,6 @@ export const COPY_NAV = {
     home: 'Accueil',
     boutique: 'Boutique',
     services: 'Services',
-    suivi: 'Suivi',
     panier: 'Panier',
   },
   entry: {
@@ -46,7 +44,6 @@ export const COPY_NAV = {
     ],
     shortcuts: {
       describe: 'Décrire mon besoin directement',
-      track: 'Suivre ma commande',
     },
   },
   search: {
