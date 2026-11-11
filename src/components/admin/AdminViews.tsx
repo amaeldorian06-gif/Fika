@@ -1500,6 +1500,27 @@ export function AdminAnalytics() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+        {/* Recherches services */}
+        <div className="bg-brand-surface rounded-2xl border border-brand-border p-6">
+          <h2 className="font-heading font-bold text-brand-text mb-1">Recherches sur la page services</h2>
+          <p className="text-xs text-brand-text-muted mb-4">Ce que les visiteurs tapent. Les recherches sans résultat signalent une demande à étudier.</p>
+          {c.searches.length === 0 ? (
+            <p className="text-sm text-brand-text-muted">Aucune recherche sur la période.</p>
+          ) : (
+            <ul className="space-y-2">
+              {c.searches.map((r) => (
+                <li key={r.query} className="flex items-center gap-3 text-sm">
+                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${r.zeroResult ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-brand-bg text-brand-text-muted border-brand-border'}`}>
+                    {r.zeroResult ? 'Sans résultat' : `${r.lastResults} résultat${r.lastResults > 1 ? 's' : ''}`}
+                  </span>
+                  <span className="font-semibold text-brand-text truncate">{r.query}</span>
+                  <span className="ml-auto font-extrabold text-brand-text">{r.count}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
         {/* Sources */}
         <div className="bg-brand-surface rounded-2xl border border-brand-border p-6">
           <h2 className="font-heading font-bold text-brand-text mb-1">Sources de trafic</h2>

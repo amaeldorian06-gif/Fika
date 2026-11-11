@@ -15,7 +15,7 @@ const b = await chromium.launch();
 // Warm-up : compilation Vite + premier appel API (cold start ~3s) hors assertions.
 {
   const w = await b.newPage();
-  await w.goto(BASE + '/#/boutique', { waitUntil: 'load' });
+  await w.goto(BASE + '/boutique', { waitUntil: 'load' });
   await w.waitForSelector('text=Écouteurs Bluetooth E2E', { timeout: 20000 });
   await w.close();
 }
@@ -38,49 +38,53 @@ ok('E1 entry : égalité visuelle des cartes', await p.evaluate(() => {
   const r = cards.map((c) => c.getBoundingClientRect());
   return Math.abs(r[0].height - r[1].height) < 2 && Math.abs(r[0].width - r[1].width) < 2;
 }));
-ok('E1 entry : header sans panier vide (univers neutre)', !(await p.locator('header a[href="#/boutique/panier"]').count()));
+ok('E1 entry : header sans panier vide (univers neutre)', !(await p.locator('header a[href="/boutique/panier"]').count()));
 
 // --- 2. Compat ancres héritées ---
 await p.goto(BASE + '/#services', { waitUntil: 'load' });
 await p.waitForTimeout(600);
-ok('E2 ancre /#services redirigée vers /services', p.url().includes('/#/services#services') || p.url().includes('/#/services'));
+ok('E2 ancre /#services redirigée vers /services', p.url().includes('/services#services') || p.url().endsWith('/services'));
 ok('E2 section #services présente', await p.locator('#services').count() === 1);
 await p.goto(BASE + '/#faq', { waitUntil: 'load' });
 await p.waitForTimeout(600);
-ok('E2 ancre /#faq redirigée', p.url().includes('/#/services#faq'));
+ok('E2 ancre /#faq redirigée', p.url().includes('/services#faq'));
 ok('E2 section #faq présente', await p.locator('#faq').count() === 1);
 
 // --- 3. Univers Services ---
-await p.goto(BASE + '/#/services', { waitUntil: 'load' });
+await p.goto(BASE + '/services', { waitUntil: 'load' });
 await p.waitForSelector('#faq details', { timeout: 10000 });
 ok('E3 hero services', (await p.locator('h1').innerText()).includes('Fika s’occupe du reste'));
 ok('E3 nav Services active', await p.locator('header nav a[aria-current="page"]').filter({ hasText: 'Services' }).count() === 1);
-ok('E3 CTA Décrire mon besoin (header, univers services)', await p.locator('header a[href="#/demande"]').first().isVisible());
+ok('E3 CTA Décrire mon besoin (header, univers services)', await p.locator('header a[href="/demande"]').first().isVisible());
 ok('E3 comment-ca-marche', await p.locator('#comment-ca-marche').count() === 1);
-ok('E3 catalogue : recherche locale', await p.locator('input[aria-label="Rechercher un service"]').count() === 1);
-// Catalogue : au moins 18 services publics, et AUCUN doublon (les liens
-// « Les plus demandés »/« En vedette » dupliqués ont été supprimés — la
-// présence d'un href répété doit faire échouer ce test).
+ok('E3 recherche : barre présente', await p.locator('input[aria-label="Rechercher un service"]').count() === 1);
+ok('E3 catalogue complet supprimé (aucune liste par défaut)', (await p.locator('a[href^="/service/"]').count()) === 0);
+// La recherche doit rendre les services trouvables, sans doublon d'affichage.
 {
-  const links = await p.locator('a[href^="#/service/"]').evaluateAll((els) => els.map((e) => e.getAttribute('href')));
+  await p.fill('input[aria-label="Rechercher un service"]', 'depannage');
+  await p.waitForSelector('a[href^="/service/"]', { timeout: 10000 });
+  const links = await p.locator('a[href^="/service/"]').evaluateAll((els) => els.map((e) => e.getAttribute('href')));
   const uniques = new Set(links).size;
-  ok('E3 catalogue : services publics rendus sans doublon', links.length >= 18 && links.length === uniques, `${links.length} liens, ${uniques} uniques`);
+  ok('E3 recherche : services trouvés sans doublon', links.length >= 4 && links.length === uniques, `${links.length} liens, ${uniques} uniques`);
+  await p.fill('input[aria-label="Rechercher un service"]', '');
+  await p.waitForTimeout(300);
+  ok('E3 recherche vidée : résultats retirés', (await p.locator('a[href^="/service/"]').count()) === 0);
 }
 const faq = await p.locator('#faq details').count();
 ok('E3 FAQ héritée (4 questions)', faq >= 4, `${faq} questions`);
 
 // --- 4. Recherche globale ---
-await p.goto(BASE + '/#/services', { waitUntil: 'load' });
+await p.goto(BASE + '/services', { waitUntil: 'load' });
 await p.locator('header button[aria-label*="Rechercher"]').click();
 await p.waitForTimeout(300);
 ok('E4 overlay ouvert + focus input', await p.evaluate(() => document.activeElement?.type === 'search'));
-await p.locator('input[type="search"]').fill('plomberie');
+await p.locator('[role="dialog"] input[type="search"]').fill('plomberie');
 await p.waitForTimeout(250);
 ok('E4 résultats services (plomberie)', await p.locator('#search-services li, [aria-labelledby="search-services"] li').first().isVisible());
-await p.locator('input[type="search"]').fill('zzqqyynope');
+await p.locator('[role="dialog"] input[type="search"]').fill('zzqqyynope');
 await p.waitForTimeout(250);
 ok('E4 aucun résultat honnête', await p.getByText('Aucun résultat pour cette recherche.').isVisible());
-await p.locator('input[type="search"]').fill('écouteurs');
+await p.locator('[role="dialog"] input[type="search"]').fill('écouteurs');
 await p.waitForSelector('[aria-labelledby="search-products"] li a', { timeout: 10000 });
 ok('E4 résultats produits (écouteurs, API réelle)', true);
 await p.keyboard.press('Escape');
@@ -88,15 +92,15 @@ await p.waitForTimeout(200);
 ok('E4 Escape ferme l’overlay', !(await p.locator('[role="dialog"]').count()));
 
 // --- 5. Boutique ---
-await p.goto(BASE + '/#/boutique', { waitUntil: 'load' });
+await p.goto(BASE + '/boutique', { waitUntil: 'load' });
 await p.waitForSelector('text=Écouteurs Bluetooth E2E', { timeout: 10000 });
 ok('E5 nav Boutique active', await p.locator('header nav a[aria-current="page"]').filter({ hasText: 'Boutique' }).count() === 1);
-ok('E5 panier visible en univers Market', await p.locator('header a[href="#/boutique/panier"]').isVisible());
+ok('E5 panier visible en univers Market', await p.locator('header a[href="/boutique/panier"]').isVisible());
 ok('E5 produits e2e rendus', true);
-ok('E5 plus de lien suivi (supprimé)', (await p.locator('header a[href="#/boutique/suivi"]').count()) === 0);
+ok('E5 plus de lien suivi (supprimé)', (await p.locator('header a[href="/boutique/suivi"]').count()) === 0);
 
 // --- 6. Fiche produit : variantes + ajout panier ---
-await p.goto(BASE + '/#/boutique/produit/e2e-nav-ecouteurs-bluetooth', { waitUntil: 'load' });
+await p.goto(BASE + '/boutique/produit/e2e-nav-ecouteurs-bluetooth', { waitUntil: 'load' });
 await p.waitForSelector('fieldset legend', { timeout: 10000 });
 ok('E6 variantes rendues', await p.locator('fieldset legend').filter({ hasText: 'Couleur' }).isVisible());
 ok('E6 bouton variante Blanc', await p.getByRole('button', { name: 'Blanc', exact: true }).isVisible());
@@ -105,16 +109,16 @@ await p.getByRole('button', { name: 'Augmenter la quantité' }).click();
 await p.getByRole('button', { name: /Ajouter au panier/ }).click();
 await p.waitForTimeout(300);
 ok('E6 feedback « Ajouté au panier »', await p.getByText('Ajouté au panier').isVisible());
-ok('E6 badge panier = 2', (await p.locator('header a[href="#/boutique/panier"] span').last().innerText()) === '2');
+ok('E6 badge panier = 2', (await p.locator('header a[href="/boutique/panier"] span').last().innerText()) === '2');
 // deuxième produit
-await p.goto(BASE + '/#/boutique/produit/e2e-nav-cable-usb', { waitUntil: 'load' });
+await p.goto(BASE + '/boutique/produit/e2e-nav-cable-usb', { waitUntil: 'load' });
 await p.waitForSelector('button:has-text("Ajouter au panier")', { timeout: 10000 });
 await p.getByRole('button', { name: /Ajouter au panier/ }).click();
 await p.waitForTimeout(300);
-ok('E6 badge panier = 3 (2 refs)', (await p.locator('header a[href="#/boutique/panier"] span').last().innerText()) === '3');
+ok('E6 badge panier = 3 (2 refs)', (await p.locator('header a[href="/boutique/panier"] span').last().innerText()) === '3');
 
 // --- 7. Page panier ---
-await p.goto(BASE + '/#/boutique/panier', { waitUntil: 'load' });
+await p.goto(BASE + '/boutique/panier', { waitUntil: 'load' });
 await p.waitForSelector('text=Couleur : Blanc', { timeout: 10000 });
 ok('E7 2 lignes panier', await p.locator('ul li').filter({ has: p.getByText('Écouteurs Bluetooth E2E') }).count() === 1);
 ok('E7 variante affichée (Couleur : Blanc)', await p.getByText('Couleur : Blanc').isVisible());
@@ -141,7 +145,7 @@ ok('E8 succès commande', true);
 const orderRef = (await p.locator('strong.font-mono').first().innerText()).trim();
 ok('E8 référence commande reçue (suivi public supprimé)', /^MKT-/.test(orderRef), orderRef);
 ok('E8 aucun code de suivi affiché', (await p.locator('text=code de suivi').count()) === 0);
-ok('E8 panier vidé après commande (badge disparu)', (await p.locator('header a[href="#/boutique/panier"] span').count()) === 0);
+ok('E8 panier vidé après commande (badge disparu)', (await p.locator('header a[href="/boutique/panier"] span').count()) === 0);
 
 // --- 10. Routes fonctionnelles préservées ---
 for (const [path, marker] of [
@@ -155,14 +159,14 @@ for (const [path, marker] of [
   const r = await p.request.get(BASE + '/#' + path);
   ok(`E10 route ${path} servie (HTTP 200)`, r.status() === 200);
 }
-await p.goto(BASE + '/#/demande', { waitUntil: 'load' });
+await p.goto(BASE + '/demande', { waitUntil: 'load' });
 await p.waitForSelector('form', { timeout: 10000 });
 ok('E10 formulaire demande rendu', true);
 ok('E10 footer colonnes deux univers', (await p.locator('footer h4').filter({ hasText: 'Services' }).count()) === 1 && (await p.locator('footer h4').filter({ hasText: 'Boutique' }).count()) === 1);
 ok('E10 skip-link présent', await p.getByRole('link', { name: 'Aller au contenu' }).count() === 1);
 
 // --- 11. 404 honnête ---
-await p.goto(BASE + '/#/nimporte-quoi', { waitUntil: 'load' });
+await p.goto(BASE + '/nimporte-quoi', { waitUntil: 'load' });
 await p.waitForSelector('h1:has-text("Page introuvable")', { timeout: 5000 });
 ok('E11 404 avec retour accueil', true);
 
@@ -186,16 +190,16 @@ const navBox = await p.locator('nav[aria-label="Navigation mobile"]').boundingBo
 ok('M12 collée en bas de l’écran', Math.abs(navBox.y + navBox.height - 844) <= 60, JSON.stringify(navBox));
 
 // navigation par bottom nav
-await p.locator('nav[aria-label="Navigation mobile"] a[href="#/boutique"]').click();
+await p.locator('nav[aria-label="Navigation mobile"] a[href="/boutique"]').click();
 await p.waitForTimeout(600);
 ok('M12 clic Boutique → univers Market', p.url().includes('/boutique'));
 ok('M12 Boutique active', await p.locator('nav[aria-label="Navigation mobile"] a[aria-current="page"]').filter({ hasText: 'Boutique' }).count() === 1);
-await p.locator('nav[aria-label="Navigation mobile"] a[href="#/services"]').click();
+await p.locator('nav[aria-label="Navigation mobile"] a[href="/services"]').click();
 await p.waitForTimeout(600);
 ok('M12 Services actif après bascule', await p.locator('nav[aria-label="Navigation mobile"] a[aria-current="page"]').filter({ hasText: 'Services' }).count() === 1);
 
 // --- 13. panier mobile + badge bottom nav ---
-await p.goto(BASE + '/#/boutique/produit/e2e-nav-cable-usb', { waitUntil: 'load' });
+await p.goto(BASE + '/boutique/produit/e2e-nav-cable-usb', { waitUntil: 'load' });
 await p.waitForSelector('button:has-text("Ajouter au panier")', { timeout: 10000 });
 await p.getByRole('button', { name: /Ajouter au panier/ }).click();
 await p.waitForTimeout(400);

@@ -667,6 +667,7 @@ model Lead {
 enum EventType {
   WACLICK // click on a WhatsApp CTA
   LEAD_VIEW // catalog/service view worth tracking
+  SERVICE_SEARCH // recherche dans la page services (requête + nb de résultats)
 }
 
 // Lightweight product analytics (no PII beyond what is strictly needed).

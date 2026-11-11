@@ -75,7 +75,7 @@ export interface AnalyticsEvent {
   createdAt: Date;
   serviceId: string | null;
   campaign: string | null;
-  meta: { context?: string; ref?: string | null } | null;
+  meta: { context?: string; ref?: string | null; query?: string; results?: number } | null;
 }
 
 export interface AnalyticsServiceMarginTarget {
@@ -162,6 +162,37 @@ export interface SourceRow {
   source: string;
   kind: 'whatsapp' | 'lead' | 'order';
   count: number;
+}
+
+/** Ligne du tableau « recherches services » (admin analytics). */
+export interface SearchQueryRow {
+  query: string;
+  count: number;
+  lastResults: number;
+  zeroResult: boolean;
+}
+
+/**
+ * Agrège les événements SERVICE_SEARCH : requêtes les plus tapées, dernière
+ * compte de résultats, marquage « sans résultat » (signal d'expansion du
+ * catalogue — la demande existe, le service n'existe pas encore).
+ */
+export function searchQueriesBreakdown(events: AnalyticsEvent[], limit = 10): SearchQueryRow[] {
+  const byQuery = new Map<string, { count: number; lastResults: number }>();
+  for (const e of events) {
+    if (e.type !== 'SERVICE_SEARCH') continue;
+    const query = e.meta?.query ?? null;
+    const results = e.meta?.results ?? null;
+    if (typeof query !== 'string' || typeof results !== 'number') continue;
+    const cur = byQuery.get(query) ?? { count: 0, lastResults: results };
+    cur.count += 1;
+    cur.lastResults = results; // les événements arrivent par ordre chronologique
+    byQuery.set(query, cur);
+  }
+  return [...byQuery.entries()]
+    .map(([query, v]) => ({ query, count: v.count, lastResults: v.lastResults, zeroResult: v.lastResults === 0 }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit);
 }
 
 /** Croise les clics WhatsApp (Event) et les origines de leads par source. */

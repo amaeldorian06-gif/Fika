@@ -1,8 +1,12 @@
-// Smoke parcours demande : slot FILE rendu, tentative d'upload, message d'erreur
-// honnête relayé (503 STORAGE_NOT_CONFIGURED), bouton retirer. Ne crée AUCUNE
-// donnée en base (pas de soumission du formulaire).
+// Smoke parcours demande : slot FILE rendu, upload RÉEL vers Supabase Storage
+// (statut succès + nom du fichier), bouton retirer. Pas de soumission du
+// formulaire ; le fichier téléversé (orphelin, sans demande rattachée) est
+// supprimé en fin de test (base + bucket).
 import { chromium } from 'playwright';
+import { PrismaClient } from '@prisma/client';
 import { writeFileSync, rmSync } from 'node:fs';
+
+const prisma = new PrismaClient();
 
 const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:3000';
 const PNG = Buffer.concat([
@@ -25,7 +29,7 @@ try {
   const errors = [];
   p.on('pageerror', (e) => errors.push(String(e)));
 
-  await p.goto(`${BASE}/#/demande?service=intervention-plomberie`, { waitUntil: 'load' });
+  await p.goto(`${BASE}/demande?service=intervention-plomberie`, { waitUntil: 'load' });
   await p.waitForSelector('fieldset', { timeout: 10000 });
 
   // 1. Le slot FILE du service apparaît avec son libellé catalogue
@@ -39,11 +43,13 @@ try {
   const accept = await input.getAttribute('accept');
   ok(accept === '.pdf,.jpg,.jpeg,.png,.webp', 'attribut accept restrictif', `(accept="${accept}")`);
 
-  // 3. Sélection d’un PNG valide → statut d’erreur avec le message honnête du serveur
+  // 3. Sélection d'un PNG valide → upload réel (Storage configuré) + statut succès
   await input.setInputFiles(tmp);
-  await p.waitForSelector('text=téléversement n’est pas encore activé', { timeout: 10000 });
-  ok(true, 'erreur 503 STORAGE_NOT_CONFIGURED relayée à l’utilisateur (pas de simulation)');
-  ok((await p.locator('span[role="alert"]:visible').count()) >= 1, 'statut d’échec visible (rôle alert)');
+  await p.waitForSelector('text=e2e-fika-photo.png', { timeout: 15000 });
+  ok(true, 'fichier téléversé réellement (Supabase Storage)');
+  await p.waitForSelector('div[class*="brand-wa"]', { timeout: 15000 });
+  ok(true, 'statut succès visible (style WhatsApp)');
+  ok((await p.locator('span[role="alert"]:visible').count()) === 0, 'aucune erreur relayée');
 
   // 4. Bouton retirer : le fichier disparaît de la sélection
   await p.getByRole('button', { name: /retirer/i }).first().click();
@@ -57,6 +63,20 @@ try {
 } finally {
   await browser.close();
   rmSync(tmp, { force: true });
+  // Nettoyage : fichiers orphelins créés par ce test (base + bucket).
+  const SUPABASE_URL = (process.env.SUPABASE_URL ?? '').replace(/\/+$/, '');
+  const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
+  const orphans = await prisma.serviceRequestFile.findMany({ where: { leadId: null } });
+  for (const o of orphans) {
+    if (SUPABASE_URL && KEY) {
+      await fetch(`${SUPABASE_URL}/storage/v1/object/${o.bucket}/${o.path}`, {
+        method: 'DELETE', headers: { Authorization: `Bearer ${KEY}` },
+      }).catch(() => {});
+    }
+    await prisma.serviceRequestFile.delete({ where: { id: o.id } }).catch(() => {});
+  }
+  console.log(`  (nettoyage : ${orphans.length} fichier(s) orphelin(s) supprimé(s))`);
+  await prisma.$disconnect();
 }
 console.log(`\n===== DEMANDE FICHIER SMOKE : ${pass}/${pass + fail} ${fail === 0 ? 'PASS' : 'FAIL'} =====`);
 process.exit(fail === 0 ? 0 : 1);

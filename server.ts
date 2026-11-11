@@ -9,10 +9,10 @@ async function startServer() {
   }
   const app = createApp();
   const port = Number(process.env.PORT ?? 3000);
-  // Compatibility with documented URLs; canonical navigation uses the hash router.
-  app.get(['/admin', '/admin/{*rest}'], (req, res) => {
+  // Vrais chemins : /admin est servi par le SPA (rewrites/fallback), jamais indexé.
+  app.use('/admin', (_req, res, next) => {
     res.setHeader('X-Robots-Tag', 'noindex, nofollow');
-    res.redirect(302, `/#${req.path}`);
+    next();
   });
   if (process.env.NODE_ENV !== 'production') {
     const { createServer } = await import('vite');

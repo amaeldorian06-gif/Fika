@@ -61,18 +61,10 @@
     {
       "source": "/api/:path*",
       "destination": "/api"
-    }
-  ],
-  "redirects": [
-    {
-      "source": "/admin",
-      "destination": "/#/admin",
-      "permanent": false
     },
     {
-      "source": "/admin/:path*",
-      "destination": "/#/admin/:path*",
-      "permanent": false
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }

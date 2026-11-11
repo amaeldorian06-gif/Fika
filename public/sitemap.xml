@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <!-- Domaine actuel : fika00.vercel.app (routeur par hash : URLs #/…). Régénérer si le domaine change. -->
+  <!-- Domaine actuel : fika00.vercel.app (vrais chemins (History API)). Régénérer si le domaine change. -->
   <url>
     <loc>https://fika00.vercel.app/</loc>
     <lastmod>2026-09-19</lastmod>
@@ -8,169 +8,169 @@
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://fika00.vercel.app/#/services</loc>
+    <loc>https://fika00.vercel.app/services</loc>
     <lastmod>2026-09-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://fika00.vercel.app/#/demande</loc>
+    <loc>https://fika00.vercel.app/demande</loc>
     <lastmod>2026-09-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://fika00.vercel.app/#/mentions-legales</loc>
+    <loc>https://fika00.vercel.app/mentions-legales</loc>
     <lastmod>2026-09-19</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
-    <loc>https://fika00.vercel.app/#/cgv</loc>
+    <loc>https://fika00.vercel.app/cgv</loc>
     <lastmod>2026-09-19</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
-    <loc>https://fika00.vercel.app/#/confidentialite</loc>
+    <loc>https://fika00.vercel.app/confidentialite</loc>
     <lastmod>2026-09-19</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
-    <loc>https://fika00.vercel.app/#/univers/maison-travaux</loc>
+    <loc>https://fika00.vercel.app/univers/maison-travaux</loc>
     <lastmod>2026-09-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://fika00.vercel.app/#/univers/reparation-maintenance</loc>
+    <loc>https://fika00.vercel.app/univers/reparation-maintenance</loc>
     <lastmod>2026-09-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://fika00.vercel.app/#/univers/auto-moto</loc>
+    <loc>https://fika00.vercel.app/univers/auto-moto</loc>
     <lastmod>2026-09-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://fika00.vercel.app/#/univers/transport-logistique</loc>
+    <loc>https://fika00.vercel.app/univers/transport-logistique</loc>
     <lastmod>2026-09-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://fika00.vercel.app/#/univers/numerique-documents</loc>
+    <loc>https://fika00.vercel.app/univers/numerique-documents</loc>
     <lastmod>2026-09-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://fika00.vercel.app/#/service/intervention-plomberie</loc>
+    <loc>https://fika00.vercel.app/service/intervention-plomberie</loc>
     <lastmod>2026-09-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://fika00.vercel.app/#/service/intervention-electricite</loc>
+    <loc>https://fika00.vercel.app/service/intervention-electricite</loc>
     <lastmod>2026-09-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://fika00.vercel.app/#/service/travaux-maconnerie</loc>
+    <loc>https://fika00.vercel.app/service/travaux-maconnerie</loc>
     <lastmod>2026-09-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://fika00.vercel.app/#/service/peinture-batiment</loc>
+    <loc>https://fika00.vercel.app/service/peinture-batiment</loc>
     <lastmod>2026-09-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://fika00.vercel.app/#/service/menuiserie-bois-alu</loc>
+    <loc>https://fika00.vercel.app/service/menuiserie-bois-alu</loc>
     <lastmod>2026-09-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://fika00.vercel.app/#/service/soudure-metallerie</loc>
+    <loc>https://fika00.vercel.app/service/soudure-metallerie</loc>
     <lastmod>2026-09-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://fika00.vercel.app/#/service/pose-carrelage</loc>
+    <loc>https://fika00.vercel.app/service/pose-carrelage</loc>
     <lastmod>2026-09-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://fika00.vercel.app/#/service/toiture-charpente</loc>
+    <loc>https://fika00.vercel.app/service/toiture-charpente</loc>
     <lastmod>2026-09-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://fika00.vercel.app/#/service/reparation-telephone</loc>
+    <loc>https://fika00.vercel.app/service/reparation-telephone</loc>
     <lastmod>2026-09-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://fika00.vercel.app/#/service/reparation-electromenager</loc>
+    <loc>https://fika00.vercel.app/service/reparation-electromenager</loc>
     <lastmod>2026-09-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://fika00.vercel.app/#/service/reparation-informatique</loc>
+    <loc>https://fika00.vercel.app/service/reparation-informatique</loc>
     <lastmod>2026-09-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://fika00.vercel.app/#/service/depannage-mecanique-auto</loc>
+    <loc>https://fika00.vercel.app/service/depannage-mecanique-auto</loc>
     <lastmod>2026-09-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://fika00.vercel.app/#/service/depannage-moto</loc>
+    <loc>https://fika00.vercel.app/service/depannage-moto</loc>
     <lastmod>2026-09-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://fika00.vercel.app/#/service/demenagement-local</loc>
+    <loc>https://fika00.vercel.app/service/demenagement-local</loc>
     <lastmod>2026-09-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://fika00.vercel.app/#/service/livraison-courses-express</loc>
+    <loc>https://fika00.vercel.app/service/livraison-courses-express</loc>
     <lastmod>2026-09-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://fika00.vercel.app/#/service/creation-cv-professionnel</loc>
+    <loc>https://fika00.vercel.app/service/creation-cv-professionnel</loc>
     <lastmod>2026-09-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://fika00.vercel.app/#/service/bureautique-impression</loc>
+    <loc>https://fika00.vercel.app/service/bureautique-impression</loc>
     <lastmod>2026-09-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://fika00.vercel.app/#/service/presence-digitale-pro</loc>
+    <loc>https://fika00.vercel.app/service/presence-digitale-pro</loc>
     <lastmod>2026-09-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>

@@ -30,7 +30,7 @@ try {
   // Bloquer TOUTES les images du stockage → chaque <img> produit échoue.
   await p.route('**/storage/v1/object/public/**', (route) => route.abort());
 
-  await p.goto(`${BASE}/#/boutique`, { waitUntil: 'load', timeout: 30000 });
+  await p.goto(`${BASE}/boutique`, { waitUntil: 'load', timeout: 30000 });
   // Le catalogue doit se charger (l'API n'est pas bloquée) et contenir des produits.
   await p.waitForSelector('a[href*="/boutique/produit/"]', { timeout: 20000 });
   await p.waitForTimeout(4000); // laisser les <img> échouer et le repli s'installer

@@ -5,11 +5,14 @@ import { getServiceCTA } from '../lib/whatsapp';
 import { displayPrice, getCityPricing, pricingMode } from '../lib/pricing';
 import { getCategoryBySlug } from '../lib/catalog';
 import { Link } from '../router';
+import { UniverseIcon } from './ui';
 
 /**
- * Carte service premium (P10) : visuel de marque, catégorie, prix via
- * lib/pricing et tags (populaire / livré chez vous). Variantes : `compact`
- * supprime la description pour les grilles denses.
+ * Carte service (P10) — en-tête de marque uniforme (icône de l'univers sur
+ * fond teinté) : toutes les cartes partagent exactement la même structure,
+ * quelle que soit l'univers. Prix via lib/pricing et badges (populaire /
+ * livré chez vous). Variantes : `compact` supprime la description pour les
+ * grilles denses.
  */
 export function ServiceCard({ service, idx = 0, compact = false }: { service: Service; idx?: number; compact?: boolean }) {
   const universe = getCategoryBySlug(service.categoryId);
@@ -26,33 +29,25 @@ export function ServiceCard({ service, idx = 0, compact = false }: { service: Se
         to={`/service/${service.slug}`}
         className="group h-full rounded-card bg-brand-surface border border-brand-border flex flex-col overflow-hidden hover:shadow-premium-hover hover:border-brand-border-dark transition-all active:scale-[0.99]"
       >
-        {service.image && !compact && (
-          <div className="relative aspect-[16/9] overflow-hidden bg-brand-bg border-b border-brand-border">
-            <img
-              src={service.image}
-              alt={service.name}
-              width={1200}
-              height={675}
-              loading="lazy"
-              decoding="async"
-              className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
-            />
-            <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
-              {service.popular && (
-                <span className="inline-flex items-center gap-1 bg-white/95 backdrop-blur text-brand-accent text-[10px] font-heading font-bold uppercase tracking-wider px-2.5 py-1 rounded-full shadow-sm">
-                  <Flame className="w-3 h-3" /> Populaire
-                </span>
-              )}
-              {service.deliveryIncluded && pricingMode(service) === 'STANDARD' && (
-                <span className="inline-flex items-center gap-1 bg-white/95 backdrop-blur text-brand-wa text-[10px] font-heading font-bold uppercase tracking-wider px-2.5 py-1 rounded-full shadow-sm">
-                  <Truck className="w-3 h-3" /> Livré
-                </span>
-              )}
-            </div>
+        <div className={`flex items-center justify-between gap-3 px-6 pt-6 ${compact ? 'pb-0' : 'pb-4'}`}>
+          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${universe?.color ?? 'bg-brand-bg'}`}>
+            <UniverseIcon icon={universe?.icon ?? 'Wrench'} className="w-5 h-5 text-brand-accent" />
           </div>
-        )}
+          <div className="flex flex-wrap gap-1.5 justify-end">
+            {service.popular && (
+              <span className="inline-flex items-center gap-1 bg-brand-bg text-brand-accent text-[10px] font-heading font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border border-brand-border">
+                <Flame className="w-3 h-3" aria-hidden="true" /> Populaire
+              </span>
+            )}
+            {service.deliveryIncluded && pricingMode(service) === 'STANDARD' && (
+              <span className="inline-flex items-center gap-1 bg-brand-bg text-brand-wa text-[10px] font-heading font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border border-brand-border">
+                <Truck className="w-3 h-3" aria-hidden="true" /> Livré
+              </span>
+            )}
+          </div>
+        </div>
 
-        <div className="p-6 md:p-7 flex flex-col flex-1">
+        <div className="px-6 pb-6 md:px-7 md:pb-7 flex flex-col flex-1 pt-4">
           <p className="text-[11px] font-heading font-bold uppercase tracking-[0.18em] text-brand-text-muted mb-2">
             {universe?.title ?? 'Service'}
           </p>

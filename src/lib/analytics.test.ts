@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   averageCompletionDays, costBreakdown, financeSummary, leadConversionRate,
-  makePeriod, sourceBreakdown, statusFunnel, topServices, weeklyRevenue,
+  makePeriod, searchQueriesBreakdown, sourceBreakdown, statusFunnel, topServices, weeklyRevenue,
   type AnalyticsEvent, type AnalyticsLead, type AnalyticsOrder,
 } from './analytics';
 
@@ -176,5 +176,37 @@ describe('série hebdomadaire', () => {
     expect(series).toHaveLength(12);
     expect(series.at(-1)?.revenue).toBe(12000); // semaine courante
     expect(series.at(-1)?.weekStart.getDay()).toBe(1); // lundi
+  });
+});
+
+/* ---------------------- Recherches services (P07+) ------------------------ */
+
+describe('searchQueriesBreakdown', () => {
+  const ev = (query: string, results: number, id = query + results): AnalyticsEvent => ({
+    id, type: 'SERVICE_SEARCH', createdAt: new Date('2026-11-10T10:00:00Z'), serviceId: null, campaign: null,
+    meta: { query, results },
+  });
+
+  it('agrège par requête, compte, garde le dernier résultat et trie par fréquence', () => {
+    const rows = searchQueriesBreakdown([
+      ev('plomberie', 1, 'a'), ev('plomberie', 1, 'b'), ev('cv', 3), ev('nettoyage', 0),
+    ]);
+    expect(rows[0]).toEqual({ query: 'plomberie', count: 2, lastResults: 1, zeroResult: false });
+    expect(rows.find((r) => r.query === 'nettoyage')?.zeroResult).toBe(true);
+  });
+
+  it('ignore les autres types d’événements et les métadonnées incomplètes', () => {
+    const rows = searchQueriesBreakdown([
+      { id: 'x', type: 'WACLICK', createdAt: new Date(), serviceId: null, campaign: null, meta: { context: 'home' } },
+      { id: 'y', type: 'SERVICE_SEARCH', createdAt: new Date(), serviceId: null, campaign: null, meta: null },
+    ]);
+    expect(rows).toEqual([]);
+  });
+
+  it('limite le nombre de lignes affichées', () => {
+    const rows = searchQueriesBreakdown(
+      ['a', 'b', 'c', 'd'].map((q) => ev(q, 1, q)), 2,
+    );
+    expect(rows.length).toBe(2);
   });
 });

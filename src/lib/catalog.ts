@@ -43,6 +43,42 @@ export function getServiceBySlug(slug: string): Service | undefined {
   return SERVICES.find((s) => s.slug === slug && s.active);
 }
 
+/* --------------------------- Recherche services ---------------------------- */
+
+/**
+ * Recherche tolérante et honnête : insensible à la casse ET aux accents
+ * (« REPARATION » trouve « Réparation »), multi-mots (chaque mot doit
+ * matcher quelque part : « telephone ecran » trouve la réparation téléphone
+ * via nom + description), et cherche dans le nom, les descriptions et
+ * l'univers du service.
+ *
+ * Classement : les services dont le NOM contient un mot de la requête
+ * passent avant ceux qui ne matchent que par description/univers ; à
+ * égalité, l'ordre éditorial (displayOrder) est conservé (sort stable).
+ * Requête vide ou blanche → [] (pas de « tout afficher » implicite).
+ */
+const stripAccents = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+export function searchServices(rawQuery: string): Service[] {
+  const tokens = stripAccents(rawQuery).split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return [];
+  const categoryTitles = new Map(getCategories().map((c) => [c.id, stripAccents(c.title)]));
+  const scored: { service: Service; nameHit: boolean }[] = [];
+  for (const service of getServices()) {
+    const name = stripAccents(service.name);
+    const short = stripAccents(service.shortDescription);
+    const full = stripAccents(service.fullDescription ?? '');
+    const category = categoryTitles.get(service.categoryId) ?? '';
+    const haystacks = [name, short, full, category];
+    if (tokens.every((t) => haystacks.some((h) => h.includes(t)))) {
+      scored.push({ service, nameHit: tokens.some((t) => name.includes(t)) });
+    }
+  }
+  return scored
+    .sort((a, b) => Number(b.nameHit) - Number(a.nameHit))
+    .map((r) => r.service);
+}
+
 /** Vedettes d'un univers : featured puis popular, dédupliqué, ordre manuel. */
 export function getFeaturedServices(categoryId: string): Service[] {
   const services = getServices({ categoryId });

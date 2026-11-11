@@ -6,7 +6,7 @@ import type { WaContext } from './whatsapp/engine';
  * l'absence d'API ne doit JAMAIS bloquer ni signaler une conversion.
  */
 
-export type TrackedEventType = 'WACLICK' | 'LEAD_VIEW';
+export type TrackedEventType = 'WACLICK' | 'LEAD_VIEW' | 'SERVICE_SEARCH';
 
 export interface WaClickPayload {
   serviceSlug?: string;
@@ -58,5 +58,31 @@ export function trackWaClick(payload: WaClickPayload): void {
     }).catch(() => undefined); // noop volontaire
   } catch {
     /* noop volontaire — tracking best-effort uniquement */
+  }
+}
+
+export interface ServiceSearchPayload {
+  query: string;
+  results: number;
+}
+
+/**
+ * Trace une recherche sur /services (après stabilisation de la frappe).
+ * Sert à mesurer l'efficacité de la recherche et à repérer les demandes
+ * sans résultat. Aucune donnée personnelle : la requête seule, tronquée.
+ */
+export function trackServiceSearch(payload: ServiceSearchPayload): void {
+  try {
+    if (typeof navigator === 'undefined' || typeof window === 'undefined') return;
+    if (!payload.query || payload.query.trim().length < 2) return;
+    const body = JSON.stringify({ query: payload.query.trim().slice(0, 80), results: payload.results });
+    if (typeof navigator.sendBeacon === 'function') {
+      const blob = new Blob([body], { type: 'application/json' });
+      navigator.sendBeacon('/api/events/service-search', blob);
+      return;
+    }
+    void fetch('/api/events/service-search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true });
+  } catch {
+    /* silencieux par conception */
   }
 }

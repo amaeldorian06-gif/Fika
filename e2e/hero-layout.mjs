@@ -27,7 +27,7 @@ for (const vp of VIEWPORTS) {
   const p = await ctx.newPage();
 
   /* ---------- /services : héros, composition complète ---------- */
-  await p.goto(BASE + '/#/services', { waitUntil: 'load' });
+  await p.goto(BASE + '/services', { waitUntil: 'load' });
   await p.waitForSelector('.need-illustration__answer', { timeout: 15000 });
   await p.waitForTimeout(300);
 
@@ -102,7 +102,7 @@ for (const vp of VIEWPORTS) {
     // (à la position de scroll initiale le panneau éditorial est plus bas ; le FAB
     // est fixe et passe au-dessus du contenu en défilant — comportement standard,
     // on vérifie qu'il ne bloque aucune zone d'interaction au premier écran)
-    await p.goto(BASE + '/#/services', { waitUntil: 'load' });
+    await p.goto(BASE + '/services', { waitUntil: 'load' });
     await p.waitForSelector('.need-illustration__answer', { timeout: 15000 });
     const fab2 = await p.evaluate(() => {
       const el = document.querySelector('aside[aria-label="Contact rapide"] a')?.getBoundingClientRect();
