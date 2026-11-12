@@ -3,7 +3,7 @@ import { effectiveLevel, type VerificationLevel } from '../../src/lib/trust';
 import { loadExpertMetrics, snapshotFromMetrics } from '../lib/expert-trust';
 import {
   makePeriod, financeSummary, leadConversionRate, averageCompletionDays,
-  statusFunnel, sourceBreakdown, searchQueriesBreakdown, topServices, costBreakdown, weeklyRevenue,
+  statusFunnel, sourceBreakdown, searchQueriesBreakdown, funnelBreakdown, topServices, costBreakdown, weeklyRevenue,
   topExperts, filterOrdersByPeriod, filterLeadsByPeriod,
   type AnalyticsOrder, type AnalyticsLead, type AnalyticsEvent,
   type AnalyticsServiceMarginTarget, type SourceRow, type PeriodKey,
@@ -30,6 +30,7 @@ export interface AnalyticsPayload {
     funnel: { status: string; label: string; count: number }[];
     sources: SourceRow[];
     searches: { query: string; count: number; lastResults: number; zeroResult: boolean }[];
+    funnelSteps: { step: string; label: string; count: number }[];
     topServices: {
       serviceId: string | null; name: string; volume: number; revenue: number;
       marginAmount: number; marginPercent: number; targetMarginPercent: number | null;
@@ -174,6 +175,7 @@ export async function getAnalytics(periodKey: PeriodKey): Promise<AnalyticsPaylo
       funnel: statusFunnel(currentOrders),
       sources: sourceBreakdown(periodEvents, currentLeads),
       searches: searchQueriesBreakdown(periodEvents),
+      funnelSteps: funnelBreakdown(periodEvents),
       topServices: topServices(currentOrders, targets),
       costs: costBreakdown(currentOrders),
       weekly: weeklyRevenue(ordersIn, 12, period.to),

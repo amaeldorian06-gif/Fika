@@ -21,6 +21,7 @@ import { handleServiceRequestFile, handleProductImageUpload, handleDeliveryProof
 import { handleWaClick } from './routes/events-waclick';
 import { handleLeadView } from './routes/events-leadview';
 import { handleServiceSearch } from './routes/events-service-search';
+import { handleFunnelEvent } from './routes/events-funnel';
 import { getPublicPortfolio, getPublicTestimonials, handleCreateReview } from './routes/reviews';
 import { getCustomers, getExperts, getLeads, getOrder, getOrders, getOverview, getAnalyticsOrders } from './routes/admin-read';
 import { getAnalytics, isPeriodKey } from './routes/admin-analytics';
@@ -88,6 +89,7 @@ export function createApp() {
   app.post('/api/events/waclick', async (req, res) => res.json(await handleWaClick(req.body)));
   app.post('/api/events/leadview', async (req, res) => res.json(await handleLeadView(req.body)));
   app.post('/api/events/service-search', async (req, res) => res.json(await handleServiceSearch(req.body)));
+  app.post('/api/events/funnel', async (req, res) => res.json(await handleFunnelEvent(req.body)));
   app.get('/api/testimonials', async (_req, res) => res.json(await getPublicTestimonials()));
   app.get('/api/portfolio', async (_req, res) => res.json(await getPublicPortfolio()));
 

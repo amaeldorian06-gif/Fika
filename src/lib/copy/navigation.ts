@@ -26,16 +26,18 @@ export const COPY_NAV = {
     eyebrow: 'Ngaoundéré · Une marque, deux façons de vous aider',
     title: 'Un besoin, un produit ou une solution ?',
     titleAccent: 'Fika vous accompagne.',
-    subtitle: 'Découvrez nos services et notre sélection de produits pensés pour simplifier votre quotidien.',
+    subtitle: 'À Ngaoundéré : décrivez un besoin ou un produit, Fika recherche, vérifie et coordonne la solution. Prix validé avec vous avant tout engagement.',
     services: {
       title: 'Besoin d\u2019un service ?',
       text: 'Décrivez votre besoin. Nous vous aidons à trouver et organiser la bonne solution.',
-      cta: 'Découvrir les services',
+      cta: 'Décrire mon besoin',
+      explore: 'Découvrir les services',
     },
     market: {
       title: 'À la recherche d\u2019un produit ?',
-      text: 'Explorez notre sélection et trouvez les produits qui vous correspondent.',
-      cta: 'Explorer la boutique',
+      text: 'Décrivez le produit que vous cherchez : nous vérifions sa disponibilité et son prix, puis nous organisons la livraison. La sélection arrive progressivement.',
+      cta: 'Demander un produit',
+      explore: 'Explorer la boutique',
     },
     trust: [
       'Prix validé avec vous avant toute intervention',

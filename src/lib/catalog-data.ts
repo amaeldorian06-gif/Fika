@@ -93,7 +93,7 @@ export const SERVICES: Service[] = [
     excludedItems: ['Coût des pièces et raccords de rechange'],
     requirements: [
       { label: 'Décrivez précisément le problème constaté', kind: 'TEXT', required: true, position: 1 },
-      { label: 'Photo ou vidéo de la fuite / canalisation', kind: 'FILE', required: false, position: 2 },
+      { label: 'Photo de la fuite / canalisation', kind: 'FILE', required: false, position: 2 },
       { label: 'Quartier ou repère à Ngaoundéré', kind: 'TEXT', required: true, position: 3 },
     ],
     active: true,

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
-  ArrowLeft, ArrowRight, Check, ChevronRight, Clock, FileText, FileUp, ListChecks,
+  ArrowLeft, ArrowRight, Check, ChevronRight, FileText, FileUp, ListChecks,
   MessageCircle, ShieldCheck, Sparkles, TextCursorInput, Truck, Hash, X,
 } from 'lucide-react';
 import type { RequirementKind, ServiceRequirement } from '../lib/types';
@@ -220,24 +220,6 @@ export function ServicePage({ slug }: { slug: string }) {
               </motion.div>
             )}
 
-            {/* Délai estimé */}
-            {service.estimatedDuration && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.3 }}
-                className="bg-brand-surface border border-brand-border rounded-2xl p-6 flex items-center gap-4"
-              >
-                <div className="w-12 h-12 rounded-xl bg-brand-accent/10 flex items-center justify-center shrink-0">
-                  <Clock className="w-6 h-6 text-brand-accent" />
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-brand-text-muted uppercase tracking-wider">Délai estimé</p>
-                  <p className="font-heading font-bold text-brand-text text-lg">{service.estimatedDuration}</p>
-                </div>
-              </motion.div>
-            )}
-
             {/* FAQs */}
             {service.faqs && service.faqs.length > 0 && (
               <motion.div {...fadeUp(0.35)} className="space-y-4">
@@ -320,23 +302,24 @@ export function ServicePage({ slug }: { slug: string }) {
         )}
       </div>
 
-      {/* Espace pour la barre sticky mobile */}
-      <div className="h-24 lg:hidden" aria-hidden="true" />
+      {/* Espace pour la barre sticky mobile + la navigation basse */}
+      <div className="h-40 lg:hidden" aria-hidden="true" />
 
-      {/* Barre CTA sticky mobile (P10) : prix + action toujours accessibles */}
-      <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-brand-surface/95 backdrop-blur-xl border-t border-brand-border px-4 py-3">
-        <div className="flex items-center gap-4">
+      {/* Barre CTA sticky mobile (P10) : prix + action toujours accessibles,
+          positionnée AU-DESSUS de la navigation basse (jamais superposée). */}
+      <div className="lg:hidden fixed inset-x-0 bottom-[calc(56px+env(safe-area-inset-bottom,0px))] z-30 bg-brand-surface/95 backdrop-blur-xl border-t border-brand-border px-4 py-3">
+        <div className="flex items-center gap-3">
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-bold uppercase tracking-wider text-brand-text-muted truncate">{service.name}</p>
-            <p className="font-heading font-extrabold text-brand-accent leading-tight">{price}</p>
+            <p className="font-heading font-extrabold text-brand-accent leading-tight truncate">{price}</p>
           </div>
-          <a
-            href={`#${demandeUrl}`}
-            className="shrink-0 inline-flex items-center justify-center gap-2 rounded-full bg-brand-accent text-white text-sm font-bold px-6 min-h-[44px] hover:opacity-90 active:scale-[0.97] transition-all"
+          <Link
+            to={demandeUrl}
+            className="shrink-0 inline-flex items-center justify-center gap-2 rounded-full bg-brand-accent text-white text-sm font-bold px-5 min-h-[48px] whitespace-nowrap hover:opacity-90 active:scale-[0.97] transition-all"
           >
-            <MessageCircle className="w-4 h-4" />
             Décrire mon besoin
-          </a>
+            <ArrowRight className="w-4 h-4" aria-hidden="true" />
+          </Link>
         </div>
       </div>
     </div>

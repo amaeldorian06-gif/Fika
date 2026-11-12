@@ -75,7 +75,7 @@ export interface AnalyticsEvent {
   createdAt: Date;
   serviceId: string | null;
   campaign: string | null;
-  meta: { context?: string; ref?: string | null; query?: string; results?: number } | null;
+  meta: { context?: string; ref?: string | null; query?: string; results?: number; step?: string; field?: string; universe?: string } | null;
 }
 
 export interface AnalyticsServiceMarginTarget {
@@ -193,6 +193,41 @@ export function searchQueriesBreakdown(events: AnalyticsEvent[], limit = 10): Se
     .map(([query, v]) => ({ query, count: v.count, lastResults: v.lastResults, zeroResult: v.lastResults === 0 }))
     .sort((a, b) => b.count - a.count)
     .slice(0, limit);
+}
+
+/** Ligne du tableau funnel admin : une étape de parcours, son volume. */
+export interface FunnelRow {
+  step: string;
+  label: string;
+  count: number;
+}
+
+/** Libellés français des étapes de parcours (FUNNEL_STEP). */
+const FUNNEL_STEP_LABELS: Record<string, string> = {
+  PATH_SELECTED: 'Chemin choisi (accueil)',
+  FORM_STARTED: 'Formulaire besoin commencé',
+  VALIDATION_ERROR: 'Erreur de validation',
+  REQUEST_SUBMITTED: 'Demande envoyée',
+  INQUIRY_STARTED: 'Formulaire produit commencé',
+  INQUIRY_SUBMITTED: 'Demande produit envoyée',
+};
+
+/**
+ * Répartition des étapes de parcours (type FUNNEL_STEP). Aucune donnée
+ * personnelle : les événements ne portent que l'étape et le champ en échec.
+ */
+export function funnelBreakdown(events: AnalyticsEvent[]): FunnelRow[] {
+  const counts = new Map<string, number>();
+  for (const e of events) {
+    if (e.type !== 'FUNNEL_STEP') continue;
+    const step = typeof e.meta?.step === 'string' ? e.meta.step : null;
+    if (!step) continue;
+    counts.set(step, (counts.get(step) ?? 0) + 1);
+  }
+  const ORDER = Object.keys(FUNNEL_STEP_LABELS);
+  return [...counts.entries()]
+    .map(([step, count]) => ({ step, label: FUNNEL_STEP_LABELS[step] ?? step, count }))
+    .sort((a, b) => ORDER.indexOf(a.step) - ORDER.indexOf(b.step) || b.count - a.count);
 }
 
 /** Croise les clics WhatsApp (Event) et les origines de leads par source. */

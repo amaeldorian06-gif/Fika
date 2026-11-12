@@ -109,8 +109,9 @@ export function MarketHomePage() {
               <p className="text-sm text-brand-text-muted mt-2 max-w-md mx-auto">
                 Nous préparons une première sélection de produits testés. En attendant, dites-nous ce que vous cherchez : nous pouvons probablement le commander pour vous.
               </p>
-              <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
-                <Button asChild variant="whatsapp"><a href={getWALink('Bonjour Fika Market 👋\nJe cherche un produit. Pouvez-vous me dire si vous pouvez le commander ?')} target="_blank" rel="noopener noreferrer"><MessageCircle className="w-4 h-4 mr-2" />Demander un produit</a></Button>
+              <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center items-center">
+                <Button asChild variant="primary" className="rounded-full"><Link to="/demande-produit">Demander un produit</Link></Button>
+                <Button asChild variant="outline" className="rounded-full"><a href={getWALink('Bonjour Fika Market 👋\nJe cherche un produit. Pouvez-vous me dire si vous pouvez le commander ?')} target="_blank" rel="noopener noreferrer"><MessageCircle className="w-4 h-4 mr-2" />Sur WhatsApp</a></Button>
               </div>
             </div>
           ) : (
@@ -450,6 +451,7 @@ export function MarketOrderPage() {
  * affichés sont indicatifs : le devis est confirmé avant tout paiement.
  */
 export function MarketCartPage() {
+  useEffect(() => { trackMarketEvent('CART_VIEWED'); }, []);
   const [items, setItems] = useState<CartItem[]>([]);
 
   useEffect(() => {
@@ -470,9 +472,12 @@ export function MarketCartPage() {
           <ShoppingBag className="w-10 h-10 mx-auto text-brand-text-muted/50 mb-4" />
           <h2 className="font-heading font-bold text-lg">Votre panier est vide</h2>
           <p className="text-sm text-brand-text-muted mt-2 max-w-md mx-auto">
-            Parcourez la sélection Fika Market : les produits sont commandés pour vous et livrés à Ngaoundéré.
+            Vous n'avez aucun article pour l'instant. Vous cherchez un produit précis ? Décrivez-le : nous vérifions sa disponibilité et son prix avant tout engagement.
           </p>
-          <Button asChild className="mt-6 rounded-full"><Link to="/boutique">Explorer la boutique</Link></Button>
+          <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center items-center">
+            <Button asChild className="rounded-full"><Link to="/demande-produit">Demander un produit</Link></Button>
+            <Button asChild variant="outline" className="rounded-full"><Link to="/boutique">Explorer la boutique</Link></Button>
+          </div>
         </div>
       ) : (
         <>

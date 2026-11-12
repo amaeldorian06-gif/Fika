@@ -315,7 +315,7 @@ export const marketVariantsSchema = z.array(z.object({
 })).max(6);
 
 /** Événements analytiques publics (funnel pré-commande uniquement). */
-export const MARKET_ANALYTIC_TYPES = ['SHOP_VIEWED', 'CATEGORY_VIEWED', 'PRODUCT_VIEWED', 'ADD_TO_CART', 'CHECKOUT_STARTED'] as const;
+export const MARKET_ANALYTIC_TYPES = ['SHOP_VIEWED', 'CATEGORY_VIEWED', 'PRODUCT_VIEWED', 'ADD_TO_CART', 'CART_VIEWED', 'CHECKOUT_STARTED'] as const;
 export type MarketAnalyticType = typeof MARKET_ANALYTIC_TYPES[number];
 
 export function isMarketAnalyticType(value: string): value is MarketAnalyticType {

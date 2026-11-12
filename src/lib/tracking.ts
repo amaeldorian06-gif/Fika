@@ -86,3 +86,33 @@ export function trackServiceSearch(payload: ServiceSearchPayload): void {
     /* silencieux par conception */
   }
 }
+
+export type FunnelStep =
+  | 'PATH_SELECTED'
+  | 'FORM_STARTED'
+  | 'VALIDATION_ERROR'
+  | 'REQUEST_SUBMITTED'
+  | 'INQUIRY_STARTED'
+  | 'INQUIRY_SUBMITTED';
+
+/**
+ * Trace une étape du parcours (mesure d'usage). Aucune donnée personnelle :
+ * étape + univers + NOM du champ en échec (jamais sa valeur).
+ */
+export function trackFunnelStep(
+  step: FunnelStep,
+  data: { universe?: 'services' | 'market'; field?: string } = {},
+): void {
+  try {
+    if (typeof navigator === 'undefined' || typeof window === 'undefined') return;
+    const body = JSON.stringify({ step, ...data });
+    if (typeof navigator.sendBeacon === 'function') {
+      const blob = new Blob([body], { type: 'application/json' });
+      navigator.sendBeacon('/api/events/funnel', blob);
+      return;
+    }
+    void fetch('/api/events/funnel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true });
+  } catch {
+    /* silencieux par conception */
+  }
+}

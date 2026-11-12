@@ -32,3 +32,22 @@ describe('collecte des demandes (lead.ts)', () => {
     expect(leadPayloadSchema.safeParse({ ...base, consent: true, requestKey: 'pas-un-uuid' }).success).toBe(false);
   });
 });
+
+describe('parcours produit (intent=PRODUCT)', () => {
+  const base = { need: 'Produit recherché : écouteurs', zoneName: 'Baladji', phone: '6 90 12 34 56', consent: true };
+  it('accepte une demande produit complète', () => {
+    const parsed = leadPayloadSchema.parse({ ...base, intent: 'PRODUCT', productName: 'Écouteurs Bluetooth', productLink: 'https://exemple.cm/p/123', quantity: 2 });
+    expect(parsed.intent).toBe('PRODUCT');
+    expect(parsed.quantity).toBe(2);
+  });
+  it('refuse une quantité hors bornes et une intention inconnue', () => {
+    expect(leadPayloadSchema.safeParse({ ...base, intent: 'PRODUCT', quantity: 0 }).success).toBe(false);
+    expect(leadPayloadSchema.safeParse({ ...base, intent: 'PRODUCT', quantity: 100 }).success).toBe(false);
+    expect(leadPayloadSchema.safeParse({ ...base, intent: 'AUTRE' }).success).toBe(false);
+  });
+  it('les champs produit restent facultatifs pour le parcours service', () => {
+    const parsed = leadPayloadSchema.parse(base);
+    expect(parsed.intent).toBeUndefined();
+    expect(parsed.quantity).toBeUndefined();
+  });
+});

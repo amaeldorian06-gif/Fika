@@ -1,10 +1,11 @@
 import { useEffect } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { ArrowRight, MessageCircle, PackageSearch, Store, Wrench } from 'lucide-react';
+import { ShieldCheck, ArrowRight, MessageCircle, PackageSearch, Store, Wrench } from 'lucide-react';
 import { COPY_NAV } from '../../lib/copy/navigation';
 import { getWALink } from '../../lib/whatsapp';
 import { trackWaClick } from '../../lib/tracking';
 import { Link, navigate, useRoute } from '../../router';
+import { trackFunnelStep } from '../../lib/tracking';
 import { NeedIllustration } from '../NeedIllustration';
 
 /**
@@ -62,13 +63,27 @@ export function EntryPage() {
           </div>
           <h2 id="entry-services" className="font-heading text-2xl sm:text-3xl font-bold">{COPY_NAV.entry.services.title}</h2>
           <p className="text-brand-text-muted mt-3 leading-relaxed flex-1">{COPY_NAV.entry.services.text}</p>
-          <Link
-            to="/services"
-            className="mt-7 inline-flex items-center justify-center gap-2 h-14 py-3.5 px-6 rounded-full bg-brand-text text-white font-bold hover:bg-black transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
-          >
-            {COPY_NAV.entry.services.cta}
-            <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
-          </Link>
+          <div className="mt-7">
+            <Link
+              to="/demande"
+              onClick={() => trackFunnelStep('PATH_SELECTED', { universe: 'services' })}
+              className="inline-flex items-center justify-center gap-2 w-full h-14 py-3.5 px-6 rounded-full bg-brand-text text-white font-bold hover:bg-black transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
+            >
+              {COPY_NAV.entry.services.cta}
+              <ArrowRight className="w-4 h-4" aria-hidden="true" />
+            </Link>
+            <p className="flex items-center gap-1.5 text-xs text-brand-text-muted mt-3">
+              <ShieldCheck className="w-3.5 h-3.5 text-brand-accent shrink-0" aria-hidden="true" />
+              Prix validé avec vous avant toute intervention.
+            </p>
+            <Link
+              to="/services"
+              className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-text hover:text-brand-accent transition-colors mt-4 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent rounded-lg"
+            >
+              {COPY_NAV.entry.services.explore}
+              <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+            </Link>
+          </div>
         </motion.section>
 
         <motion.section
@@ -93,13 +108,27 @@ export function EntryPage() {
           </div>
           <h2 id="entry-market" className="font-heading text-2xl sm:text-3xl font-bold">{COPY_NAV.entry.market.title}</h2>
           <p className="text-brand-text-muted mt-3 leading-relaxed flex-1">{COPY_NAV.entry.market.text}</p>
-          <Link
-            to="/boutique"
-            className="mt-7 inline-flex items-center justify-center gap-2 h-14 py-3.5 px-6 rounded-full bg-brand-text text-white font-bold hover:bg-black transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
-          >
-            {COPY_NAV.entry.market.cta}
-            <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
-          </Link>
+          <div className="mt-7">
+            <Link
+              to="/demande-produit"
+              onClick={() => trackFunnelStep('PATH_SELECTED', { universe: 'market' })}
+              className="inline-flex items-center justify-center gap-2 w-full h-14 py-3.5 px-6 rounded-full bg-brand-text text-white font-bold hover:bg-black transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
+            >
+              {COPY_NAV.entry.market.cta}
+              <ArrowRight className="w-4 h-4" aria-hidden="true" />
+            </Link>
+            <p className="flex items-center gap-1.5 text-xs text-brand-text-muted mt-3">
+              <ShieldCheck className="w-3.5 h-3.5 text-brand-accent shrink-0" aria-hidden="true" />
+              Prix final confirmé avant tout paiement.
+            </p>
+            <Link
+              to="/boutique"
+              className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-text hover:text-brand-accent transition-colors mt-4 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent rounded-lg"
+            >
+              {COPY_NAV.entry.market.explore}
+              <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+            </Link>
+          </div>
         </motion.section>
       </div>
 

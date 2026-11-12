@@ -668,6 +668,7 @@ enum EventType {
   WACLICK // click on a WhatsApp CTA
   LEAD_VIEW // catalog/service view worth tracking
   SERVICE_SEARCH // recherche dans la page services (requête + nb de résultats)
+  FUNNEL_STEP // étape du parcours (chemin choisi, formulaire commencé, erreur, envoi)
 }
 
 // Lightweight product analytics (no PII beyond what is strictly needed).
@@ -1056,6 +1057,7 @@ enum MarketAnalyticEventType {
   CATEGORY_VIEWED
   PRODUCT_VIEWED
   ADD_TO_CART
+  CART_VIEWED
   CHECKOUT_STARTED
   ORDER_SUBMITTED
 }

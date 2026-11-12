@@ -35,7 +35,7 @@ try {
   // 1. Le slot FILE du service apparaît avec son libellé catalogue
   const legend = await p.locator('fieldset legend').first().innerText().catch(() => '');
   ok(/pièces jointes/i.test(legend), 'fieldset pièces jointes présent', `(legend="${legend}")`);
-  ok((await p.locator('text=Photo ou vidéo de la fuite').count()) >= 1, 'libellé de l’exigence FILE affiché');
+  ok((await p.locator('text=Photo de la fuite').count()) >= 1, 'libellé de l’exigence FILE affiché (sans vidéo non supportée)');
   ok((await p.locator('p:has-text("fichiers maximum")').count()) >= 1, 'note « fichiers maximum » affichée');
 
   // 2. Input file avec les types acceptés

@@ -47,6 +47,7 @@ export function Footer() {
             </h4>
             <ul className="space-y-1.5 text-xs">
               <li><Link to="/boutique" className="text-brand-text-muted hover:text-brand-accent transition-colors py-1 inline-block">Fika Market</Link></li>
+              <li><Link to="/demande-produit" className="text-brand-text-muted hover:text-brand-accent transition-colors py-1 inline-block">Demander un produit</Link></li>
               <li><Link to="/boutique/panier" className="text-brand-text-muted hover:text-brand-accent transition-colors py-1 inline-block">Mon panier</Link></li>
             </ul>
           </div>

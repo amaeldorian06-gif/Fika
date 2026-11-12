@@ -8,7 +8,7 @@ import { cn } from '../utils/cn';
  */
 
 const fieldBase =
-  'w-full rounded-xl border bg-brand-surface px-4 py-3 text-sm font-medium text-brand-text placeholder:text-brand-text-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1';
+  'w-full min-h-[44px] rounded-xl border bg-brand-surface px-4 py-3 text-sm font-medium text-brand-text placeholder:text-brand-text-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1';
 
 const fieldState = (invalid?: boolean) =>
   invalid

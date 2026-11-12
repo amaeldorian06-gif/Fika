@@ -115,6 +115,14 @@ export const leadPayloadSchema = z.object({
   consent: z.literal(true),
   /** Fichiers déjà téléversés (POST /api/files/service-request), rattachés à la demande. */
   fileIds: z.array(z.string().min(10).max(60)).max(3).optional(),
+  /**
+   * Parcours produit (/demande-produit) : la demande reste un Lead (l'équipe
+   * coordonne), marquée intention produit pour être traitée comme telle.
+   */
+  intent: z.enum(['SERVICE', 'PRODUCT']).optional(),
+  productName: z.string().trim().min(2).max(160).optional(),
+  productLink: z.string().trim().max(300).optional(),
+  quantity: z.number().int().min(1).max(99).optional(),
   context: z.object({
     campaign: z.string().max(80).nullish(),
     referrer: z.string().max(120).nullish(),

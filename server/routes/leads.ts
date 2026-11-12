@@ -106,6 +106,11 @@ export async function handleCreateLead(body: unknown, ip: string): Promise<Creat
     landing: data.context?.landing ?? null,
     device: data.context?.device ?? null,
     serviceName: data.serviceName ?? null,
+    // Parcours produit : marqueurs de traitement (jamais de donnée sensible).
+    intent: data.intent ?? null,
+    productName: data.intent === 'PRODUCT' ? (data.productName ?? null) : null,
+    productLink: data.intent === 'PRODUCT' && data.productLink ? data.productLink : null,
+    quantity: data.intent === 'PRODUCT' ? (data.quantity ?? null) : null,
     consentAt: new Date().toISOString(),
   };
 

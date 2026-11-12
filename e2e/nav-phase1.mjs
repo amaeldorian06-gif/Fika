@@ -29,7 +29,7 @@ p.on('pageerror', (e) => consoleErrors.push(String(e)));
 // --- 1. Page d'entrée ---
 await p.goto(BASE + '/', { waitUntil: 'load' });
 ok('E1 entry : titre H1 exact', (await p.locator('h1').innerText()).includes('Fika vous accompagne'));
-ok('E1 entry : sous-titre exact', (await p.locator('h1 ~ p, section p').filter({ hasText: 'sélection de produits' }).first().isVisible()));
+ok('E1 entry : sous-titre exact', (await p.locator('h1 ~ p, section p').filter({ hasText: 'coordonne la solution' }).first().isVisible()));
 ok('E1 entry : carte Services + CTA', await p.getByRole('link', { name: 'Découvrir les services' }).isVisible());
 ok('E1 entry : carte Market + CTA', await p.getByRole('link', { name: 'Explorer la boutique' }).isVisible());
 ok('E1 entry : égalité visuelle des cartes', await p.evaluate(() => {

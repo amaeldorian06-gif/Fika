@@ -8,6 +8,7 @@ import { captureLeadContext, normalizePhoneE164, URGENCY_OPTIONS } from '../lib/
 import { getServiceById, getServiceBySlug } from '../lib/catalog';
 import { getWALink } from '../lib/whatsapp';
 import { WHATSAPP_PHONE_E164, SITE_CITY } from '../lib/site';
+import { trackFunnelStep } from '../lib/tracking';
 
 const DRAFT_KEY = 'fika:request-draft:v2';
 const empty = { need: '', zoneName: '', phone: '', name: '', urgency: 'FLEXIBLE', consent: false, serviceId: '', requestKey: '' };
@@ -37,6 +38,7 @@ export function DemandePage() {
   const [pending, setPending] = useState(false);
   const [code, setCode] = useState('');
   const busy = useRef(false);
+  const started = useRef(false);
   const set = (key: keyof typeof empty, value: string | boolean) => setValues(v => ({ ...v, [key]: value }));
   useEffect(() => {
     try { if (!code) sessionStorage.setItem(DRAFT_KEY, JSON.stringify(values)); } catch { /* Best effort, tab only. */ }
@@ -75,6 +77,7 @@ export function DemandePage() {
       const next: Record<string, string> = {};
       parsed.error.issues.forEach(i => { next[String(i.path[0])] ??= i.message; });
       setErrors(next);
+      trackFunnelStep('VALIDATION_ERROR', { universe: 'services', field: Object.keys(next)[0] });
       document.getElementById(Object.keys(next)[0])?.focus();
       return;
     }
@@ -96,6 +99,7 @@ export function DemandePage() {
       const data = await res.json();
       if (!res.ok || !data.ok || !data.leadCode) throw new Error(data.message ?? 'Enregistrement non confirmé.');
       setCode(data.leadCode);
+      trackFunnelStep('REQUEST_SUBMITTED', { universe: 'services' });
       try { sessionStorage.removeItem(DRAFT_KEY); } catch { /* noop */ }
     } catch {
       setError('Votre demande n’a pas pu être confirmée. Réessayez ou transmettez-la à Fika sur WhatsApp. Vos champs sont conservés.');
@@ -115,7 +119,7 @@ export function DemandePage() {
     <h1 className="text-3xl font-heading font-bold">Que devons-nous résoudre ?</h1>
     <p className="text-brand-text-muted mt-3 mb-7">Pas besoin de connaître le métier. Expliquez simplement ce qui vous arrive.</p>
     {service && <p className="mb-4 text-sm">Votre point de départ : {service.name}. Vous pouvez décrire librement votre besoin.</p>}
-    <form onSubmit={submit} noValidate className="space-y-5">
+    <form onSubmit={submit} noValidate className="space-y-5" onFocus={() => { if (!started.current) { started.current = true; trackFunnelStep('FORM_STARTED', { universe: 'services' }); } }}>
       <Field label="Votre besoin" htmlFor="need" required error={errors.need}><Textarea id="need" value={values.need} onChange={e => set('need', e.target.value)} maxLength={2000} rows={4} placeholder="Mon téléphone ne charge plus…" required aria-invalid={!!errors.need} /></Field>
       <fieldset className="border-y border-brand-border py-4">
         <legend className="text-sm font-semibold py-2">Pièces jointes</legend>

@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { Loader2, MessageCircle } from 'lucide-react';
 import { useRoute, Link } from './router';
 import { Footer, GlobalHeader, MobileBottomNav } from './components/layout';
@@ -8,6 +8,7 @@ import { UniversePage } from './components/UniversePage';
 import { ServicePage } from './components/ServicePage';
 import { ServicesPage } from './components/ServicesPage';
 import { DemandePage } from './components/DemandePage';
+import { ProductInquiryPage } from './components/ProductInquiryPage';
 import { MarketCartPage, MarketCategoryPage, MarketHomePage, MarketOrderPage, MarketProductPage } from './components/market/Market';
 import { LegalPage, type LegalKind } from './components/LegalPage';
 import { Button } from './components/ui';
@@ -77,6 +78,11 @@ export default function App() {
   useEffect(() => { captureLeadContext(); }, []);
   const { path } = useRoute();
   const isAdmin = path.startsWith('/admin');
+  // Pages où le bouton flottant WhatsApp est masqué : pages à formulaire
+  // (jamais au-dessus d'un champ) et fiches service (il recouvrirait la barre
+  // CTA sticky ; WhatsApp reste disponible dans le contenu de la page).
+  const FORM_ROUTES = new Set(['/demande', '/demande-produit', '/boutique/commande']);
+  const hideFab = FORM_ROUTES.has(path) || path.startsWith('/service/');
   usePageSeo(path);
 
   let page: React.ReactNode;
@@ -92,6 +98,8 @@ export default function App() {
     page = <ServicesPage />;
   } else if (path === '/demande') {
     page = <DemandePage />;
+  } else if (path === '/demande-produit') {
+    page = <ProductInquiryPage />;
   } else if (LEGAL_ROUTES.includes(path.slice(1) as LegalKind)) {
     page = <LegalPage kind={path.slice(1) as LegalKind} />;
   } else if (path === '/boutique') {
@@ -113,6 +121,7 @@ export default function App() {
   }
 
   return (
+    <MotionConfig reducedMotion="user">
     <div className={`min-h-screen flex flex-col bg-brand-bg text-brand-text font-sans ${isAdmin ? '' : 'pb-20 md:pb-0'}`}>
       {/* Navigation clavier : accès direct au contenu principal (scroll + focus, sans toucher au hash) */}
       <a
@@ -144,8 +153,9 @@ export default function App() {
       <Footer />
       {!isAdmin && <MobileBottomNav />}
 
-      {/* Bouton WhatsApp flottant mobile */}
-      {!isAdmin && (
+      {/* Bouton WhatsApp flottant mobile — masqué sur les pages à formulaire
+          (un contact WhatsApp reste disponible en bas de chaque formulaire). */}
+      {!isAdmin && !hideFab && (
         <aside aria-label="Contact rapide" className="md:hidden fixed bottom-[88px] right-4 z-40">
           <a
             href={getWALink(
@@ -153,7 +163,7 @@ export default function App() {
             )}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#25D366] text-white shadow-2xl font-bold text-sm hover:scale-105 active:scale-95 transition-all"
+            className="inline-flex items-center gap-2 px-4 min-h-[44px] rounded-full bg-[#25D366] text-white shadow-2xl font-bold text-sm hover:scale-105 active:scale-95 transition-all"
             aria-label="Contacter Fika sur WhatsApp"
           >
             <MessageCircle className="w-5 h-5 fill-current" />
@@ -162,5 +172,6 @@ export default function App() {
         </aside>
       )}
     </div>
+    </MotionConfig>
   );
 }

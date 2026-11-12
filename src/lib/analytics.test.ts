@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   averageCompletionDays, costBreakdown, financeSummary, leadConversionRate,
-  makePeriod, searchQueriesBreakdown, sourceBreakdown, statusFunnel, topServices, weeklyRevenue,
+  funnelBreakdown, makePeriod, searchQueriesBreakdown, sourceBreakdown, statusFunnel, topServices, weeklyRevenue,
   type AnalyticsEvent, type AnalyticsLead, type AnalyticsOrder,
 } from './analytics';
 
@@ -208,5 +208,31 @@ describe('searchQueriesBreakdown', () => {
       ['a', 'b', 'c', 'd'].map((q) => ev(q, 1, q)), 2,
     );
     expect(rows.length).toBe(2);
+  });
+});
+
+describe('funnelBreakdown — étapes de parcours (FUNNEL_STEP)', () => {
+  const ev = (meta: Record<string, unknown>, type = 'FUNNEL_STEP'): AnalyticsEvent =>
+    ({ id: String(Math.random()), type, createdAt: new Date(), serviceId: null, campaign: null, meta: meta as AnalyticsEvent['meta'] });
+
+  it('compte chaque étape et les ordonne dans l\u2019ordre du parcours', () => {
+    const rows = funnelBreakdown([
+      ev({ step: 'REQUEST_SUBMITTED' }),
+      ev({ step: 'PATH_SELECTED' }),
+      ev({ step: 'PATH_SELECTED' }),
+      ev({ step: 'FORM_STARTED' }),
+      ev({ step: 'INQUIRY_STARTED' }),
+    ]);
+    expect(rows.map((r) => r.step)).toEqual(['PATH_SELECTED', 'FORM_STARTED', 'REQUEST_SUBMITTED', 'INQUIRY_STARTED']);
+    expect(rows[0]).toMatchObject({ count: 2, label: 'Chemin choisi (accueil)' });
+  });
+
+  it('ignore les autres types d\u2019événements et les métadonnées vides', () => {
+    expect(funnelBreakdown([ev({ query: 'plomberie', results: 3 }, 'SERVICE_SEARCH'), ev({})])).toEqual([]);
+  });
+
+  it('les étapes inconnues gardent leur identifiant technique en libellé', () => {
+    const rows = funnelBreakdown([ev({ step: 'NOUVELLE_ETAPE_FUTURE' })]);
+    expect(rows[0].label).toBe('NOUVELLE_ETAPE_FUTURE');
   });
 });

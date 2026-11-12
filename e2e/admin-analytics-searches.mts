@@ -41,6 +41,11 @@ try {
   const shortPersisted = await prisma.event.count({ where: { type: 'SERVICE_SEARCH', createdAt: { gte: startedAt }, meta: { path: ['query'], equals: 'x' } } });
   ok(short.body.ok === false && shortPersisted === 0, 'requête trop courte rejetée, rien persisté', `ok=${short.body.ok} persistés=${shortPersisted}`);
 
+  ok((await post('/api/events/funnel', { step: 'INQUIRY_STARTED', universe: 'market' })).status === 200, 'événement funnel accepté');
+  ok((await post('/api/events/funnel', { step: 'VALIDATION_ERROR', field: 'phone' })).status === 200, 'événement erreur validation accepté (nom de champ uniquement)');
+  const pii = await post('/api/events/funnel', { step: 'REQUEST_SUBMITTED', field: '06 90 12 34 56 avec contenu' });
+  ok(pii.body.ok === false, 'rejet : champ/contenu personnel refusé', JSON.stringify(pii.body));
+
   // --- 2. Vue admin avec session réelle ---
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   await ctx.addCookies([{ name: SESSION_COOKIE, value: token, url: BASE, httpOnly: true, sameSite: 'Lax' }]);
@@ -48,6 +53,14 @@ try {
   await p.goto(`${BASE}/admin/analytics`, { waitUntil: 'load', timeout: 30000 });
   await p.waitForSelector('text=Recherches sur la page services', { timeout: 30000 });
   ok(true, 'bloc « Recherches sur la page services » présent dans Analytiques');
+
+  // Bloc funnel parcours
+  await p.waitForSelector('text=Parcours des visiteurs', { timeout: 10000 });
+  const funnelBlock = p.locator('div.bg-brand-surface', { hasText: 'Parcours des visiteurs' }).first();
+  const funnelText = (await funnelBlock.evaluate((el) => el.textContent)).replace(/\s+/g, ' ');
+  ok(funnelText.includes('Formulaire produit commencé'), 'funnel : étape INQUIRY_STARTED listée');
+  ok(funnelText.includes('Erreur de validation'), 'funnel : étape VALIDATION_ERROR listée');
+  ok(!funnelText.includes('06 90'), 'funnel : aucune donnée personnelle affichée');
 
   const block = p.locator('div.bg-brand-surface', { hasText: 'Recherches sur la page services' }).first();
   const blockText = (await block.evaluate((el) => el.textContent)).replace(/\s+/g, ' ');
@@ -60,8 +73,8 @@ try {
   await ctx.close();
 } finally {
   await browser.close();
-  const deleted = await prisma.event.deleteMany({ where: { type: 'SERVICE_SEARCH', createdAt: { gte: startedAt } } });
-  console.log(`  (nettoyage : ${deleted.count} événement(s) SERVICE_SEARCH supprimé(s))`);
+  const deleted = await prisma.event.deleteMany({ where: { type: { in: ['SERVICE_SEARCH', 'FUNNEL_STEP'] }, createdAt: { gte: startedAt } } });
+  console.log(`  (nettoyage : ${deleted.count} événement(s) analytics supprimé(s))`);
   await prisma.$disconnect();
 }
 console.log(`\n===== ADMIN RECHERCHES SERVICES : ${pass}/${pass + fail} ${fail === 0 ? 'PASS' : 'FAIL'} =====`);

@@ -127,7 +127,12 @@ const STATIC_META: Record<string, { title: string; description: string }> = {
   '/demande': {
     title: 'Décrire mon besoin',
     description:
-      "Vous ne trouvez pas votre besoin dans le catalogue ? Décrivez-le en 2 minutes : Fika vous répond sous 2 h ouvrées avec une solution et un prix à Ngaoundéré.",
+      "Vous ne trouvez pas votre besoin dans le catalogue ? Décrivez-le en 2 minutes : Fika examine votre demande, recherche la solution et vous rappelle avec un prix à Ngaoundéré.",
+  },
+  '/demande-produit': {
+    title: 'Demander un produit',
+    description:
+      'Vous cherchez un produit à Ngaoundéré ? Décrivez-le : Fika vérifie sa disponibilité et son prix, puis organise la livraison. Prix final confirmé avant tout paiement.',
   },
   '/mentions-legales': {
     title: 'Mentions légales',
