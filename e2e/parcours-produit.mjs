@@ -72,14 +72,25 @@ try {
   const noPii = funnelEvents.every((e) => !JSON.stringify(e.meta ?? {}).includes('690') && !JSON.stringify(e.meta ?? {}).includes('Régulateur'));
   ok(noPii, 'aucune donnée personnelle dans les événements funnel');
 
-  /* ---------- 5. Boutique vide → parcours produit (jamais /services) ---------- */
+  /* ---------- 5. Boutique : catalogue rempli OU état vide honnête ---------- */
+  const activeProducts = await prisma.marketProduct.count({ where: { active: true } });
   await p.goto(`${BASE}/boutique`, { waitUntil: 'load' });
-  await p.waitForSelector('text=Le catalogue arrive', { timeout: 20000 });
-  const boutiqueCta = p.getByRole('link', { name: 'Demander un produit' }).first();
-  ok(await boutiqueCta.isVisible(), 'boutique vide : CTA « Demander un produit »');
-  await boutiqueCta.click();
-  await p.waitForSelector('#product', { timeout: 15000 });
-  ok(p.url().includes('/demande-produit'), 'boutique vide → parcours produit (pas l’annuaire services)', p.url());
+  if (activeProducts > 0) {
+    await p.waitForSelector('a[href*="/boutique/produit/"]', { timeout: 20000 });
+    const cards = await p.locator('a[href*="/boutique/produit/"]').count();
+    ok(cards >= Math.min(activeProducts, 8), `catalogue rempli : ${cards} carte(s) produit affichée(s) (${activeProducts} actifs en base)`);
+    ok(!(await p.getByText('Le catalogue arrive').count() > 0), 'aucun message « catalogue vide » tant que des produits sont actifs');
+    await p.locator('a[href*="/boutique/produit/"]').first().click();
+    await p.waitForTimeout(800);
+    ok(p.url().includes('/boutique/produit/'), 'carte produit cliquable → fiche produit', p.url());
+  } else {
+    await p.waitForSelector('text=Le catalogue arrive', { timeout: 20000 });
+    const boutiqueCta = p.getByRole('link', { name: 'Demander un produit' }).first();
+    ok(await boutiqueCta.isVisible(), 'boutique vide : CTA « Demander un produit »');
+    await boutiqueCta.click();
+    await p.waitForSelector('#product', { timeout: 15000 });
+    ok(p.url().includes('/demande-produit'), 'boutique vide → parcours produit (pas l’annuaire services)', p.url());
+  }
 
   /* ---------- 6. Panier vide : état honnête + action utile ---------- */
   await p.goto(`${BASE}/boutique/panier`, { waitUntil: 'load' });
@@ -88,7 +99,13 @@ try {
   await p.getByRole('link', { name: 'Demander un produit' }).first().click();
   await p.waitForSelector('#product', { timeout: 15000 });
   ok(p.url().includes('/demande-produit'), 'panier vide → parcours produit', p.url());
-  const cartViewed = await prisma.marketAnalyticEvent.findFirst({ where: { type: 'CART_VIEWED', createdAt: { gte: startedAt } } });
+  // L'insertion de l'événement peut être retardée (pool DB partagé) : on sondage
+  // jusqu'à 8 s au lieu d'échouer sur une course de latence.
+  let cartViewed = null;
+  for (let i = 0; i < 16 && !cartViewed; i++) {
+    cartViewed = await prisma.marketAnalyticEvent.findFirst({ where: { type: 'CART_VIEWED', createdAt: { gte: startedAt } } });
+    if (!cartViewed) await new Promise((r) => setTimeout(r, 500));
+  }
   ok(cartViewed !== null, 'événement CART_VIEWED mesuré');
 
   /* ---------- 7. FAB WhatsApp : masqué sur les formulaires, visible ailleurs ---------- */

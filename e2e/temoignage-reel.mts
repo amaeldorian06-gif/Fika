@@ -76,9 +76,12 @@ try {
   ok((await apiPost('/api/admin/orders/status', { orderId, to: 'PAID' }, true)).status === 200, 'commande payée');
 
   // --- 4. Expert + affectation ---
-  const exp = await apiPost('/api/admin/experts', { name: 'E2E Expert Temoignage', phone: EXPERT_PHONE, skills: ['Plomberie'], usualCost: 0 }, true);
-  expertId = exp.body.expertId ?? null;
-  ok(exp.status === 200 && !!expertId, 'expert créé');
+  // La gestion des fiches experts n'est plus une section admin (allègement
+  // 13/11) : le partenaire de test est créé directement en base. L'affectation
+  // (panneau Exécution du détail commande) reste un parcours supporté.
+  const exp = await prisma.expert.create({ data: { name: 'E2E Expert Temoignage', phone: EXPERT_PHONE, skills: ['Plomberie'], usualCost: 0 } });
+  expertId = exp.id;
+  ok(!!expertId, 'expert créé (directement en base)');
   ok((await apiPost('/api/admin/orders/assign', { orderId, expertId }, true)).status === 200, 'expert affecté');
 
   // --- 5. Exécution jusqu'à « terminée » (l'affectation ne change pas le statut) ---

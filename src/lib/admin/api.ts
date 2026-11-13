@@ -155,14 +155,6 @@ export interface AdminExpert {
   history: ExpertVerificationDto[];
 }
 
-export interface AdminCustomer {
-  id: string;
-  name: string | null;
-  phone: string;
-  ordersCount: number;
-  totalSpent: number;
-}
-
 export interface AdminOverviewData {
   monthLabel: string;
   revenue: number;
@@ -270,14 +262,7 @@ export async function fetchLeads(scope = 'current'): Promise<AdminLead[]> {
   return await getJson<AdminLead[]>(`/api/admin/leads?scope=${encodeURIComponent(scope)}`);
 }
 
-export async function fetchExperts(): Promise<AdminExpert[]> {
-  return await getJson<AdminExpert[]>('/api/admin/experts');
-}
-
-export async function fetchCustomers(): Promise<AdminCustomer[]> {
-  return await getJson<AdminCustomer[]>('/api/admin/customers');
-}
-
+/** Experts affectables — utilisé par le panneau Exécution du détail commande. */
 export async function fetchAssignableExperts(): Promise<AssignableExpertDto[]> {
   return await getJson<AssignableExpertDto[]>('/api/admin/experts?assignable=1');
 }
@@ -317,14 +302,6 @@ export async function buildQuote(payload: QuoteBuilderPayload): Promise<{ ok: tr
 
 export async function convertLead(leadId: string, phone?: string, name?: string): Promise<{ ok: true; orderId: string; orderNumber: string }> {
   return await postJson<{ ok: true; orderId: string; orderNumber: string }>('/api/admin/leads/convert', { leadId, phone, name });
-}
-
-export async function saveExpert(payload: Record<string, unknown>): Promise<{ ok: true; expertId?: string }> {
-  return await postJson<{ ok: true; expertId?: string }>('/api/admin/experts', payload);
-}
-
-export async function verifyExpert(payload: { expertId: string; to: string; type: string; note?: string }): Promise<{ ok: true; level: string }> {
-  return await postJson<{ ok: true; level: string }>('/api/admin/experts/verify', payload);
 }
 
 export async function assignExpert(orderId: string, expertId: string, compensation?: number): Promise<{ ok: true; taskId: string }> {

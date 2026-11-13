@@ -6,6 +6,7 @@ import {
   type MarketProductPublic, type MarketProductVariant,
 } from '../../src/lib/market';
 import { normalizePhoneE164 } from '../../src/lib/lead';
+import { sendMarketOrderAlert } from '../lib/notify';
 import { serialTransaction, nextDocumentNumber } from '../lib/transaction';
 
 /**
@@ -15,15 +16,22 @@ import { serialTransaction, nextDocumentNumber } from '../lib/transaction';
  * code de suivi sans données personnelles.
  */
 
+/**
+ * Débit limité par IP ET par finalité (clé composite « ip:scope ») : les
+ * événements analytics (60/min) ne doivent pas consommer le budget de
+ * commandes (10/min) d'un même visiteur — sinon un client qui parcourt
+ * la boutique avant de commander se voyait refuser sa commande (429).
+ * Compteurs en mémoire : remis à zéro au redémarrage du serveur.
+ */
 const buckets = new Map<string, { count: number; resetAt: number }>();
-export function checkMarketRate(ip: string, limit = 10, windowMs = 60_000): boolean {
+export function checkMarketRate(key: string, limit = 10, windowMs = 60_000): boolean {
   const now = Date.now();
   if (buckets.size > 10000) {
-    for (const [key, value] of buckets) if (value.resetAt < now) buckets.delete(key);
-    if (buckets.size > 10000 && !buckets.has(ip)) return false;
+    for (const [k, value] of buckets) if (value.resetAt < now) buckets.delete(k);
+    if (buckets.size > 10000 && !buckets.has(key)) return false;
   }
-  const bucket = buckets.get(ip);
-  if (!bucket || bucket.resetAt < now) { buckets.set(ip, { count: 1, resetAt: now + windowMs }); return true; }
+  const bucket = buckets.get(key);
+  if (!bucket || bucket.resetAt < now) { buckets.set(key, { count: 1, resetAt: now + windowMs }); return true; }
   if (bucket.count >= limit) return false;
   bucket.count += 1;
   return true;
@@ -85,7 +93,7 @@ export type MarketOrderResult =
   | { status: 400 | 429; body: { ok: false; code: string; message: string; issues?: Record<string, string[]> } };
 
 export async function createMarketOrder(body: unknown, ip: string): Promise<MarketOrderResult> {
-  if (!checkMarketRate(ip || 'unknown')) {
+  if (!checkMarketRate(`${ip || 'unknown'}:order`)) {
     return { status: 429, body: { ok: false, code: 'RATE_LIMITED', message: 'Trop de demandes. Réessayez dans une minute.' } };
   }
   const parsed = marketOrderPayloadSchema.safeParse(body);
@@ -107,7 +115,7 @@ export async function createMarketOrder(body: unknown, ip: string): Promise<Mark
   // Produits : tous doivent exister et être actifs. Indisponible => précommande impossible.
   const products = await prisma.marketProduct.findMany({
     where: { id: { in: data.items.map((i) => i.productId) }, active: true },
-    select: { id: true, name: true, availability: true },
+    select: { id: true, name: true, availability: true, priceSale: true },
   });
   const byId = new Map(products.map((p) => [p.id, p]));
   if (data.items.some((i) => !byId.get(i.productId))) {
@@ -117,7 +125,8 @@ export async function createMarketOrder(body: unknown, ip: string): Promise<Mark
     return { status: 400, body: { ok: false, code: 'PRODUCT_UNAVAILABLE', message: 'Ce produit est actuellement indisponible. Contactez-nous pour une alternative.' } };
   }
 
-  return serialTransaction(async tx => {
+  const created: { orderNumber?: string } = {};
+  const result: MarketOrderResult = await serialTransaction(async tx => {
     let order: { id: string; orderNumber: string; trackCode: string };
     try {
       const customer = await tx.customer.upsert({
@@ -146,8 +155,23 @@ export async function createMarketOrder(body: unknown, ip: string): Promise<Mark
       }
       throw e;
     }
+    created.orderNumber = order.orderNumber;
     return { status: 200, body: { ok: true, orderNumber: order.orderNumber } };
   });
+  // Alerte e-mail best-effort au fondateur — jamais sur un double-clic (idempotence).
+  if (created.orderNumber) {
+    await sendMarketOrderAlert({
+      orderNumber: created.orderNumber,
+      name: data.name, phone, zoneName: data.zoneName,
+      address: data.address ?? null, notes: data.notes ?? null,
+      items: data.items.map((i) => {
+        const p = byId.get(i.productId)!;
+        return { productName: p.name, variantLabel: i.variantLabel ?? null, quantity: i.quantity, unitPrice: p.priceSale };
+      }),
+      totalIndicatif: data.items.reduce((t, i) => t + (byId.get(i.productId)?.priceSale ?? 0) * i.quantity, 0),
+    });
+  }
+  return result;
 }
 
 /** Suivi public : étapes datées + produits, sans coordonnées client. */
@@ -162,7 +186,7 @@ const analyticEventSchema = z.object({
 
 /** Funnel pré-commande : vues boutique/produit, ajout panier, début commande. Sans données personnelles. */
 export async function recordMarketAnalyticEvent(body: unknown, ip: string): Promise<{ status: number; body: Record<string, unknown> }> {
-  if (!checkMarketRate(ip || 'unknown', 60, 60_000)) return { status: 429, body: { ok: false, code: 'RATE_LIMITED', message: 'Trop de requêtes.' } };
+  if (!checkMarketRate(`${ip || 'unknown'}:events`, 60, 60_000)) return { status: 429, body: { ok: false, code: 'RATE_LIMITED', message: 'Trop de requêtes.' } };
   const parsed = analyticEventSchema.safeParse(body);
   if (!parsed.success) return { status: 400, body: { ok: false, message: 'Événement invalide.' } };
   const d = parsed.data;

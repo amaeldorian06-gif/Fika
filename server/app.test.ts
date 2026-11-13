@@ -31,14 +31,14 @@ afterAll(async () => { await new Promise<void>(resolve => server.close(() => res
 
 describe('API et session serveur', () => {
   it('refuse toutes les lectures admin sans cookie, avant accès DB', async () => {
-    for (const route of ['overview', 'orders', 'orders/test', 'leads', 'customers', 'experts', 'analytics', 'analytics/orders', 'reports']) {
+    for (const route of ['overview', 'orders', 'orders/test', 'leads', 'experts', 'analytics', 'analytics/orders']) {
       expect((await fetch(`${base}/api/admin/${route}`)).status).toBe(401);
     }
     expect(db.adminUser.findUnique).not.toHaveBeenCalled();
     expect(db.order.findMany).not.toHaveBeenCalled();
   });
   it('refuse les mutations et avis anonymes', async () => {
-    for (const route of ['admin/payments', 'admin/payments/review', 'admin/orders/status', 'admin/orders/costs', 'admin/orders/quotes', 'admin/leads/convert', 'admin/leads/status', 'admin/experts', 'admin/orders/assign', 'admin/tasks/status', 'admin/orders/delivery', 'admin/portfolio', 'admin/reports', 'admin/reports/test/archive', 'admin/reports/test/restore', 'reviews']) {
+    for (const route of ['admin/payments', 'admin/payments/review', 'admin/orders/status', 'admin/orders/costs', 'admin/orders/quotes', 'admin/leads/convert', 'admin/leads/status', 'admin/orders/assign', 'admin/tasks/status', 'admin/orders/delivery', 'admin/portfolio', 'reviews']) {
       expect((await post(`/api/${route}`, {})).status).toBe(401);
     }
   });

@@ -33,7 +33,7 @@ export interface MarketOrderSummaryDto {
 }
 
 export interface MarketOrderItemDto {
-  id: string; productId: string | null; productName: string; quantity: number;
+  id: string; productId: string | null; productName: string; variantLabel: string | null; quantity: number;
   unitPrice: number | null; unitCostReal: number | null; procurementBatchId: string | null;
 }
 

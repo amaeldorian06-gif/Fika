@@ -1,5 +1,4 @@
 import { parseReportRange } from '../src/lib/report-period';
-import { z } from 'zod';
 import { prisma } from '../src/lib/prisma';
 import {
   getMarketCatalog, getMarketProduct, createMarketOrder, recordMarketAnalyticEvent,
@@ -12,7 +11,6 @@ import {
   createMarketQuote, respondMarketQuote, recordMarketRefund, saveMarketExpense,
   deleteMarketExpense, getMarketBatchAllocation, applyMarketBatchAllocation, getMarketLedger,
 } from './routes/admin-market';
-import { listReports, createReport, downloadReport, archiveReport, restoreReport, ReportError } from './routes/admin-reports';
 import { handleRecordPayment, handleReviewPayment } from './routes/admin-payments';
 import express, { type ErrorRequestHandler, type Response } from 'express';
 import { ensureFounderRecord, getCurrentAdmin, handleLogin, handleLogout, SESSION_COOKIE } from './routes/auth';
@@ -23,11 +21,10 @@ import { handleLeadView } from './routes/events-leadview';
 import { handleServiceSearch } from './routes/events-service-search';
 import { handleFunnelEvent } from './routes/events-funnel';
 import { getPublicPortfolio, getPublicTestimonials, handleCreateReview } from './routes/reviews';
-import { getCustomers, getExperts, getLeads, getOrder, getOrders, getOverview, getAnalyticsOrders } from './routes/admin-read';
+import { getExperts, getLeads, getOrder, getOrders, getOverview, getAnalyticsOrders } from './routes/admin-read';
 import { getAnalytics, isPeriodKey } from './routes/admin-analytics';
 import { handleAddCost, handleBuildQuote, handleCreateQuote, handleUpdateStatus } from './routes/admin-orders';
 import { handleConvertLead, handleUpdateLeadStatus } from './routes/admin-leads';
-import { handleCreateExpert, handleUpdateExpert, handleVerifyExpert } from './routes/admin-experts';
 import { handleAssignExpert, handlePublishPortfolio, handleUpdateTask, handleUpsertDelivery } from './routes/admin-execution';
 import { buildExport, isExportDataset } from './routes/admin-export';
 
@@ -117,7 +114,6 @@ export function createApp() {
     res.status(order ? 200 : 404).json(order ?? { ok: false, message: 'Commande introuvable.' });
   });
   app.get('/api/admin/leads', async (req, res) => res.json(await getLeads(query(req.query.scope))));
-  app.get('/api/admin/customers', async (_req, res) => res.json(await getCustomers()));
   app.get('/api/admin/experts', async (req, res) => res.json(await getExperts(req.query.assignable === '1')));
   app.get('/api/admin/analytics', async (req, res) => {
     const period = query(req.query.period) ?? 'month';
@@ -173,26 +169,6 @@ export function createApp() {
     send(res, await applyMarketBatchAllocation(parsed, res.locals.admin.id));
   });
 
-  app.get('/api/admin/reports', async (_req, res) => res.json(await listReports()));
-  app.post('/api/admin/reports', async (req, res) => {
-    try { res.json(await createReport(req.body, res.locals.admin.id)); }
-    catch (e) { if (e instanceof ReportError || e instanceof z.ZodError) { res.status(400).json({ ok: false, message: e instanceof ReportError ? e.message : 'Dates requises.' }); return; } throw e; }
-  });
-  app.get('/api/admin/reports/:id/download', async (req, res) => {
-    const file = await downloadReport(String(req.params.id));
-    if (!file) { res.status(404).json({ ok: false, message: 'Dossier introuvable.' }); return; }
-    res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', `attachment; filename="${file.filename}"`);
-    res.send(file.zip);
-  });
-  app.post('/api/admin/reports/:id/:action', async (req, res) => {
-    try {
-      if (req.params.action === 'archive') res.json(await archiveReport(String(req.params.id), req.body?.confirmed === true));
-      else if (req.params.action === 'restore') res.json(await restoreReport(String(req.params.id)));
-      else res.status(404).json({ ok: false, message: 'Action inconnue.' });
-    } catch (e) { if (e instanceof ReportError) { res.status(409).json({ ok: false, message: e.message }); return; } throw e; }
-  });
-
   const mutations = {
     '/api/admin/payments': handleRecordPayment,
     '/api/admin/payments/review': handleReviewPayment,
@@ -206,15 +182,10 @@ export function createApp() {
     '/api/admin/tasks/status': handleUpdateTask,
     '/api/admin/orders/delivery': handleUpsertDelivery,
     '/api/admin/portfolio': handlePublishPortfolio,
-    '/api/admin/experts/verify': handleVerifyExpert,
   };
   for (const [route, handler] of Object.entries(mutations)) {
     app.post(route, async (req, res) => send(res, await handler(req.body, res.locals.admin.id)));
   }
-  app.post('/api/admin/experts', async (req, res) => {
-    const handler = req.body?.expertId ? handleUpdateExpert : handleCreateExpert;
-    send(res, await handler(req.body, res.locals.admin.id));
-  });
   app.post('/api/reviews', async (req, res) => send(res, await handleCreateReview(req.body)));
 
   app.use('/api', (_req, res) => res.status(404).json({ ok: false, message: 'Route API introuvable.' }));

@@ -24,7 +24,10 @@ if (apiCount === 0) {
 
 const browser = await chromium.launch();
 try {
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  // reducedMotion: 'reduce' → le défilement automatique des photos d'aperçu
+  // est désactivé (accessibilité) : seules les premières URLs sont rendues,
+  // le comptage des <img> reste déterministe.
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
   const p = await ctx.newPage();
 
   // Bloquer TOUTES les images du stockage → chaque <img> produit échoue.

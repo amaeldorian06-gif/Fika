@@ -15,7 +15,10 @@ try {
   }
   // produits + catégorie de test
   await prisma.marketProduct.deleteMany({ where: { slug: { startsWith: 'e2e-nav-' } } });
-  await prisma.marketCategory.deleteMany({ where: { slug: 'e2e-nav-accessoires' } });
+  // catégorie e2e : uniquement si plus aucun produit ne l'utilise — le
+  // fondateur l'a renommée « Accessoires Mode » avec de vrais produits
+  // (LIP TINT, STYLISH BAG) le 13/11, elle lui appartient désormais.
+  await prisma.marketCategory.deleteMany({ where: { slug: 'e2e-nav-accessoires', products: { none: {} } } });
   // événements analytics générés pendant les tests — UNIQUEMENT ceux liés aux
   // produits e2e (productId ou meta.slug) ; les événements réels du site en
   // production ne doivent jamais être supprimés (leçon de l'incident 03/11).

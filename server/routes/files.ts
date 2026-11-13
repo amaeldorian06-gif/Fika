@@ -92,7 +92,7 @@ function storageErrorResponse(e: unknown): { status: number; body: Record<string
  * Retourne { fileId } à inclure dans fileIds lors du POST /api/leads.
  */
 export async function handleServiceRequestFile(req: Request, ip: string): Promise<{ status: number; body: Record<string, unknown> }> {
-  if (!checkMarketRate(ip || 'unknown', 10, 60_000)) {
+  if (!checkMarketRate(`${ip || 'unknown'}:files`, 10, 60_000)) {
     return { status: 429, body: { ok: false, code: 'RATE_LIMITED', message: 'Trop de requêtes. Réessayez dans une minute.' } };
   }
   if (!isStorageConfigured()) {

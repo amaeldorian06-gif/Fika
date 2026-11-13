@@ -1,18 +1,19 @@
-import { AdminReports } from './AdminReports';
 import { AdminMarketLedger } from './AdminMarketLedger';
 import {
   AdminMarketBatches, AdminMarketCatalog, AdminMarketOrderDetail, AdminMarketOrders, AdminMarketOverview,
 } from './AdminMarket';
 import { AdminShell } from './AdminShell';
 import {
-  AdminAnalytics, AdminClients, AdminExperts, AdminLeads, AdminOrderDetailView,
+  AdminAnalytics, AdminLeads, AdminOrderDetailView,
   AdminOrders, AdminOverview,
 } from './AdminViews';
 
 /**
  * Routeur du back-office : /admin, /admin/orders, /admin/orders/[id],
- * /admin/leads, /admin/clients, /admin/experts, /admin/analytics.
+ * /admin/leads, /admin/analytics + espace Fika Market.
  * La garde de session vit dans AdminShell (login si non authentifié).
+ * Les anciennes routes /admin/clients, /admin/experts et /admin/reports
+ * (sections retirées) retombent sur le tableau de bord — jamais d'erreur.
  */
 export function AdminRouter({ path }: { path: string }) {
   if (path.startsWith('/admin/market/orders/')) {
@@ -45,8 +46,6 @@ export function AdminRouter({ path }: { path: string }) {
   }
 
   switch (path) {
-    case '/admin/reports':
-      return <AdminShell path={path} title="Exports & archives" breadcrumb="Exports"><AdminReports /></AdminShell>;
     case '/admin/orders':
       return (
         <AdminShell path={path} title="Commandes" breadcrumb="Commandes">
@@ -57,18 +56,6 @@ export function AdminRouter({ path }: { path: string }) {
       return (
         <AdminShell path={path} title="Demandes à qualifier" breadcrumb="Demandes">
           <AdminLeads />
-        </AdminShell>
-      );
-    case '/admin/clients':
-      return (
-        <AdminShell path={path} title="Clients" breadcrumb="Clients">
-          <AdminClients />
-        </AdminShell>
-      );
-    case '/admin/experts':
-      return (
-        <AdminShell path={path} title="Experts partenaires" breadcrumb="Experts">
-          <AdminExperts />
         </AdminShell>
       );
     case '/admin/analytics':

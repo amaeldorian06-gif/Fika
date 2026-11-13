@@ -17,7 +17,6 @@ vi.mock('../../src/lib/prisma', () => ({ prisma: db }));
 import { handleRecordPayment, handleReviewPayment } from './admin-payments';
 import { handleConvertLead, handleUpdateLeadStatus } from './admin-leads';
 import { handleBuildQuote, handleCreateQuote, handleUpdateStatus } from './admin-orders';
-import { handleCreateExpert, handleUpdateExpert, handleVerifyExpert } from './admin-experts';
 import { handleAssignExpert } from './admin-execution';
 import { serialTransaction } from '../lib/transaction';
 
@@ -191,64 +190,9 @@ describe('conversion atomique et numérotation', () => {
   });
 });
 
-describe('gestion des partenaires', () => {
-  it('signale le numéro déjà utilisé à la création et à la modification', async () => {
-    db.expert.create.mockRejectedValue({ code: 'P2002' });
-    expect((await handleCreateExpert({ name: 'Expert', phone: '+237612345678' }, 'admin')).status).toBe(409);
-    db.expert.findUnique.mockResolvedValue({ id: 'expert', assignments: [] });
-    db.expert.update.mockRejectedValue({ code: 'P2002' });
-    expect((await handleUpdateExpert({ expertId: 'expert', phone: '+237612345678' }, 'admin')).status).toBe(409);
-  });
-  it('bloque la disponibilité si une mission est active', async () => {
-    db.expert.findUnique.mockResolvedValue({ id: 'expert', assignments: [{ status: 'ASSIGNED', task: { status: 'IN_PROGRESS' } }] });
-    expect((await handleUpdateExpert({ expertId: 'expert', availability: true }, 'admin')).status).toBe(409);
-    expect(db.expert.update).not.toHaveBeenCalled();
-  });
-  it('une modification du nom préserve les champs non envoyés', async () => {
-    db.expert.findUnique.mockResolvedValue({ id: 'expert', assignments: [] });
-    expect((await handleUpdateExpert({ expertId: 'expert', name: 'Expert renommé' }, 'admin')).status).toBe(200);
-    expect(db.expert.update).toHaveBeenCalledWith({ where: { id: 'expert' }, data: { name: 'Expert renommé' } });
-  });
+describe('affectation des professionnels', () => {
   it('refuse l’affectation avant paiement intégral et passage à Payée', async () => {
     db.expert.findUnique.mockResolvedValue({ id: 'expert' });
     expect((await handleAssignExpert({ orderId: 'order', expertId: 'expert' }, 'admin')).status).toBe(409);
-  });
-});
-
-describe('vérification progressive des professionnels', () => {
-  it('exige une session et un corps valide', async () => {
-    expect((await handleVerifyExpert({ expertId: 'expert', to: 'PHONE_VERIFIED', type: 'PHONE_CALL' }, null)).status).toBe(401);
-    expect((await handleVerifyExpert({ expertId: 'expert', to: 'INCONNU', type: 'PHONE_CALL' }, 'admin')).status).toBe(400);
-  });
-  it('refuse un niveau automatique ou un type de contrôle incohérent (LEVEL_REFUSED)', async () => {
-    db.expert.findUnique.mockResolvedValue({ id: 'expert', verificationLevel: 'NEW' });
-    const auto = await handleVerifyExpert({ expertId: 'expert', to: 'FIKA_JOB_DONE', type: 'COMPLETED_JOB' }, 'admin');
-    expect(auto.status).toBe(409);
-    expect((auto.body as { code: string }).code).toBe('LEVEL_REFUSED');
-    expect((await handleVerifyExpert({ expertId: 'expert', to: 'PROFILE_VERIFIED', type: 'PHONE_CALL' }, 'admin')).status).toBe(409);
-    expect(db.expertVerification.create).not.toHaveBeenCalled();
-    expect(db.expert.update).not.toHaveBeenCalled();
-  });
-  it('applique le changement et conserve l’historique (de → vers, type, auteur)', async () => {
-    db.expert.findUnique.mockResolvedValue({ id: 'expert', verificationLevel: 'PHONE_VERIFIED' });
-    const res = await handleVerifyExpert({ expertId: 'expert', to: 'PROFILE_VERIFIED', type: 'ID_DOCUMENT', note: 'CNI vue en agence' }, 'admin');
-    expect(res.status).toBe(200);
-    expect(db.expertVerification.create).toHaveBeenCalledWith({
-      data: { expertId: 'expert', from: 'PHONE_VERIFIED', to: 'PROFILE_VERIFIED', type: 'ID_DOCUMENT', note: 'CNI vue en agence', actorId: 'admin' },
-    });
-    expect(db.expert.update).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: 'expert' },
-      data: expect.objectContaining({ verificationLevel: 'PROFILE_VERIFIED', lastVerificationType: 'ID_DOCUMENT' }),
-    }));
-  });
-  it('une rétrogradation sans motif est refusée, avec motif elle est tracée', async () => {
-    db.expert.findUnique.mockResolvedValue({ id: 'expert', verificationLevel: 'SKILL_VERIFIED' });
-    expect((await handleVerifyExpert({ expertId: 'expert', to: 'NEW', type: 'ADMIN_REVIEW' }, 'admin')).status).toBe(409);
-    expect((await handleVerifyExpert({ expertId: 'expert', to: 'NEW', type: 'ADMIN_REVIEW', note: 'Plainte client confirmée' }, 'admin')).status).toBe(200);
-    expect(db.expertVerification.create).toHaveBeenCalledTimes(1);
-  });
-  it('404 si le professionnel n’existe pas', async () => {
-    db.expert.findUnique.mockResolvedValue(null);
-    expect((await handleVerifyExpert({ expertId: 'ghost', to: 'PHONE_VERIFIED', type: 'PHONE_CALL' }, 'admin')).status).toBe(404);
   });
 });

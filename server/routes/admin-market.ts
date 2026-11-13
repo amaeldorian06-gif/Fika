@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '../../src/lib/prisma';
 import {
   MARKET_QUOTE_VALIDITY_DAYS, MARKET_QUOTE_LABELS, MARKET_BATCH_LABELS,
@@ -35,7 +36,7 @@ const productSchema = z.object({
   description: z.string().trim().max(3000).nullable().optional(),
   specs: z.array(specSchema).max(12).default([]),
   images: z.array(z.string().trim().max(400).regex(/^https?:\/\/|^\//, 'URL d’image invalide.')).max(6).default([]),
-  variants: marketVariantsSchema.default([]),
+  variants: marketVariantsSchema.optional(), // absent du formulaire catalogue : préservé à la mise à jour
   priceSale: z.number().int().min(100).max(50_000_000),
   supplierPrice: z.number().int().min(0).max(50_000_000).default(0),
   estimatedLandedCost: z.number().int().min(0).max(50_000_000).default(0),
@@ -75,14 +76,19 @@ export async function saveMarketProduct(body: unknown): Promise<R> {
   const data = {
     name: d.name, reference: d.reference, categoryId: d.categoryId,
     supplierId: d.supplierId ?? null, description: d.description ?? null,
-    specs: d.specs, images: d.images, variants: d.variants, priceSale: d.priceSale,
+    specs: d.specs, images: d.images, priceSale: d.priceSale,
     supplierPrice: d.supplierPrice, estimatedLandedCost: d.estimatedLandedCost,
     delayLabel: d.delayLabel ?? null, availability: d.availability,
     active: d.active, popular: d.popular,
   };
   try {
     if (d.productId) {
-      await prisma.marketProduct.update({ where: { id: d.productId }, data });
+      // Le formulaire catalogue ne gère pas les variantes : une mise à jour
+      // sans « variants » préserve celles en base au lieu de les écraser
+      // (perte de données silencieuse corrigée le 13/11).
+      const existing = await prisma.marketProduct.findUnique({ where: { id: d.productId }, select: { variants: true } });
+      if (!existing) return fail(404, 'Produit introuvable.');
+      await prisma.marketProduct.update({ where: { id: d.productId }, data: { ...data, variants: (d.variants ?? existing.variants ?? []) as Prisma.InputJsonValue } });
       return ok();
     }
     // slug unique : suffixe incrémenté si pris
@@ -92,7 +98,7 @@ export async function saveMarketProduct(body: unknown): Promise<R> {
       if (!taken) break;
       slug = `${slugify(d.name)}-${i}`;
     }
-    await prisma.marketProduct.create({ data: { ...data, slug } });
+    await prisma.marketProduct.create({ data: { ...data, variants: d.variants ?? [], slug } });
     return ok();
   } catch (e) {
     if (typeof e === 'object' && e && 'code' in e && e.code === 'P2002') return fail(409, 'Cette référence produit existe déjà.');

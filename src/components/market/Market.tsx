@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Check, CheckCircle2, Loader2, MessageCircle, Minus, PackageSearch, Plus, ShoppingBag, ShoppingCart, Store, Trash2, Truck } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ArrowRight, Check, CheckCircle2, Loader2, MessageCircle, Minus, PackageSearch, Plus, Search, ShoppingBag, ShoppingCart, Store, Trash2, Truck, X } from 'lucide-react';
 import { Button } from '../ui';
 import { Field, Input, Textarea } from '../forms';
-import { Link } from '../../router';
+import { Link, useRoute } from '../../router';
 import { AVAILABILITY_LABELS, type MarketProductPublic } from '../../lib/market';
 import { cart, type CartItem } from '../../lib/cart';
 import { trackMarketEvent } from '../../lib/market-analytics';
@@ -45,22 +45,49 @@ const AVAILABILITY_STYLES: Record<string, string> = {
 /**
  * Image produit avec repli gracieux : URL absente OU morte → icône de repli.
  * Jamais l'icône « image cassée » du navigateur (dégradation honnête et propre).
+ * Les URL déjà échouées sont mémorisées : le carousel ne re-montrera pas une
+ * image morte à chaque tour (l'icône reste stable).
  */
 function ProductImage({ src, alt, className, iconClassName }: {
   src?: string | null; alt: string; className?: string; iconClassName?: string;
 }) {
-  const [failed, setFailed] = useState(false);
-  if (!src || failed) {
+  const [failed, setFailed] = useState<Record<string, boolean>>({});
+  if (!src || failed[src]) {
     return <PackageSearch className={iconClassName ?? 'w-10 h-10 text-brand-text-muted/40'} aria-hidden="true" />;
   }
-  return <img src={src} alt={alt} loading="lazy" onError={() => setFailed(true)} className={className} />;
+  return <img src={src} alt={alt} loading="lazy" onError={() => setFailed((f) => ({ ...f, [src]: true }))} className={className} />;
+}
+
+/**
+ * Défilement automatique des photos d'aperçu : toutes les 2 secondes.
+ * Désactivé si le visiteur demande une animation réduite (accessibilité)
+ * ou si le produit n'a qu'une seule photo.
+ */
+function useCarouselIndex(count: number): number {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    setI(0);
+    if (count <= 1) return;
+    if (typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const id = window.setInterval(() => setI((v) => (v + 1) % count), 2000);
+    return () => { window.clearInterval(id); };
+  }, [count]);
+  return count > 0 ? i % count : 0;
 }
 
 function ProductCard({ product }: { product: MarketProductPublic }) {
+  const imageIndex = useCarouselIndex(product.images.length);
   return (
     <Link to={`/boutique/produit/${product.slug}`} className="group flex flex-col rounded-2xl border border-brand-border bg-white overflow-hidden hover:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent">
-      <div className="aspect-square bg-brand-bg flex items-center justify-center overflow-hidden">
-        <ProductImage src={product.images[0]} alt={product.name} className="w-full h-full object-cover" />
+      <div className="relative aspect-square bg-brand-bg flex items-center justify-center overflow-hidden">
+        <ProductImage src={product.images[imageIndex]} alt={product.name} className="w-full h-full object-cover" />
+        {product.images.length > 1 && (
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5" aria-hidden="true">
+            {product.images.map((_, d) => (
+              <span key={d} className={`w-1.5 h-1.5 rounded-full transition-colors ${d === imageIndex ? 'bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.25)]' : 'bg-white/60'}`} />
+            ))}
+          </div>
+        )}
       </div>
       <div className="p-4 flex flex-col gap-1.5 flex-1">
         <span className="text-[10px] font-bold uppercase tracking-wider text-brand-text-muted">{product.category.name}</span>
@@ -77,9 +104,32 @@ function ProductCard({ product }: { product: MarketProductPublic }) {
   );
 }
 
+/** Normalisation de recherche : accents et casse ignorés (« cable » trouve « Câble »). */
+function normalizeSearch(s: string): string {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
+
 export function MarketHomePage() {
   const { data, error } = useCatalog();
+  const route = useRoute();
+  const [q, setQ] = useState('');
   useEffect(() => { trackMarketEvent('SHOP_VIEWED'); }, []);
+
+  const query = normalizeSearch(q);
+  const searching = query.length > 0;
+  const matches = searching && data
+    ? data.products.filter((p) => normalizeSearch(`${p.name} ${p.reference} ${p.category.name}`).includes(query))
+    : [];
+
+  // Vue « Tout » : produits groupés par catégorie, dans l'ordre des catégories.
+  // Les produits d'une catégorie inconnue de la liste restent visibles (« Autres »).
+  const sections = !searching && data
+    ? [
+        ...data.categories.map((c) => ({ ...c, products: data.products.filter((p) => p.category.slug === c.slug) })),
+        { slug: '', name: 'Autres produits', products: data.products.filter((p) => !data.categories.some((c) => c.slug === p.category.slug)) },
+      ].filter((s) => s.products.length > 0)
+    : [];
+
   return (
     <div className="max-w-6xl mx-auto px-5 py-10 sm:py-14">
       <p className="text-xs uppercase tracking-widest text-brand-accent font-bold mb-4">Fika Market · Ngaoundéré</p>
@@ -91,35 +141,92 @@ export function MarketHomePage() {
 
       {error && <p role="alert" className="mt-8 rounded-xl bg-red-50 border border-red-200 text-red-700 p-4">{error}</p>}
 
-      {data && (
+      {data && data.products.length > 0 && (
         <>
+          <div className="relative mt-8">
+            <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-brand-text-muted pointer-events-none" aria-hidden="true" />
+            <input
+              type="search"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Rechercher un produit, une référence…"
+              aria-label="Rechercher un produit"
+              className="w-full h-12 rounded-full border border-brand-border bg-white pl-12 pr-12 text-sm font-medium placeholder:text-brand-text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:border-brand-accent"
+            />
+            {q && (
+              <button
+                type="button"
+                onClick={() => setQ('')}
+                aria-label="Effacer la recherche"
+                className="absolute right-1 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center rounded-full text-brand-text-muted hover:text-brand-text cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
+          </div>
+
           {data.categories.length > 0 && (
-            <nav className="flex gap-2 overflow-x-auto py-6 -mx-5 px-5" aria-label="Catégories">
-              <Link to="/boutique" className={`px-4 py-2 rounded-full text-sm font-bold border whitespace-nowrap ${!location.hash.includes('categorie/') ? 'bg-brand-text text-white border-brand-text' : 'bg-white text-brand-text-muted border-brand-border'}`}>Tout</Link>
+            <nav className="flex gap-2 overflow-x-auto py-5 -mx-5 px-5" aria-label="Catégories">
+              <Link to="/boutique" className={`px-4 py-2 rounded-full text-sm font-bold border whitespace-nowrap ${route.path === '/boutique' ? 'bg-brand-text text-white border-brand-text' : 'bg-white text-brand-text-muted border-brand-border hover:border-brand-accent'}`}>Tout</Link>
               {data.categories.map((c) => (
-                <Link key={c.slug} to={`/boutique/categorie/${c.slug}`} className="px-4 py-2 rounded-full text-sm font-bold border whitespace-nowrap bg-white text-brand-text-muted border-brand-border hover:border-brand-accent">{c.name}</Link>
+                <Link key={c.slug} to={`/boutique/categorie/${c.slug}`} className={`px-4 py-2 rounded-full text-sm font-bold border whitespace-nowrap ${route.path === `/boutique/categorie/${c.slug}` ? 'bg-brand-text text-white border-brand-text' : 'bg-white text-brand-text-muted border-brand-border hover:border-brand-accent'}`}>{c.name}</Link>
               ))}
             </nav>
           )}
 
-          {data.products.length === 0 ? (
-            <div className="mt-10 text-center py-16 px-6 bg-white rounded-2xl border border-dashed border-brand-border">
-              <Store className="w-10 h-10 mx-auto text-brand-text-muted/50 mb-4" />
-              <h2 className="font-heading font-bold text-lg">Le catalogue arrive</h2>
-              <p className="text-sm text-brand-text-muted mt-2 max-w-md mx-auto">
-                Nous préparons une première sélection de produits testés. En attendant, dites-nous ce que vous cherchez : nous pouvons probablement le commander pour vous.
-              </p>
-              <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center items-center">
-                <Button asChild variant="primary" className="rounded-full"><Link to="/demande-produit">Demander un produit</Link></Button>
-                <Button asChild variant="outline" className="rounded-full"><a href={getWALink('Bonjour Fika Market 👋\nJe cherche un produit. Pouvez-vous me dire si vous pouvez le commander ?')} target="_blank" rel="noopener noreferrer"><MessageCircle className="w-4 h-4 mr-2" />Sur WhatsApp</a></Button>
+          {searching ? (
+            matches.length > 0 ? (
+              <>
+                <p className="text-sm text-brand-text-muted mt-2" role="status">
+                  {matches.length} produit{matches.length > 1 ? 's' : ''} correspond{matches.length > 1 ? 'ent' : ''} à «&nbsp;{q.trim()}&nbsp;»
+                </p>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+                  {matches.map((p) => <ProductCard key={p.id} product={p} />)}
+                </div>
+              </>
+            ) : (
+              <div className="mt-6 text-center py-14 px-6 bg-white rounded-2xl border border-dashed border-brand-border">
+                <PackageSearch className="w-10 h-10 mx-auto text-brand-text-muted/50 mb-4" />
+                <h2 className="font-heading font-bold text-lg">Aucun produit ne correspond à «&nbsp;{q.trim()}&nbsp;»</h2>
+                <p className="text-sm text-brand-text-muted mt-2 max-w-md mx-auto">
+                  Vous cherchez autre chose ? Dites-nous ce que vous voulez : nous pouvons probablement le commander pour vous.
+                </p>
+                <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center items-center">
+                  <Button asChild variant="primary" className="rounded-full"><Link to="/demande-produit">Demander un produit</Link></Button>
+                  <Button asChild variant="outline" className="rounded-full"><Link to="/boutique">Voir tout le catalogue</Link></Button>
+                </div>
               </div>
-            </div>
+            )
           ) : (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
-              {data.products.map((p) => <ProductCard key={p.id} product={p} />)}
+            <div className="space-y-10 mt-2">
+              {sections.map((s) => (
+                <section key={s.slug || 'autres'} aria-labelledby={`cat-${s.slug || 'autres'}`}>
+                  <div className="flex items-baseline justify-between gap-4 mb-4">
+                    <h2 id={`cat-${s.slug || 'autres'}`} className="font-heading text-xl font-bold">{s.name}</h2>
+                    <span className="text-xs font-bold text-brand-text-muted whitespace-nowrap">{s.products.length} produit{s.products.length > 1 ? 's' : ''}</span>
+                  </div>
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    {s.products.map((p) => <ProductCard key={p.id} product={p} />)}
+                  </div>
+                </section>
+              ))}
             </div>
           )}
         </>
+      )}
+
+      {data && data.products.length === 0 && (
+        <div className="mt-10 text-center py-16 px-6 bg-white rounded-2xl border border-dashed border-brand-border">
+          <Store className="w-10 h-10 mx-auto text-brand-text-muted/50 mb-4" />
+          <h2 className="font-heading font-bold text-lg">Le catalogue arrive</h2>
+          <p className="text-sm text-brand-text-muted mt-2 max-w-md mx-auto">
+            Nous préparons une première sélection de produits testés. En attendant, dites-nous ce que vous cherchez : nous pouvons probablement le commander pour vous.
+          </p>
+          <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center items-center">
+            <Button asChild variant="primary" className="rounded-full"><Link to="/demande-produit">Demander un produit</Link></Button>
+            <Button asChild variant="outline" className="rounded-full"><a href={getWALink('Bonjour Fika Market 👋\nJe cherche un produit. Pouvez-vous me dire si vous pouvez le commander ?')} target="_blank" rel="noopener noreferrer"><MessageCircle className="w-4 h-4 mr-2" />Sur WhatsApp</a></Button>
+          </div>
+        </div>
       )}
 
       <div className="mt-14 grid sm:grid-cols-2 gap-6 text-sm max-w-2xl">
@@ -270,7 +377,7 @@ export function MarketProductPage({ slug }: { slug: string }) {
                     : <><ShoppingBag className="w-5 h-5 mr-2" />Ajouter au panier</>}
                 </Button>
                 <Button asChild size="lg" className="rounded-full">
-                  <Link to={`/boutique/commande?product=${encodeURIComponent(product.slug)}`}><ShoppingCart className="w-5 h-5 mr-2" />{product.availability === 'PREORDER' ? 'Précommander' : 'Commander'}</Link>
+                  <Link to={`/boutique/commande?product=${encodeURIComponent(product.slug)}${variantLabel ? `&variante=${encodeURIComponent(variantLabel)}` : ''}`}><ShoppingCart className="w-5 h-5 mr-2" />{product.availability === 'PREORDER' ? 'Précommander' : 'Commander'}</Link>
                 </Button>
               </>
             ) : (
@@ -299,6 +406,13 @@ export function MarketProductPage({ slug }: { slug: string }) {
 
 /* ------------------------------ Commande ---------------------------------- */
 
+/** Paramètre d'URL : vrais chemins (location.search) puis repli sur l'ancien format hash. */
+function queryParam(name: string): string | null {
+  const fromSearch = new URLSearchParams(location.search).get(name);
+  if (fromSearch) return fromSearch;
+  return new URLSearchParams((location.hash.split('?')[1] ?? '').split('#')[0]).get(name);
+}
+
 export function MarketOrderPage() {
   const [product, setProduct] = useState<MarketProductPublic | null>(null);
   const [quantity, setQuantity] = useState(1);
@@ -309,7 +423,10 @@ export function MarketOrderPage() {
   const [pending, setPending] = useState(false);
   const [done, setDone] = useState<{ orderNumber: string } | null>(null);
 
-  const slug = useMemo(() => new URLSearchParams((location.hash.split('?')[1] ?? '').split('#')[0]).get('product'), []);
+  // Lu à chaque rendu (pas de useMemo) : un retour/avant entre deux URLs de
+  // commande doit relire la variante, sinon un choix périmé partirait en base.
+  const slug = queryParam('product');
+  const presetVariant = queryParam('variante');
   const fromCart = !slug;
   useEffect(() => {
     if (slug) {
@@ -342,7 +459,7 @@ export function MarketOrderPage() {
     setErrors({}); setError('');
     const items = fromCart
       ? cartItems.map((i) => ({ productId: i.productId, quantity: i.quantity, variantLabel: i.variantLabel ?? undefined }))
-      : product ? [{ productId: product.id, quantity }] : [];
+      : product ? [{ productId: product.id, quantity, variantLabel: presetVariant ?? undefined }] : [];
     if (items.length === 0) { setError(fromCart ? 'Votre panier est vide.' : 'Produit introuvable.'); return; }
     const next: Record<string, string> = {};
     if (values.name.trim().length < 2) next.name = 'Votre nom est requis.';
@@ -385,6 +502,7 @@ export function MarketOrderPage() {
           <div className="flex-1 min-w-0">
             <p className="font-bold truncate">{product.name}</p>
             <p className="text-sm text-brand-text-muted">{formatPrice(product.priceSale)} · {AVAILABILITY_LABELS[product.availability]}</p>
+            {presetVariant && <p className="text-xs text-brand-text-muted truncate">{presetVariant}</p>}
           </div>
           <label className="flex items-center gap-2 text-sm font-semibold" aria-label="Quantité">
             <input type="number" min={1} max={20} value={quantity} onChange={(e) => setQuantity(Math.min(20, Math.max(1, Number(e.target.value) || 1)))} className="w-16 rounded-xl border border-brand-border px-3 py-2" />

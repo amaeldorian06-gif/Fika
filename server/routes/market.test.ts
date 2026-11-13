@@ -9,8 +9,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 const db = vi.hoisted(() => ({
   $transaction: vi.fn(),
-  marketCategory: { findMany: vi.fn() },
-  marketProduct: { findMany: vi.fn(), findFirst: vi.fn(), findUnique: vi.fn() },
+  marketCategory: { findMany: vi.fn(), findUnique: vi.fn() },
+  marketProduct: { findMany: vi.fn(), findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
   marketOrder: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
   marketOrderItem: { findMany: vi.fn(), update: vi.fn() },
   marketOrderEvent: { create: vi.fn() },
@@ -31,7 +31,7 @@ vi.mock('../../src/lib/prisma', () => ({ prisma: db }));
 import { createMarketOrder, getMarketCatalog, recordMarketAnalyticEvent } from './market';
 import {
   confirmMarketPrice, createMarketQuote, recordMarketRefund,
-  respondMarketQuote, reviewMarketPayment, updateMarketOrderStatus,
+  respondMarketQuote, reviewMarketPayment, saveMarketProduct, updateMarketOrderStatus,
 } from './admin-market';
 import {
   allocateMarketExpense, canTransitionBatch, computeMarketMargin, deriveMarketPaymentStatus,
@@ -502,5 +502,79 @@ describe('recordMarketAnalyticEvent', () => {
   it('rejette un type inconnu', async () => {
     const res = await recordMarketAnalyticEvent({ type: 'ORDER_DELIVERED' }, 'ip-b');
     expect(res.status).toBe(400);
+  });
+});
+
+/* -------------------- Édition catalogue : variantes préservées --------------------- */
+
+describe('saveMarketProduct : les variantes survivent à une édition catalogue', () => {
+  const base = { name: 'Écouteurs Bluetooth', reference: 'FK-TEST-1', categoryId: 'cat-1', priceSale: 14500, supplierPrice: 9000, estimatedLandedCost: 11000 };
+
+  it('préserve les variantes existantes quand le formulaire ne les envoie pas', async () => {
+    db.marketCategory.findUnique.mockResolvedValue({ id: 'cat-1' });
+    db.marketProduct.findUnique.mockResolvedValue({ variants: [{ name: 'Couleur', values: ['Noir', 'Blanc'] }] });
+    const res = await saveMarketProduct({ ...base, productId: 'prod-1' });
+    expect(res.status).toBe(200);
+    expect(db.marketProduct.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'prod-1' },
+      data: expect.objectContaining({ variants: [{ name: 'Couleur', values: ['Noir', 'Blanc'] }] }),
+    }));
+  });
+
+  it('remplace les variantes quand elles sont explicitement fournies', async () => {
+    db.marketCategory.findUnique.mockResolvedValue({ id: 'cat-1' });
+    db.marketProduct.findUnique.mockResolvedValue({ variants: [{ name: 'Couleur', values: ['Noir'] }] });
+    const res = await saveMarketProduct({ ...base, productId: 'prod-1', variants: [{ name: 'Taille', values: ['S', 'M'] }] });
+    expect(res.status).toBe(200);
+    expect(db.marketProduct.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ variants: [{ name: 'Taille', values: ['S', 'M'] }] }),
+    }));
+  });
+
+  it('produit inexistant : 404 sans aucune écriture', async () => {
+    db.marketCategory.findUnique.mockResolvedValue({ id: 'cat-1' });
+    db.marketProduct.findUnique.mockResolvedValue(null);
+    const res = await saveMarketProduct({ ...base, productId: 'ghost' });
+    expect(res.status).toBe(404);
+    expect(db.marketProduct.update).not.toHaveBeenCalled();
+  });
+
+  it('crée sans variantes par défaut, avec si fournies', async () => {
+    db.marketCategory.findUnique.mockResolvedValue({ id: 'cat-1' });
+    db.marketProduct.findUnique.mockResolvedValue(null);
+    expect((await saveMarketProduct(base)).status).toBe(200);
+    expect(db.marketProduct.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ variants: [] }),
+    }));
+    expect((await saveMarketProduct({ ...base, variants: [{ name: 'Couleur', values: ['Noir', 'Blanc'] }] })).status).toBe(200);
+    expect(db.marketProduct.create).toHaveBeenLastCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ variants: [{ name: 'Couleur', values: ['Noir', 'Blanc'] }] }),
+    }));
+  });
+});
+
+/* ------------- Rate limit : budget commande vs événements analytics -------------- */
+
+describe('Rate limit scopé : les événements ne consomment pas le budget de commande', () => {
+  it('une rafale d’événements analytics puis une commande : la commande passe', async () => {
+    const ip = 'ip-rate-scope-e2e';
+    db.marketAnalyticEvent.create.mockResolvedValue({ id: 'ev-1' });
+    for (let i = 0; i < 12; i++) {
+      const r = await recordMarketAnalyticEvent({ type: 'PRODUCT_VIEWED', slug: 'test-slug' }, ip);
+      expect(r.status).toBe(200);
+    }
+    // le visiteur qui a beaucoup navigué peut quand même commander
+    const order = await createMarketOrder(validPayload, ip);
+    expect(order.status).toBe(200);
+  });
+
+  it('10 commandes par minute maximum, la 11e est refusée', async () => {
+    const ip = 'ip-rate-order-e2e';
+    for (let i = 0; i < 10; i++) {
+      const r = await createMarketOrder(validPayload, ip);
+      expect(r.status).toBe(200);
+    }
+    const blocked = await createMarketOrder(validPayload, ip);
+    expect(blocked.status).toBe(429);
   });
 });

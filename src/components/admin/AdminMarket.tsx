@@ -518,6 +518,19 @@ export function AdminMarketOrders() {
   const [filter, setFilter] = useState('');
   const [q, setQ] = useState('');
   const { data, loading, loadError, reload } = useAsync(() => fetchMarketOrders({ q }), [q]);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState('');
+
+  /** Changement de statut direct depuis la file : gardes métier côté serveur. */
+  const changeStatus = async (order: MarketOrderSummaryDto, to: MarketOrderStatus) => {
+    setBusyId(order.id); setError('');
+    try {
+      await updateMarketOrderStatus(order.id, to);
+      reload();
+    } catch (e) {
+      setError(`${order.orderNumber} — ${e instanceof Error ? e.message : 'Changement refusé.'}`);
+    } finally { setBusyId(null); }
+  };
 
   const orders = useMemo(() => {
     if (!data) return [];
@@ -549,6 +562,9 @@ export function AdminMarketOrders() {
         <EmptyState icon={ShoppingCart} title="Aucune commande" description="Les demandes clientes arrivent ici dès qu'un client commande dans la boutique." />
       ) : (
         <div className="overflow-x-auto bg-white rounded-2xl border border-brand-border">
+          {error && (
+            <p role="alert" className="m-4 rounded-xl bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm font-medium">{error}</p>
+          )}
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs uppercase tracking-wider text-brand-text-muted border-b border-brand-border">
@@ -563,7 +579,7 @@ export function AdminMarketOrders() {
             </thead>
             <tbody className="divide-y divide-brand-border">
               {orders.map((o) => (
-                <OrderRow key={o.id} order={o} />
+                <OrderRow key={o.id} order={o} busy={busyId === o.id} onStatusChange={changeStatus} />
               ))}
             </tbody>
           </table>
@@ -573,8 +589,11 @@ export function AdminMarketOrders() {
   );
 }
 
-function OrderRow({ order: o }: { order: MarketOrderSummaryDto }) {
+function OrderRow({ order: o, busy, onStatusChange }: {
+  order: MarketOrderSummaryDto; busy?: boolean; onStatusChange?: (order: MarketOrderSummaryDto, to: MarketOrderStatus) => void;
+}) {
   const exception = ['DELAYED', 'CANCELLED', 'REFUND_PENDING', 'REFUNDED', 'SUPPLY_FAILED'].includes(o.status);
+  const transitions = onStatusChange ? (MARKET_TRANSITIONS[o.status] ?? []) : [];
   return (
     <tr className="hover:bg-brand-bg/60">
       <td className="px-4 py-3">
@@ -589,6 +608,26 @@ function OrderRow({ order: o }: { order: MarketOrderSummaryDto }) {
         <span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] font-bold border whitespace-nowrap ${exception ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-brand-bg text-brand-text border-brand-border'}`}>
           {o.statusLabel}
         </span>
+        {transitions.length > 0 && (
+          <>
+            <label className="sr-only" htmlFor={`mkt-st-quick-${o.id}`}>Changer le statut de {o.orderNumber}</label>
+            <select
+              id={`mkt-st-quick-${o.id}`}
+              value=""
+              disabled={busy}
+              onChange={(e) => {
+                const to = e.target.value as MarketOrderStatus;
+                if (to && onStatusChange) void onStatusChange(o, to);
+              }}
+              className="mt-1.5 block w-full max-w-[11.5rem] text-xs font-semibold border border-brand-border rounded-lg px-2 py-1.5 bg-white cursor-pointer disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
+            >
+              <option value="">Changer…</option>
+              {transitions.map((s) => (
+                <option key={s} value={s}>{MARKET_STATUS_LABELS[s]}</option>
+              ))}
+            </select>
+          </>
+        )}
       </td>
       <td className="px-4 py-3 text-right font-semibold whitespace-nowrap">{o.total != null ? formatPriceFCFA(o.total) : <span className="text-brand-text-muted font-normal">À confirmer</span>}</td>
       <td className="px-4 py-3 text-right whitespace-nowrap">
@@ -673,7 +712,7 @@ export function AdminMarketOrderDetail({ orderId }: { orderId: string }) {
           {order.items.map((i) => (
             <div key={i.id} className="flex flex-wrap items-center gap-3 bg-brand-bg rounded-xl p-3 text-sm">
               <div className="min-w-0 flex-1">
-                <p className="font-semibold">{i.productName} <span className="text-brand-text-muted">×{i.quantity}</span></p>
+                <p className="font-semibold">{i.productName} <span className="text-brand-text-muted">×{i.quantity}</span>{i.variantLabel ? <span className="text-brand-text-muted"> · {i.variantLabel}</span> : null}</p>
                 <p className="text-xs text-brand-text-muted">
                   {i.procurementBatchId ? `Lot affecté · coût réel ${i.unitCostReal != null ? formatPriceFCFA(i.unitCostReal) : 'non saisi'}` : 'Non affecté à un lot'}
                 </p>
@@ -761,7 +800,7 @@ function PricePanel({ order, onSave }: { order: MarketOrderDetailDto; onSave: (a
         <dl className="text-sm space-y-2">
           {order.items.map((i) => (
             <div key={i.id} className="flex justify-between gap-4">
-              <dt>{i.productName} ×{i.quantity}</dt>
+              <dt>{i.productName}{i.variantLabel ? <span className="text-brand-text-muted"> · {i.variantLabel}</span> : null} ×{i.quantity}</dt>
               <dd className="font-semibold">{formatPriceFCFA(i.unitPrice!)} / u</dd>
             </div>
           ))}
@@ -794,7 +833,7 @@ function PricePanel({ order, onSave }: { order: MarketOrderDetailDto; onSave: (a
       <div className="space-y-3">
         {order.items.map((i) => (
           <div key={i.id} className="flex items-center gap-4 text-sm">
-            <span className="flex-1 min-w-0"><strong>{i.productName}</strong> ×{i.quantity}</span>
+            <span className="flex-1 min-w-0"><strong>{i.productName}</strong>{i.variantLabel ? <span className="text-brand-text-muted"> · {i.variantLabel}</span> : null} ×{i.quantity}</span>
             <label className="text-xs font-semibold text-brand-text-muted">Prix unitaire (F)
               <Input className="mt-1 w-40" type="number" min={0} value={prices[i.id] ?? (i.unitPrice != null ? String(i.unitPrice) : '')} onChange={(e) => setPrices({ ...prices, [i.id]: e.target.value })} />
             </label>

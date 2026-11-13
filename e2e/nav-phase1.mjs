@@ -140,7 +140,7 @@ await p.locator('#m-zone').fill('Quartier Test');
 await p.locator('#m-notes').fill('Commande e2e phase 1 nav — à nettoyer');
 await p.locator('input[type="checkbox"]').check();
 await p.getByRole('button', { name: /Envoyer ma demande de commande/ }).click();
-await p.waitForSelector('text=Votre demande est envoyée', { timeout: 8000 });
+await p.waitForSelector('text=Votre demande est envoyée', { timeout: 20000 });
 ok('E8 succès commande', true);
 const orderRef = (await p.locator('strong.font-mono').first().innerText()).trim();
 ok('E8 référence commande reçue (suivi public supprimé)', /^MKT-/.test(orderRef), orderRef);

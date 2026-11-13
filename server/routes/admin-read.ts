@@ -1,9 +1,8 @@
 import { paymentBalance } from '../../src/lib/admin/payments';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../src/lib/prisma';
-import type { AdminOrderDetail, AdminOrderSummary, AdminOverviewData, AdminLead, AdminCustomer, AssignableExpertDto } from '../../src/lib/admin/api';
+import type { AdminOrderDetail, AdminOrderSummary, AdminOverviewData, AdminLead, AssignableExpertDto } from '../../src/lib/admin/api';
 import { computeKpis, computeTopServices, countByStatus, formatMonthLabel, inPeriod, monthBounds } from '../../src/lib/admin/kpi';
-import { REVENUE_STATUSES } from '../../src/lib/admin/status';
 import { computeMargin } from '../../src/lib/pricing';
 import { effectiveLevel, publicTrustSignals, type VerificationLevel } from '../../src/lib/trust';
 import { loadExpertMetrics, snapshotFromMetrics } from '../lib/expert-trust';
@@ -110,12 +109,6 @@ export async function getLeads(scope = 'current'): Promise<AdminLead[]> {
     clientType: leadMeta(l.meta).clientType ?? null, campaign: l.campaign ?? leadMeta(l.meta).referrer ?? null, device: leadMeta(l.meta).device ?? null,
     status: l.status, createdAt: l.createdAt.toISOString(),
   }));
-}
-
-export async function getCustomers(): Promise<AdminCustomer[]> {
-  const rows = await prisma.customer.findMany({ include: { orders: { select: { status: true, totalPrice: true } } }, orderBy: { createdAt: 'desc' } });
-  return rows.map(c => ({ id: c.id, name: c.name, phone: c.phone, ordersCount: c.orders.length,
-    totalSpent: c.orders.filter(o => REVENUE_STATUSES.includes(o.status)).reduce((sum, o) => sum + (o.totalPrice ?? 0), 0) }));
 }
 
 export async function getExperts(assignable = false): Promise<AssignableExpertDto[]> {

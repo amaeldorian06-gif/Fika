@@ -1,11 +1,10 @@
-import { LeadQualification } from './LeadQualification';
+import { LeadQualification, LeadStatusControl } from './LeadQualification';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Activity, AlertCircle, ArrowLeft, BarChart, Briefcase, CheckCircle2, DollarSign,
-  Download, FileText, Inbox, Loader2, MessageCircle, Package, Search, TrendingUp, Users,
+  Activity, AlertCircle, ArrowLeft, BarChart, CheckCircle2, DollarSign,
+  Download, FileText, Inbox, Loader2, MessageCircle, Package, Search, TrendingUp,
 } from 'lucide-react';
 import { PaymentPanel } from './PaymentPanel';
-import { ExpertForm } from './ExpertForm';
 import { LeadConversion } from './LeadConversion';
 import { EmptyState } from './AdminShell';
 import { Link } from '../../router';
@@ -13,18 +12,18 @@ import { Button } from '../ui';
 import { Input, Select, Textarea } from '../forms';
 import { DEFAULT_QUOTE_MARGIN_PERCENT, calculateQuotePricing, formatPriceFCFA, quoteClientNotes } from '../../lib/pricing';
 import { compileExpertAssignedMessage, compileQuoteMessage } from '../../lib/whatsapp/engine';
-import { VERIFICATION_LEVELS, VERIFICATION_LEVEL_LABELS, VERIFICATION_TYPE_LABELS, canSetLevel, levelMeta, levelRank, type VerificationLevel, type VerificationType } from '../../lib/trust';
+import { VERIFICATION_LEVEL_LABELS } from '../../lib/trust';
 import { computeTrend, formatMonthLabel } from '../../lib/admin/kpi';
 import {
-  COST_TYPE_LABELS, EXPERT_STATUS_LABELS, LEAD_STATUS_LABELS,
+  ALLOWED_TRANSITIONS, COST_TYPE_LABELS, LEAD_STATUS_LABELS,
   ORDER_STATUS_META, QUOTE_STATUS_LABELS, orderStatusLabel,
   transitionOptions, type OrderStatus,
 } from '../../lib/admin/status';
 import {
   addOrderCost, assignExpert, buildQuote, createQuote, createReview, exportUrl, fetchAssignableExperts,
-  fetchCustomers, fetchExperts, fetchLeads, fetchOrder, fetchOrders, fetchOverview,
-  publishPortfolio, saveDelivery, updateOrderStatus, updateTask, verifyExpert,
-  type AdminCustomer, type AdminExpert, type AdminLead, type AdminOrderDetail,
+  fetchLeads, fetchOrder, fetchOrders, fetchOverview,
+  publishPortfolio, saveDelivery, updateOrderStatus, updateTask,
+  type AdminLead, type AdminOrderDetail,
   type AdminOrderSummary, type AssignableExpertDto,
 } from '../../lib/admin/api';
 import { getCustomerWALink } from '../../lib/admin/whatsapp';
@@ -224,9 +223,30 @@ export function AdminOverview() {
 
 /* -------------------------------- Commandes -------------------------------- */
 
-function OrdersTable({ orders }: { orders: AdminOrderSummary[] }) {
+/**
+ * Table des commandes de services. Avec `reload`, chaque ligne offre un
+ * changement de statut direct (sans ouvrir le détail) : transitions du graphe
+ * autorisé, gardes métier validées côté serveur (message affiché si refus).
+ */
+function OrdersTable({ orders, reload }: { orders: AdminOrderSummary[]; reload?: () => void }) {
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState('');
+
+  const changeStatus = async (order: AdminOrderSummary, to: OrderStatus) => {
+    setBusyId(order.id); setError('');
+    try {
+      await updateOrderStatus(order.id, to);
+      reload?.();
+    } catch (e) {
+      setError(`${order.orderNumber} — ${e instanceof Error ? e.message : 'Changement refusé.'}`);
+    } finally { setBusyId(null); }
+  };
+
   return (
     <div className="overflow-x-auto">
+      {error && (
+        <p role="alert" className="m-4 rounded-xl bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm font-medium">{error}</p>
+      )}
       <table className="w-full text-sm">
         <thead>
           <tr className="text-left text-xs font-bold text-brand-text-muted uppercase tracking-wider border-b border-brand-border">
@@ -256,7 +276,29 @@ function OrdersTable({ orders }: { orders: AdminOrderSummary[] }) {
                   <p className="text-brand-text font-medium">{o.serviceName ?? 'Sur mesure'}</p>
                   <p className="text-xs text-brand-text-muted">{o.expertName ?? 'Pro non affecté'}</p>
                 </td>
-                <td className="px-6 py-4"><StatusBadge status={o.status} /></td>
+                <td className="px-6 py-4">
+                  <StatusBadge status={o.status} />
+                  {reload && (ALLOWED_TRANSITIONS[o.status] ?? []).length > 0 && (
+                    <>
+                      <label className="sr-only" htmlFor={`st-quick-${o.id}`}>Changer le statut de {o.orderNumber}</label>
+                      <select
+                        id={`st-quick-${o.id}`}
+                        value=""
+                        disabled={busyId === o.id}
+                        onChange={(e) => {
+                          const to = e.target.value as OrderStatus;
+                          if (to) void changeStatus(o, to);
+                        }}
+                        className="mt-1.5 block w-full max-w-[11.5rem] text-xs font-semibold border border-brand-border rounded-lg px-2 py-1.5 bg-white cursor-pointer disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
+                      >
+                        <option value="">Changer…</option>
+                        {(ALLOWED_TRANSITIONS[o.status] ?? []).map((s) => (
+                          <option key={s} value={s}>{orderStatusLabel(s)}</option>
+                        ))}
+                      </select>
+                    </>
+                  )}
+                </td>
                 <td className="px-6 py-4 text-right font-semibold text-brand-text whitespace-nowrap">
                   {o.totalPrice != null ? formatPriceFCFA(o.totalPrice) : 'À chiffrer'}
                 </td>
@@ -307,7 +349,7 @@ export function AdminOrders() {
 
       {loading ? <Loading /> : loadError ? <LoadError message={loadError} retry={reload} /> : orders.length > 0 ? (
         <div className="bg-brand-surface rounded-2xl border border-brand-border shadow-sm overflow-hidden">
-          <OrdersTable orders={orders} />
+          <OrdersTable orders={orders} reload={reload} />
         </div>
       ) : (
         <EmptyState
@@ -864,7 +906,7 @@ function ExecutionPanel({ order, busy, run }: {
         {!assignmentAllowed && <p className="text-xs text-brand-text-muted">Confirmez le paiement intégral et passez la commande en « Payée » avant l’affectation.</p>}
         {experts.length === 0 && (
           <p className="text-xs text-brand-text-muted">
-            Aucun expert enregistré : ajoutez vos partenaires dans « Experts ».
+            Aucun professionnel enregistré pour l'instant.
           </p>
         )}
       </div>
@@ -1086,6 +1128,7 @@ export function AdminLeads() {
               <div>Reçue le <span className="font-semibold text-brand-text">{dateFr(lead.createdAt)}</span></div>
               <div>Source : <span className="font-semibold text-brand-text">{lead.source ?? 'Non renseigné'} · {lead.campaign ?? 'direct'}{lead.device ? ` · ${lead.device}` : ''}</span></div>
             </dl>
+            <LeadStatusControl key={`qc-${lead.id}-${lead.status}`} lead={lead} reload={reload} />
             <LeadQualification key={`${lead.id}-${lead.status}`} lead={lead} reload={reload} />
             <LeadConversion lead={lead} />
             <div className="flex flex-col sm:flex-row gap-3 mt-3">
@@ -1103,229 +1146,6 @@ export function AdminLeads() {
           </article>
         ))}
       </div>
-    </>
-  );
-}
-
-/* -------------------------------- Experts --------------------------------- */
-
-const LEVEL_CLASSES: Record<string, string> = {
-  NEW: 'bg-brand-bg text-brand-text-muted border-brand-border',
-  PHONE_VERIFIED: 'bg-sky-50 text-sky-700 border-sky-200',
-  PROFILE_VERIFIED: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-  SKILL_DECLARED: 'bg-amber-50 text-amber-700 border-amber-200',
-  SKILL_VERIFIED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  FIKA_JOB_DONE: 'bg-teal-50 text-teal-700 border-teal-200',
-  ACTIVE_PRO: 'bg-brand-text text-white border-brand-text',
-};
-
-const pct = (v: number | null) => (v == null ? '—' : `${v.toFixed(0)} %`);
-const hours = (v: number | null) => (v == null ? '—' : v < 48 ? `${v.toFixed(0)} h` : `${(v / 24).toFixed(1)} j`);
-
-function ExpertCard({ expert, onEdit, onChanged }: { expert: AdminExpert; onEdit: () => void; onChanged: () => void }) {
-  const [open, setOpen] = useState(false);
-  const [to, setTo] = useState<VerificationLevel>(expert.verificationLevel as VerificationLevel);
-  const [type, setType] = useState<VerificationType>('PHONE_CALL');
-  const [note, setNote] = useState('');
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const current = expert.verificationLevel as VerificationLevel;
-  const target = levelMeta(to);
-  const check = canSetLevel(current, to, type, note);
-  const m = expert.metrics;
-
-  return (
-    <article className="bg-brand-surface p-6 rounded-2xl border border-brand-border shadow-sm">
-      <div className="flex items-start justify-between mb-4 gap-4">
-        <div className="flex items-center gap-4 min-w-0">
-          <div className="w-12 h-12 rounded-full bg-brand-text text-white flex items-center justify-center font-bold shrink-0">
-            {expert.name.slice(0, 2).toUpperCase()}
-          </div>
-          <div className="min-w-0">
-            <p className="font-heading font-bold text-brand-text truncate">{expert.name}</p>
-            <p className="text-sm text-brand-text-muted truncate">{[expert.trade, expert.skills.join(' · ')].filter(Boolean).join(' — ') || 'Métier et compétences à renseigner'}</p>
-          </div>
-        </div>
-        <div className="flex flex-col items-end gap-1.5 shrink-0">
-          <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border whitespace-nowrap ${LEVEL_CLASSES[current] ?? LEVEL_CLASSES.NEW}`}>
-            {levelRank(current)}/7 · {VERIFICATION_LEVEL_LABELS[current] ?? current}
-          </span>
-          <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border whitespace-nowrap ${expert.availability ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-brand-bg text-brand-text-muted border-brand-border'}`}>
-            {EXPERT_STATUS_LABELS[expert.status] ?? expert.status} · {expert.availability ? 'Disponible' : 'Indisponible'}
-          </span>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-3 gap-3 pt-4 border-t border-brand-border text-center">
-        <div><p className="text-xl font-extrabold text-brand-text">{m.completedTasks}</p><p className="text-xs text-brand-text-muted font-medium">Terminées</p></div>
-        <div><p className="text-xl font-extrabold text-brand-text">{m.averageRating != null ? `${m.averageRating.toFixed(1)}/5` : '—'}</p><p className="text-xs text-brand-text-muted font-medium">{m.reviewCount} avis</p></div>
-        <div><p className="text-xl font-extrabold text-brand-text">{expert.usualCost != null ? formatPriceFCFA(expert.usualCost) : '—'}</p><p className="text-xs text-brand-text-muted font-medium">Coût habituel</p></div>
-      </div>
-      <dl className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 text-xs">
-        <div className="rounded-lg bg-brand-bg border border-brand-border p-2"><dt className="text-brand-text-muted">Annulations</dt><dd className="font-bold">{pct(m.cancellationRate)}{m.cancelledTasks ? ` (${m.cancelledTasks})` : ''}</dd></div>
-        <div className="rounded-lg bg-brand-bg border border-brand-border p-2"><dt className="text-brand-text-muted">Reprises</dt><dd className="font-bold">{pct(m.reworkRate)}</dd></div>
-        <div className="rounded-lg bg-brand-bg border border-brand-border p-2"><dt className="text-brand-text-muted">Délai de réponse</dt><dd className="font-bold">{hours(m.avgResponseHours)}</dd></div>
-        <div className="rounded-lg bg-brand-bg border border-brand-border p-2"><dt className="text-brand-text-muted">Délai d'intervention</dt><dd className="font-bold">{hours(m.avgCompletionHours)}</dd></div>
-      </dl>
-      <p className="text-sm text-brand-text-muted mt-3">
-        {expert.phone} · {expert.zone ?? 'Zone non renseignée'}
-        {expert.lastVerifiedAt ? ` · Dernière vérification : ${dateFr(expert.lastVerifiedAt)}${expert.lastVerificationType ? ` (${VERIFICATION_TYPE_LABELS[expert.lastVerificationType as VerificationType] ?? expert.lastVerificationType})` : ''}` : ' · Aucune vérification enregistrée'}
-      </p>
-
-      <div className="mt-3 rounded-xl border border-dashed border-brand-border p-3">
-        <p className="text-[11px] font-bold uppercase tracking-wider text-brand-text-muted mb-1">Ce qu'un client pourrait voir</p>
-        {expert.publicSignals.length === 0
-          ? <p className="text-xs text-brand-text-muted">Rien pour l'instant : aucun signal réel (profil non contrôlé, aucune intervention Fika).</p>
-          : <ul className="flex flex-wrap gap-1.5">{expert.publicSignals.map((sig) => <li key={sig} className="text-xs font-semibold px-2 py-1 rounded-full bg-brand-bg border border-brand-border text-brand-text">{sig}</li>)}</ul>}
-      </div>
-
-      <div className="flex flex-wrap gap-2 mt-4">
-        <Button variant="secondary" className="flex-1" onClick={onEdit}>Modifier la fiche</Button>
-        <Button variant="primary" className="flex-1" onClick={() => setOpen((v) => !v)}>{open ? 'Fermer' : 'Vérification & historique'}</Button>
-      </div>
-
-      {open && (
-        <div className="mt-4 pt-4 border-t border-brand-border space-y-4">
-          <div>
-            <h3 className="text-sm font-bold text-brand-text mb-2">Changer le niveau de vérification</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <Select value={to} onChange={(e) => setTo(e.target.value as VerificationLevel)} aria-label="Niveau visé">
-                {VERIFICATION_LEVELS.map((l) => (
-                  <option key={l.level} value={l.level} disabled={l.automatic && l.level !== current}>
-                    {l.rank}. {l.label}{l.automatic ? ' (automatique)' : ''}
-                  </option>
-                ))}
-              </Select>
-              <Select value={type} onChange={(e) => setType(e.target.value as VerificationType)} aria-label="Type de vérification">
-                {(Object.keys(VERIFICATION_TYPE_LABELS) as VerificationType[]).filter((t) => t !== 'COMPLETED_JOB').map((t) => (
-                  <option key={t} value={t}>{VERIFICATION_TYPE_LABELS[t]}</option>
-                ))}
-              </Select>
-            </div>
-            <p className="text-xs text-brand-text-muted mt-2"><strong className="text-brand-text">Exigé pour « {target.label} » :</strong> {target.requires}</p>
-            <Textarea rows={2} className="mt-2" placeholder="Ce qui a été fait concrètement (obligatoire pour une rétrogradation)" value={note} onChange={(e) => setNote(e.target.value)} aria-label="Note de vérification" />
-            {!check.ok && to !== current && <p className="text-xs font-medium text-brand-accent mt-1">{check.reason}</p>}
-            {error && <p role="alert" className="text-xs text-red-700 mt-1">{error}</p>}
-            <Button
-              variant="primary" className="mt-2 w-full" disabled={pending || !check.ok}
-              onClick={async () => {
-                setPending(true); setError(null);
-                try { await verifyExpert({ expertId: expert.id, to, type, note: note.trim() || undefined }); setNote(''); onChanged(); }
-                catch (e) { setError(e instanceof Error ? e.message : 'Changement non enregistré.'); }
-                finally { setPending(false); }
-              }}
-            >
-              {pending ? 'Enregistrement…' : `Enregistrer : ${VERIFICATION_LEVEL_LABELS[to]}`}
-            </Button>
-          </div>
-
-          {(expert.references || expert.documents || expert.internalNotes) && (
-            <dl className="text-xs space-y-1.5">
-              {expert.references && <div><dt className="font-bold text-brand-text">Références déclarées</dt><dd className="text-brand-text-muted whitespace-pre-line">{expert.references}</dd></div>}
-              {expert.documents && <div><dt className="font-bold text-brand-text">Documents</dt><dd className="text-brand-text-muted whitespace-pre-line">{expert.documents}</dd></div>}
-              {expert.internalNotes && <div><dt className="font-bold text-brand-text">Notes internes</dt><dd className="text-brand-text-muted whitespace-pre-line">{expert.internalNotes}</dd></div>}
-            </dl>
-          )}
-
-          <div>
-            <h3 className="text-sm font-bold text-brand-text mb-2">Historique des vérifications</h3>
-            {expert.history.length === 0 ? (
-              <p className="text-xs text-brand-text-muted">Aucune vérification enregistrée : ce professionnel est « Nouveau ».</p>
-            ) : (
-              <ul className="space-y-2">
-                {expert.history.map((h) => (
-                  <li key={h.id} className="text-xs rounded-lg bg-brand-bg border border-brand-border p-2">
-                    <span className="font-bold text-brand-text">{h.from ? `${VERIFICATION_LEVEL_LABELS[h.from] ?? h.from} → ` : ''}{VERIFICATION_LEVEL_LABELS[h.to] ?? h.to}</span>
-                    <span className="text-brand-text-muted"> · {VERIFICATION_TYPE_LABELS[h.type as VerificationType] ?? h.type} · {dateFr(h.createdAt)} · {h.actorEmail ?? 'système'}</span>
-                    {h.note && <p className="text-brand-text-muted mt-1">{h.note}</p>}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
-      )}
-    </article>
-  );
-}
-
-export function AdminExperts() {
-  const { data, loading, loadError, reload } = useAsync(fetchExperts, []);
-  const experts: AdminExpert[] = data ?? [];
-  const [editing, setEditing] = useState<AdminExpert | null | undefined>(undefined);
-  const [saved, setSaved] = useState(false);
-
-  if (loading) return <Loading />;
-  if (loadError) return <LoadError message={loadError} retry={reload} />;
-  return (
-    <>
-      <div className="flex justify-between items-center gap-4 mb-6">
-        <p className="text-sm text-brand-text-muted">Partenaires sélectionnés par Fika.</p>
-        <Button variant="primary" onClick={() => { setEditing(null); setSaved(false); }}>Ajouter un expert</Button>
-      </div>
-      {saved && <p role="status" className="mb-4 text-emerald-700 text-sm">Fiche partenaire enregistrée.</p>}
-      {editing !== undefined && <ExpertForm key={editing?.id ?? 'new'} expert={editing} onCancel={() => setEditing(undefined)} onSaved={() => { setEditing(undefined); setSaved(true); reload(); }} />}
-      {experts.length === 0 && <EmptyState icon={Briefcase} title="Aucun expert enregistré" description="Utilisez le bouton Ajouter un expert pour enregistrer votre premier partenaire." />}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      {experts.map((expert) => (
-        <ExpertCard key={expert.id} expert={expert} onEdit={() => { setEditing(expert); setSaved(false); }} onChanged={reload} />
-      ))}
-      </div>
-    </>
-  );
-}
-
-/* -------------------------------- Clients --------------------------------- */
-
-export function AdminClients() {
-  const { data, loading, loadError, reload } = useAsync(fetchCustomers, []);
-  const customers: AdminCustomer[] = data ?? [];
-
-  if (loading) return <Loading />;
-  if (loadError) return <LoadError message={loadError} retry={reload} />;
-  if (customers.length === 0) {
-    return (
-      <EmptyState
-        icon={Users}
-        title="Aucun client"
-        description="Les clients sont créés automatiquement à la première commande ou demande avec téléphone."
-      />
-    );
-  }
-
-  return (
-    <>
-    <ExportBar dataset="customers" count={customers.length} label="les clients" />
-    <div className="bg-brand-surface rounded-2xl border border-brand-border shadow-sm overflow-hidden">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-left text-xs font-bold text-brand-text-muted uppercase tracking-wider border-b border-brand-border">
-            <th className="px-6 py-4">Client</th>
-            <th className="px-6 py-4">Téléphone</th>
-            <th className="px-6 py-4 text-right">Commandes</th>
-            <th className="px-6 py-4 text-right">Total dépensé</th>
-          </tr>
-        </thead>
-        <tbody>
-          {customers.map((c) => (
-            <tr key={c.id} className="border-b border-brand-border last:border-0 hover:bg-brand-bg transition-colors">
-              <td className="px-6 py-4 font-semibold text-brand-text">{c.name ?? '—'}</td>
-              <td className="px-6 py-4">
-                <a
-                  href={getCustomerWALink(c.phone, 'Bonjour 👋, ici Fika.')}
-                  target="_blank" rel="noopener noreferrer"
-                  className="text-brand-wa font-bold hover:underline"
-                >
-                  {c.phone}
-                </a>
-              </td>
-              <td className="px-6 py-4 text-right font-semibold">{c.ordersCount}</td>
-              <td className="px-6 py-4 text-right font-semibold">{formatPriceFCFA(c.totalSpent)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
     </>
   );
 }

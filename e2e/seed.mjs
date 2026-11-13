@@ -10,7 +10,15 @@ try {
   });
   const p1 = await prisma.marketProduct.upsert({
     where: { slug: 'e2e-nav-ecouteurs-bluetooth' },
-    update: { active: true },
+    // Idempotent fort : restaure l'état attendu même si le produit a été
+    // modifié depuis l'admin de production (base partagée).
+    update: {
+      reference: `FK-${TAG}-A`, name: 'Écouteurs Bluetooth E2E', categoryId: cat.id,
+      description: 'Écouteurs sans fil de test e2e.',
+      specs: [{ label: 'Autonomie', value: '20 h' }], images: [], variants: [{ name: 'Couleur', values: ['Noir', 'Blanc'] }],
+      priceSale: 14500, supplierPrice: 9000, estimatedLandedCost: 11000, delayLabel: '3 à 5 jours',
+      availability: 'PREORDER', active: true, popular: false,
+    },
     create: {
       slug: 'e2e-nav-ecouteurs-bluetooth', reference: `FK-${TAG}-A`, name: 'Écouteurs Bluetooth E2E',
       categoryId: cat.id, description: 'Écouteurs sans fil de test e2e.',
@@ -21,7 +29,13 @@ try {
   });
   const p2 = await prisma.marketProduct.upsert({
     where: { slug: 'e2e-nav-cable-usb' },
-    update: { active: true },
+    update: {
+      reference: `FK-${TAG}-B`, name: 'Câble USB-C E2E', categoryId: cat.id,
+      description: 'Câble de charge de test e2e.',
+      specs: [], images: [], variants: [],
+      priceSale: 2500, supplierPrice: 1200, estimatedLandedCost: 1800, delayLabel: '2 à 4 jours',
+      availability: 'AVAILABLE', active: true, popular: false,
+    },
     create: {
       slug: 'e2e-nav-cable-usb', reference: `FK-${TAG}-B`, name: 'Câble USB-C E2E',
       categoryId: cat.id, description: 'Câble de charge de test e2e.',

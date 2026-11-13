@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import {
-  Activity, BarChart, Briefcase, Calculator, Inbox, LogOut, Package, Store, Tags, Users, ChevronRight, Loader2,
+  Activity, BarChart, Calculator, Inbox, LogOut, Package, Store, Tags, ChevronRight, Loader2,
 } from 'lucide-react';
 import { Link, navigate } from '../../router';
 import { fetchSession, fetchOrders, logout, type AdminIdentity } from '../../lib/admin/api';
@@ -13,13 +13,16 @@ import { AdminLoginPage } from './AdminLoginPage';
  * refuse par ailleurs chaque mutation sans cookie — défense en profondeur).
  */
 
+/**
+ * Sections essentielles uniquement (allègement 13/11) : Clients, Experts et
+ * Exports & archives ont été retirés — 0 donnée réelle, informations déjà
+ * couvertes par Demandes/Analytiques. Code restaurable depuis git, données
+ * conservées en base.
+ */
 export const ADMIN_NAV = [
   { path: '/admin', label: "Vue d'ensemble", icon: Activity },
   { path: '/admin/orders', label: 'Commandes', icon: Package, badge: true },
   { path: '/admin/leads', label: 'Demandes', icon: Inbox },
-  { path: '/admin/clients', label: 'Clients', icon: Users },
-  { path: '/admin/experts', label: 'Experts', icon: Briefcase },
-  { path: '/admin/reports', label: 'Exports & archives', icon: Inbox },
   { path: '/admin/analytics', label: 'Analytiques', icon: BarChart },
   { path: '/admin/market', label: 'Fika Market', icon: Store },
   { path: '/admin/market/catalog', label: 'Catalogue produits', icon: Tags },
