@@ -89,30 +89,58 @@ try {
     await p.waitForTimeout(300);
     ok((await p.locator('a[href*="/boutique/produit/"]').count()) === expectedCards, 'effacement de la recherche → catalogue complet restauré');
 
-    /* ---------- 3. Défilement automatique des photos (2 s) ---------- */
+    /* ---------- 3. Défilement automatique des photos (doux : 5 s + fondu) ---------- */
     await search.fill('carousel');
     await p.waitForTimeout(300);
     const card = p.locator(`a[href="/boutique/produit/${SLUG}"]`).first();
-    const img = card.locator('img');
-    ok((await img.count()) === 1, 'photo d’aperçu rendue (produit à 2 photos)');
-    ok((await card.locator('span.w-1\\.5').count()) === 2, '2 pastilles de position affichées');
-    const src1 = await img.getAttribute('src');
-    await p.waitForTimeout(2600);
-    const src2 = await img.getAttribute('src');
-    ok(src1 !== src2, `la photo défile toutes les 2 secondes (${src1 === IMG_A ? 'A→B' : src1 === IMG_B ? 'B→A' : '?'})`);
-    await p.waitForTimeout(2200);
-    const src3 = await img.getAttribute('src');
-    ok(src3 === src1, 'le défilement boucle (retour à la première photo)');
+    // Les photos sont empilées : la couche active porte la classe opacity-100.
+    const activeSrc = async () => {
+      const layers = card.locator('div[class*="transition-opacity"]');
+      const n = await layers.count();
+      for (let k = 0; k < n; k++) {
+        const cls = (await layers.nth(k).getAttribute('class')) ?? '';
+        if (cls.includes('opacity-100')) return layers.nth(k).locator('img').getAttribute('src');
+      }
+      return null;
+    };
+    ok((await card.locator('img').count()) === 2, 'photos d’aperçu empilées (produit à 2 photos, fondu enchaîné)');
+    ok((await card.locator('div.aspect-square span.rounded-full').count()) === 2, '2 pastilles de position affichées');
+    const src1 = await activeSrc();
+    await p.waitForTimeout(5800);
+    const src2 = await activeSrc();
+    const lbl = (s) => (s === IMG_A ? 'A' : s === IMG_B ? 'B' : String(s));
+    ok(src1 !== src2, `la photo change après 5 secondes (${lbl(src1)}→${lbl(src2)})`);
+    // Pause au survol : la photo ne doit plus changer tant que la carte est survolée.
+    await card.hover();
+    await p.waitForTimeout(200); // laisser la pause s'installer avant de figer la référence
+    const held1 = await activeSrc();
+    await p.waitForTimeout(5600);
+    const held2 = await activeSrc();
+    ok(held1 === held2, 'pause au survol : la photo reste en place');
+    // Fin du survol : le défilement reprend.
+    await p.mouse.move(5, 5);
+    await p.waitForTimeout(5800);
+    const src3 = await activeSrc();
+    ok(src3 !== held2, 'fin du survol : le défilement reprend');
 
     /* ---------- 4. Accessibilité : animation réduite = pas de défilement ---------- */
     const ctxReduce = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
     const p2 = await ctxReduce.newPage();
     await p2.goto(`${BASE}/boutique`, { waitUntil: 'load' });
     await p2.waitForSelector(`a[href="/boutique/produit/${SLUG}"]`, { timeout: 20000 });
-    const img2 = p2.locator(`a[href="/boutique/produit/${SLUG}"] img`).first();
-    const rsrc1 = await img2.getAttribute('src');
-    await p2.waitForTimeout(2600);
-    const rsrc2 = await img2.getAttribute('src');
+    const card2 = p2.locator(`a[href="/boutique/produit/${SLUG}"]`).first();
+    const activeSrc2 = async () => {
+      const layers = card2.locator('div[class*="transition-opacity"]');
+      const n = await layers.count();
+      for (let k = 0; k < n; k++) {
+        const cls = (await layers.nth(k).getAttribute('class')) ?? '';
+        if (cls.includes('opacity-100')) return layers.nth(k).locator('img').getAttribute('src');
+      }
+      return null;
+    };
+    const rsrc1 = await activeSrc2();
+    await p2.waitForTimeout(5800);
+    const rsrc2 = await activeSrc2();
     ok(rsrc1 === rsrc2, 'prefers-reduced-motion → défilement désactivé');
     await ctxReduce.close();
   } finally {

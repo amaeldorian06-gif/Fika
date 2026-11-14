@@ -41,9 +41,14 @@ try {
   const cards = await p.locator('a[href*="/boutique/produit/"]').count();
   ok(cards === apiCount, `catalogue chargé (${cards} carte(s) = ${apiCount} produit(s) API)`);
 
-  // Aucune carte ne doit contenir un <img> (toutes les URL sont mortes)…
-  const cardsWithImg = await p.locator('a[href*="/boutique/produit/"] img').count();
-  ok(cardsWithImg === 0, 'aucune <img> cassée affichée (0 sur les cartes)');
+  // Aucune <img> réellement cassée ne doit rester affichée. Les photos sont
+  // empilées (fondu) et paresseuses : celles sous le pli ne se chargent pas
+  // (complete=false) — elles ne sont ni affichées ni cassées. On ne compte
+  // que les images chargées ET en échec (complete && naturalWidth=0).
+  const brokenCount = await p.evaluate(() =>
+    Array.from(document.querySelectorAll('a[href*="/boutique/produit/"] img'))
+      .filter((im) => im.complete && im.naturalWidth === 0).length);
+  ok(brokenCount === 0, `aucune <img> cassée affichée (${brokenCount} sur les cartes)`);
   // …et chaque carte affiche l'icône de repli.
   const cardsWithFallback = await p.locator('a[href*="/boutique/produit/"] svg').count();
   ok(cardsWithFallback >= cards, `icône de repli présente sur les cartes (${cardsWithFallback}/${cards})`);

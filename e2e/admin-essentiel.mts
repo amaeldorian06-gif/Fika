@@ -152,7 +152,7 @@ try {
       }
       const customers = await prisma.customer.findMany({
         where: { name: { in: ['Test E2E Nav', 'Test E2E Statut'] } },
-        include: { orders: { select: { id: true } }, leads: { select: { id: true } }, reviews: { select: { id: true } }, marketOrders: { select: { id: true } } },
+        include: { marketOrders: { select: { id: true } } },
       });
       for (const c of customers) {
         for (const o of c.marketOrders) {
@@ -160,6 +160,15 @@ try {
           await prisma.marketOrderItem.deleteMany({ where: { orderId: o.id } });
           await prisma.marketOrder.delete({ where: { id: o.id } });
         }
+      }
+      // Seconde passe avec références RELUES après les suppressions : un client
+      // orphelin ne doit jamais survivre au test (l'instantané pris avant
+      // serait périmé — leçon du 13/11 soir).
+      const remaining = await prisma.customer.findMany({
+        where: { name: { in: ['Test E2E Nav', 'Test E2E Statut'] } },
+        include: { orders: { select: { id: true } }, leads: { select: { id: true } }, reviews: { select: { id: true } }, marketOrders: { select: { id: true } } },
+      });
+      for (const c of remaining) {
         if (!c.orders.length && !c.leads.length && !c.reviews.length && !c.marketOrders.length) {
           await prisma.customer.delete({ where: { id: c.id } });
         }

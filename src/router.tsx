@@ -156,6 +156,11 @@ interface LinkProps {
   'aria-label'?: string;
   title?: string;
   rel?: string;
+  /** Souris / focus : transmis à l'ancre (ex. pause du carousel au survol). */
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
+  onFocus?: () => void;
+  onBlur?: () => void;
 }
 
 export function Link({ to, className, children, onClick, ...rest }: LinkProps) {

@@ -59,32 +59,58 @@ function ProductImage({ src, alt, className, iconClassName }: {
 }
 
 /**
- * Défilement automatique des photos d'aperçu : toutes les 2 secondes.
- * Désactivé si le visiteur demande une animation réduite (accessibilité)
- * ou si le produit n'a qu'une seule photo.
+ * Défilement automatique des photos d'aperçu : doux et maîtrisé.
+ * Une photo reste 5 secondes, puis un fondu enchaîné (700 ms) amène la
+ * suivante. Le défilement se met en pause au survol ou au focus clavier,
+ * et est désactivé si le visiteur demande une animation réduite
+ * (accessibilité) ou si le produit n'a qu'une seule photo.
  */
-function useCarouselIndex(count: number): number {
+const CAROUSEL_INTERVAL_MS = 5000;
+
+function useCarouselIndex(count: number, paused = false): number {
   const [i, setI] = useState(0);
+  useEffect(() => { setI(0); }, [count]);
   useEffect(() => {
-    setI(0);
-    if (count <= 1) return;
+    if (count <= 1 || paused) return;
     if (typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const id = window.setInterval(() => setI((v) => (v + 1) % count), 2000);
+    const id = window.setInterval(() => setI((v) => (v + 1) % count), CAROUSEL_INTERVAL_MS);
     return () => { window.clearInterval(id); };
-  }, [count]);
+  }, [count, paused]);
   return count > 0 ? i % count : 0;
 }
 
 function ProductCard({ product }: { product: MarketProductPublic }) {
-  const imageIndex = useCarouselIndex(product.images.length);
+  const [hold, setHold] = useState(false);
+  const imageIndex = useCarouselIndex(product.images.length, hold);
   return (
-    <Link to={`/boutique/produit/${product.slug}`} className="group flex flex-col rounded-2xl border border-brand-border bg-white overflow-hidden hover:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent">
-      <div className="relative aspect-square bg-brand-bg flex items-center justify-center overflow-hidden">
-        <ProductImage src={product.images[imageIndex]} alt={product.name} className="w-full h-full object-cover" />
+    <Link
+      to={`/boutique/produit/${product.slug}`}
+      onMouseEnter={() => setHold(true)}
+      onMouseLeave={() => setHold(false)}
+      onFocus={() => setHold(true)}
+      onBlur={() => setHold(false)}
+      className="group flex flex-col rounded-2xl border border-brand-border bg-white overflow-hidden hover:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent"
+    >
+      <div className="relative aspect-square bg-brand-bg overflow-hidden">
+        {product.images.length === 0 ? (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <PackageSearch className="w-10 h-10 text-brand-text-muted/40" aria-hidden="true" />
+          </div>
+        ) : (
+          product.images.map((src, i) => (
+            <div
+              key={src + i}
+              aria-hidden={i !== imageIndex}
+              className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${i === imageIndex ? 'opacity-100' : 'opacity-0'}`}
+            >
+              <ProductImage src={src} alt={product.name} className="w-full h-full object-cover" />
+            </div>
+          ))
+        )}
         {product.images.length > 1 && (
           <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5" aria-hidden="true">
             {product.images.map((_, d) => (
-              <span key={d} className={`w-1.5 h-1.5 rounded-full transition-colors ${d === imageIndex ? 'bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.25)]' : 'bg-white/60'}`} />
+              <span key={d} className={`h-1.5 rounded-full transition-all duration-500 ${d === imageIndex ? 'w-2 bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.25)]' : 'w-1.5 bg-white/60'}`} />
             ))}
           </div>
         )}
