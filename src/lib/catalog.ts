@@ -13,6 +13,21 @@ import { UNIVERSES, SERVICES, POPULAR_ORDER } from './catalog-data';
 const byDisplayOrder = (a: Service, b: Service): number =>
   a.displayOrder - b.displayOrder || a.slug.localeCompare(b.slug);
 
+/* --------------------- Photos d'illustration des univers ------------------- */
+
+/**
+ * Base publique du stockage d'images — même hôte que les photos produits
+ * Fika Market (déjà autorisé par la CSP img-src). Les photos d'univers
+ * suivent une convention simple : bucket public « service-univers »,
+ * un fichier par univers, nommé <slug>.jpg. Absente ou morte → l'icône
+ * habituelle reste affichée (repli gracieux, jamais d'image cassée).
+ */
+const STORAGE_PUBLIC_BASE = 'https://kwroxvifjnunoihoadbw.supabase.co/storage/v1/object/public';
+
+export function universeImage(slug: string): string {
+  return `${STORAGE_PUBLIC_BASE}/service-univers/${slug}.jpg`;
+}
+
 const CATEGORY_ALIASES: Record<string, string> = {
   maison: 'maison-travaux',
   reparation: 'reparation-maintenance',

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, MessageSquare, Search, ChevronDown, SlidersHorizontal } from 'lucide-react';
-import { getCategoryBySlug, getServices } from '../lib/catalog';
+import { getCategoryBySlug, getServices, universeImage } from '../lib/catalog';
 import { getWALink } from '../lib/whatsapp';
 import { trackWaClick } from '../lib/tracking';
 import { Button, UniverseIcon } from './ui';
@@ -32,6 +32,38 @@ function FilterSelect({
         <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-text-muted pointer-events-none" />
       </div>
     </div>
+  );
+}
+
+/** Visuel du héros : photo d'illustration réelle si présente, sinon l'icône d'origine. */
+function UniverseHeroVisual({ slug, icon, title }: { slug: string; icon?: string | null; title: string }) {
+  const [noPhoto, setNoPhoto] = useState(false);
+  if (noPhoto) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.5 }}
+        className="z-10 opacity-70"
+      >
+        <UniverseIcon icon={icon} className="w-24 h-24 md:w-32 md:h-32" />
+      </motion.div>
+    );
+  }
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.5 }}
+      className="z-10 w-full md:w-80 shrink-0"
+    >
+      <img
+        src={universeImage(slug)}
+        alt={`Illustration — ${title}`}
+        onError={() => setNoPhoto(true)}
+        className="w-full aspect-[4/3] object-cover rounded-2xl border border-white/40 shadow-lg"
+      />
+    </motion.div>
   );
 }
 
@@ -91,14 +123,7 @@ export function UniversePage({ slug }: { slug: string }) {
               {universe.promise}
             </p>
           </div>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5 }}
-            className="z-10 opacity-70"
-          >
-            <UniverseIcon icon={universe.icon} className="w-24 h-24 md:w-32 md:h-32" />
-          </motion.div>
+          <UniverseHeroVisual slug={universe.slug} icon={universe.icon} title={universe.title} />
         </motion.div>
       </div>
 

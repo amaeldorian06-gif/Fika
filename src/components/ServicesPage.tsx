@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { ArrowRight, BadgeCheck, ChevronDown, Clock, MessageCircle, Search, Star, X } from 'lucide-react';
 import { getWALink } from '../lib/whatsapp';
 import { trackServiceSearch, trackWaClick } from '../lib/tracking';
-import { getCategories, getServices, searchServices } from '../lib/catalog';
+import { getCategories, getServices, searchServices, universeImage } from '../lib/catalog';
 import { FAQS, SERVICES_RESPONSE_PROMISE } from '../lib/data';
 import { fetchPublicTestimonials, } from '../lib/proof-api';
 import type { PublicTestimonial } from '../lib/proof';
@@ -21,13 +21,33 @@ import { ServiceCard } from './ServiceCard';
 const SEARCH_SUGGESTIONS = ['plomberie', 'fuite', 'déménagement', 'réparation téléphone', 'CV'];
 
 function UniverseCard({ slug, title, examples, icon, color, count }: { slug: string; title: string; examples?: string; icon?: string | null; color: string; count: number }) {
+  // Photo d'illustration réelle si elle existe (bucket service-univers,
+  // convention <slug>.jpg). Le bloc garde TOUJOURS la même hauteur — photo,
+  // ou icône centrée sur fond teinté — pour une grille stable sans saut de
+  // mise en page, même pendant que les photos arrivent une à une.
+  const [noPhoto, setNoPhoto] = useState(false);
   return (
     <Link
       to={`/univers/${slug}`}
       className="group block h-full p-6 rounded-3xl bg-brand-surface border border-brand-border hover:shadow-premium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
     >
-      <div className={`w-11 h-11 rounded-xl flex items-center justify-center mb-5 ${color}`}>
-        <UniverseIcon icon={icon ?? 'Wrench'} className="w-5 h-5 text-brand-accent" />
+      <div className={`relative -mx-6 -mt-6 mb-5 h-44 sm:h-48 rounded-t-3xl overflow-hidden ${noPhoto ? color : 'bg-brand-bg'}`}>
+        {noPhoto ? (
+          <UniverseIcon icon={icon ?? 'Wrench'} className="w-10 h-10 text-brand-accent absolute inset-0 m-auto" />
+        ) : (
+          <>
+            <img
+              src={universeImage(slug)}
+              alt={`Illustration — ${title}`}
+              loading="lazy"
+              onError={() => setNoPhoto(true)}
+              className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700 ease-out"
+            />
+            <span className={`absolute bottom-3 left-4 w-10 h-10 rounded-xl flex items-center justify-center shadow-sm ${color}`}>
+              <UniverseIcon icon={icon ?? 'Wrench'} className="w-5 h-5 text-brand-accent" />
+            </span>
+          </>
+        )}
       </div>
       <h3 className="font-heading font-bold text-lg mb-1 text-brand-text">{title}</h3>
       <p className="text-xs font-bold uppercase tracking-wider text-brand-accent mb-2">{count} service{count > 1 ? 's' : ''}</p>
