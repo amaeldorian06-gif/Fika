@@ -1,11 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft, ArrowRight, Check, ChevronRight, FileText, FileUp, ListChecks,
   MessageCircle, ShieldCheck, Sparkles, TextCursorInput, Truck, Hash, X,
 } from 'lucide-react';
-import type { RequirementKind, ServiceRequirement } from '../lib/types';
-import { getCategoryBySlug, getServiceBySlug, getServices } from '../lib/catalog';
+import type { RequirementKind, ServiceRequirement, Service } from '../lib/types';
+import { getCategoryBySlug, getServiceBySlug, getServices, serviceImage } from '../lib/catalog';
 import { getWALink } from '../lib/whatsapp';
 import { trackWaClick, trackLeadView } from '../lib/tracking';
 import { displayPrice, getCityPricing, priceNote, pricingMode, travelLabel } from '../lib/pricing';
@@ -37,6 +37,32 @@ function RequirementRow({ req }: { req: ServiceRequirement }) {
       </span>
       <span className="text-[10px] font-bold uppercase tracking-wider text-brand-text-muted">{label}</span>
     </li>
+  );
+}
+
+/**
+ * Visuel héros du service : photo réelle si elle existe (bucket
+ * service-photos, convention `<slug>.jpg` — apparaît dès l'upload, sans
+ * redéploiement), sinon repli sur le visuel générique de l'univers, sinon
+ * rien. Ratio fixe (pas de CLS), priorité élevée, dimensions explicites.
+ */
+function ServiceHeroImage({ service }: { service: Service }) {
+  const [realPhotoFailed, setRealPhotoFailed] = useState(false);
+  const src = realPhotoFailed ? service.image : serviceImage(service.slug);
+  if (!src) return null;
+  return (
+    <motion.div {...fadeUp(0.03)} className="mb-10 rounded-3xl overflow-hidden border border-brand-border bg-brand-surface">
+      <img
+        src={src}
+        alt={service.name}
+        width={1200}
+        height={514}
+        fetchPriority="high"
+        decoding="async"
+        onError={() => setRealPhotoFailed(true)}
+        className="w-full aspect-[21/9] object-cover"
+      />
+    </motion.div>
   );
 }
 
@@ -99,21 +125,8 @@ export function ServicePage({ slug }: { slug: string }) {
           <span className="text-brand-text font-semibold">{service.name}</span>
         </motion.div>
 
-        {/* Visuel local de marque (photos réelles : TODO_PROD) */}
-        {service.image && (
-          <motion.div {...fadeUp(0.03)} className="mb-10 rounded-3xl overflow-hidden border border-brand-border bg-brand-surface">
-            {/* Image LCP : ratio fixe (pas de CLS), priorité élevée, dimensions explicites */}
-            <img
-              src={service.image}
-              alt={service.name}
-              width={1200}
-              height={514}
-              fetchPriority="high"
-              decoding="async"
-              className="w-full aspect-[21/9] object-cover"
-            />
-          </motion.div>
-        )}
+        {/* Photo réelle du service, repli visuel générique */}
+        <ServiceHeroImage service={service} />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 lg:gap-14">
           {/* Colonne principale */}

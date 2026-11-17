@@ -1,7 +1,8 @@
 // E2E des améliorations UX de /services (points 1-8) — navigateur réel.
 // Couvre : recherche dans le héros, chips de suggestions, compteurs par
 // univers, promesse de réponse, FAQ étendue, témoignages masqués sans
-// données réelles, cartes services sans photos dupliquées (icônes de marque),
+// données réelles, cartes services — photo réelle si disponible sinon repli
+// icône de marque (jamais d'image cassée),
 // tracker SERVICE_SEARCH (vérifié en base, puis nettoyé).
 import { chromium } from 'playwright';
 import { PrismaClient } from '@prisma/client';
@@ -42,12 +43,13 @@ try {
   const counter = await p.locator('[role="status"]').first().innerText();
   ok(/services? trouvés?/.test(counter), 'compteur de résultats annoncé (role=status)', counter);
 
-  // --- Point 8 : cartes uniformes, en-tête de marque (icône), pas de photos ---
+  // --- Point 8 : cartes uniformes — photo réelle si disponible (bucket
+  // service-photos), sinon repli icône de marque ; jamais d'image cassée ---
   const cardAudit = await p.locator('a[href^="/service/"]').first().evaluate((el) => ({
-    imgs: el.querySelectorAll('img').length,
+    broken: [...el.querySelectorAll('img')].filter((i) => i.complete && i.naturalWidth === 0).length,
     svg: el.querySelectorAll('svg').length,
   }));
-  ok(cardAudit.imgs === 0, 'carte service sans photo (en-tête icône de marque)', `${cardAudit.imgs} img`);
+  ok(cardAudit.broken === 0, 'carte service — aucune image cassée (photo ou repli icône)', `${cardAudit.broken} cassée`);
   ok(cardAudit.svg >= 1, 'icône présente dans la carte', `${cardAudit.svg} svg`);
 
   // Bouton X d'effacement

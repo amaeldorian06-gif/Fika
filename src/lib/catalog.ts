@@ -28,6 +28,15 @@ export function universeImage(slug: string): string {
   return `${STORAGE_PUBLIC_BASE}/service-univers/${slug}.jpg`;
 }
 
+/**
+ * Photo réelle d'un service (bucket public « service-photos », convention
+ * `<slug>.jpg`). Même principe que les univers : apparaît dès l'upload,
+ * sans redéploiement ; l'appelant gère le repli si elle est absente.
+ */
+export function serviceImage(slug: string): string {
+  return `${STORAGE_PUBLIC_BASE}/service-photos/${slug}.jpg`;
+}
+
 const CATEGORY_ALIASES: Record<string, string> = {
   maison: 'maison-travaux',
   reparation: 'reparation-maintenance',
