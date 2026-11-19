@@ -70,3 +70,15 @@ describe('renderMarketOrderAlert (e-mail commande Fika Market)', () => {
     expect(text).toContain('Chargeur Lenovo USB (Connectique : Carré) ×1\n');
   });
 });
+
+describe('destinataire des alertes (notifyRecipient)', () => {
+  it('par défaut : hello1247778@gmail.com (convention fondateur)', async () => {
+    const { notifyRecipient } = await import('./notify');
+    expect(notifyRecipient({})).toBe('hello1247778@gmail.com');
+  });
+
+  it('NOTIFY_EMAIL surcharge le destinataire sans toucher à l’expéditeur', async () => {
+    const { notifyRecipient } = await import('./notify');
+    expect(notifyRecipient({ NOTIFY_EMAIL: 'ops@fika.example' })).toBe('ops@fika.example');
+  });
+});

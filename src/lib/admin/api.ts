@@ -267,6 +267,138 @@ export async function fetchAssignableExperts(): Promise<AssignableExpertDto[]> {
   return await getJson<AssignableExpertDto[]>('/api/admin/experts?assignable=1');
 }
 
+/* --------------------------- Annuaire clients (CRM) ------------------------ */
+
+export type CustomerSegment = 'all' | 'services' | 'market' | 'both' | 'new' | 'active';
+
+export interface CustomerRowDto {
+  id: string;
+  name: string | null;
+  phone: string;
+  email: string | null;
+  createdAt: string;
+  ordersCount: number;
+  marketOrdersCount: number;
+  leadsCount: number;
+  lastOrderAt: string | null;
+  lastMarketOrderAt: string | null;
+}
+
+export interface CustomersPayload {
+  rows: CustomerRowDto[];
+  total: number;
+  page: number;
+  pageSize: number;
+  segments: Record<CustomerSegment, number>;
+}
+
+export async function fetchCustomers(params: { q?: string; segment?: CustomerSegment; page?: number } = {}): Promise<CustomersPayload | null> {
+  const qs = new URLSearchParams();
+  if (params.q) qs.set('q', params.q);
+  if (params.segment) qs.set('segment', params.segment);
+  if (params.page) qs.set('page', String(params.page));
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return await getJson<CustomersPayload>(`/api/admin/customers${suffix}`);
+}
+
+export interface CustomerNoteDto {
+  id: string;
+  author: string | null;
+  body: string;
+  createdAt: string;
+}
+
+export interface CustomerTimelineEventDto {
+  at: string;
+  universe: 'services' | 'market' | 'interne';
+  kind: 'demande' | 'commande' | 'paiement' | 'note';
+  label: string;
+  detail: string | null;
+  link: string | null;
+}
+
+export interface CustomerProfilePayload {
+  id: string;
+  name: string | null;
+  phone: string;
+  email: string | null;
+  createdAt: string;
+  tags: string[];
+  notes: CustomerNoteDto[];
+  counts: { orders: number; marketOrders: number; leads: number; ordersCompleted: number; ordersCancelled: number };
+  finance: { servicesConfirmed: number; servicesPending: number; marketConfirmed: number; marketPending: number };
+  lastActivityAt: string | null;
+  timeline: CustomerTimelineEventDto[];
+  duplicates: { id: string; name: string | null; phone: string; createdAt: string }[];
+}
+
+export async function fetchCustomerProfile(id: string): Promise<CustomerProfilePayload | null> {
+  return await getJson<CustomerProfilePayload>(`/api/admin/customers/${encodeURIComponent(id)}`);
+}
+
+export async function updateCustomerApi(id: string, payload: { name?: string | null; email?: string | null; tags?: string[] }): Promise<void> {
+  await postJson(`/api/admin/customers/${encodeURIComponent(id)}/update`, payload);
+}
+
+export async function addCustomerNoteApi(id: string, body: string): Promise<void> {
+  await postJson(`/api/admin/customers/${encodeURIComponent(id)}/notes`, { body });
+}
+
+export async function mergeCustomersApi(sourceId: string, targetId: string): Promise<void> {
+  await postJson('/api/admin/customers/merge', { sourceId, targetId });
+}
+
+/* ---------------------------- Finances consolidées ------------------------- */
+
+export interface FinancesSummaryPayload {
+  services: { confirmed: number; pending: number };
+  market: { confirmed: number; pending: number };
+  refunds: number;
+  generatedAt: string;
+}
+
+export async function fetchFinancesSummary(): Promise<FinancesSummaryPayload | null> {
+  return await getJson<FinancesSummaryPayload>('/api/admin/finances/summary');
+}
+
+/* ------------------------------ Alertes op. ------------------------------- */
+
+export interface AdminAlertDto {
+  key: string;
+  label: string;
+  count: number;
+  link: string;
+  severity: 'action' | 'suivi';
+}
+
+export async function fetchAdminAlerts(): Promise<AdminAlertDto[]> {
+  return await getJson<AdminAlertDto[]>('/api/admin/alerts');
+}
+
+/* ------------------------------ Prestataires ------------------------------ */
+
+export async function fetchExperts(): Promise<AssignableExpertDto[]> {
+  return await getJson<AssignableExpertDto[]>('/api/admin/experts');
+}
+
+/* ------------------------------ Fournisseurs ------------------------------- */
+
+export interface SupplierDto {
+  id: string;
+  name: string;
+  contact: string | null;
+  note: string | null;
+  active: boolean;
+}
+
+export async function fetchSuppliers(): Promise<SupplierDto[]> {
+  return await getJson<SupplierDto[]>('/api/admin/market/suppliers');
+}
+
+export async function saveSupplier(payload: { id?: string; name: string; contact?: string | null; note?: string | null; active: boolean }): Promise<void> {
+  await postJson('/api/admin/market/suppliers', payload);
+}
+
 /* ------------------------------- Mutations -------------------------------- */
 
 export async function updateOrderStatus(orderId: string, to: OrderStatus, note?: string): Promise<{ ok: true; status: OrderStatus }> {

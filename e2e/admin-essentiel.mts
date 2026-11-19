@@ -32,18 +32,22 @@ try {
   await ctx.addCookies([{ name: SESSION_COOKIE, value: token, url: BASE, httpOnly: true, sameSite: 'Lax' }]);
   const page = await ctx.newPage();
 
-  /* ---------- 1. Navigation allégée ---------- */
+  /* ---------- 1. Navigation : cinq espaces d'administration ---------- */
   await page.goto(`${BASE}/admin`, { waitUntil: 'load' });
   await page.waitForSelector('text=Tableau de bord', { timeout: 20000 });
-  const navLabels = await page.locator('nav[aria-label="Navigation back-office"] a').allInnerTexts();
-  const expected = ["Vue d'ensemble", 'Commandes', 'Demandes', 'Analytiques', 'Fika Market', 'Catalogue produits', 'Relevés & marges'];
-  ok(JSON.stringify(navLabels) === JSON.stringify(expected), `navigation = 7 sections essentielles (${navLabels.join(' · ')})`);
-  const navText = navLabels.join('|');
-  ok(!/Experts|Clients|Exports/.test(navText), 'aucune entrée Experts / Clients / Exports & archives');
+  const navLabels = await page.locator('nav[aria-label="Navigation back-office"] > div > a').allInnerTexts();
+  const expected = ["Vue d'ensemble", 'Clients', 'Commandes', 'Catalogue & partenaires', 'Finances'];
+  ok(JSON.stringify(navLabels) === JSON.stringify(expected), `navigation = 5 espaces (${navLabels.join(' · ')})`);
+  // Sous-navigation de l'espace actif (vue d'ensemble) : tableau de bord + analytiques
+  const subLabels = await page.locator('nav[aria-label="Navigation back-office"] a').allInnerTexts();
+  ok(subLabels.includes('Analytiques'), 'sous-navigation « Analytiques » visible sous Vue d’ensemble');
 
-  /* ---------- 2. Sections conservées ---------- */
+  /* ---------- 2. Espaces + sections conservées ---------- */
   const sections: [string, string, string][] = [
     ['/admin', 'Tableau de bord', 'CA du mois'],
+    ['/admin/clients', 'Annuaire clients unifié', ''],
+    ['/admin/catalogue', 'Catalogue & partenaires', ''],
+    ['/admin/finances', 'Finances & rapports', ''],
     ['/admin/orders', 'Commandes', 'css=input[aria-label="Rechercher une commande"]'],
     ['/admin/leads', 'Demandes à qualifier', 'Dossiers affichés'],
     ['/admin/analytics', 'Analytiques', 'CA facturé'],
@@ -70,17 +74,74 @@ try {
   const orderVisible = await page.waitForSelector('text=MKT-', { timeout: 20000 }).then(() => true).catch(() => false);
   ok(orderVisible, 'file Commandes Market : commande(s) réelle(s) affichée(s) (réf MKT-…)');
 
-  /* ---------- 4. Anciennes routes : repli propre ---------- */
-  for (const old of ['/admin/clients', '/admin/experts', '/admin/reports']) {
+  /* ---------- 4. Anciennes routes retirées : repli propre ---------- */
+  for (const old of ['/admin/experts', '/admin/reports']) {
     await page.goto(`${BASE}${old}`, { waitUntil: 'load' });
     await page.waitForTimeout(400);
     const body = await page.evaluate(() => document.body.innerText);
     ok(body.includes('Tableau de bord') && !body.includes('Erreur 404'), `${old} → tableau de bord (pas d'écran d'erreur)`);
   }
 
+  /* ---------- 4bis. CRM : annuaire réel + recherche par téléphone ---------- */
+  await page.goto(`${BASE}/admin/clients`, { waitUntil: 'load' });
+  const customersApi = await (await fetch(`${BASE}/api/admin/customers`, { headers: { cookie: `${SESSION_COOKIE}=${token}` } })).json();
+  ok(Array.isArray(customersApi.rows) && typeof customersApi.total === 'number' && customersApi.segments, 'API /api/admin/customers : annuaire + segments réels');
+  if (customersApi.rows.length > 0) {
+    const first = customersApi.rows[0];
+    // Recherche par quelques chiffres du téléphone réel (format insensible).
+    // Le nom du client attendu doit apparaître (l'annuaire affiche le
+    // téléphone formaté « +237 6XX XX XX XX », pas la forme E.164 brute).
+    const digits = first.phone.replace(/[^0-9]/g, '').slice(-8);
+    const expectedName = (first.name ?? '').trim() || 'Nom non renseigné';
+    await page.fill('input[aria-label="Rechercher un client"]', digits);
+    const found = await page.waitForSelector(`text=${expectedName}`, { timeout: 10000 }).then(() => true).catch(() => false);
+    ok(found, `recherche annuaire par téléphone (${digits}…) retrouve le client`);
+    await page.fill('input[aria-label="Rechercher un client"]', 'zzzz-inexistant');
+    const empty = await page.waitForSelector('text=Aucun client ne correspond', { timeout: 10000 }).then(() => true).catch(() => false);
+    ok(empty, 'recherche sans résultat → état vide honnête');
+  } else {
+    ok(true, 'annuaire vide (aucun client en base) — état vide affiché');
+  }
+
+  /* ---------- 4ter. Profil client + vue toutes commandes ---------- */
+  if (customersApi.rows.length > 0) {
+    const cid = customersApi.rows[0].id;
+    await page.goto(`${BASE}/admin/clients/${cid}`, { waitUntil: 'load' });
+    const profileLoaded = await page.waitForSelector('text=Chronologie unifiée', { timeout: 15000 }).then(() => true).catch(() => false);
+    ok(profileLoaded, 'profil client : chronologie unifiée affichée');
+    const statsLoaded = await page.waitForSelector('text=Relation commerciale', { timeout: 10000 }).then(() => true).catch(() => false);
+    ok(statsLoaded, 'profil client : aperçu commercial affiché');
+  }
+  await page.goto(`${BASE}/admin/orders/all`, { waitUntil: 'load' });
+  const allOrders = await page.waitForSelector('text=Toutes les commandes', { timeout: 15000 }).then(() => true).catch(() => false);
+  ok(allOrders, 'vue « Toutes les commandes » (fusion Services + Market) se charge');
+
+  /* ---------- 4quinquies. Prestataires + alertes opérationnelles ---------- */
+  await page.goto(`${BASE}/admin/prestataires`, { waitUntil: 'load' });
+  const expertsLoaded = await page.waitForSelector('text=Prestataires de services', { timeout: 15000 }).then(() => true).catch(() => false);
+  ok(expertsLoaded, 'espace Prestataires se charge (répertoire réel, métriques calculées)');
+  const alertsApi = await (await fetch(`${BASE}/api/admin/alerts`, { headers: { cookie: `${SESSION_COOKIE}=${token}` } })).json();
+  ok(Array.isArray(alertsApi) && alertsApi.every((a: any) => typeof a.count === 'number' && a.count > 0 && typeof a.link === 'string'), 'API /api/admin/alerts : alertes réelles (compteur > 0, lien valide)');
+  // Le tableau de bord affiche les alertes actionnables quand il y en a
+  await page.goto(`${BASE}/admin`, { waitUntil: 'load' });
+  const hasAlerts = alertsApi.length > 0;
+  const alertsVisible = hasAlerts
+    ? await page.waitForSelector('text=Alertes opérationnelles', { timeout: 25000 }).then(() => true).catch(() => false)
+    : true;
+  ok(!hasAlerts || alertsVisible, hasAlerts ? 'tableau de bord : panneau d’alertes affiché' : 'aucune alerte en attente — panneau masqué (compteurs à zéro)');
+
+  /* ---------- 4quater. Confidentialité : aucun coût interne dans l'API publique ---------- */
+  const publicCatalog = await (await fetch(`${BASE}/api/market/catalog`)).text();
+  const forbidden = ['supplierPrice', 'unitCost', 'costReal', 'landedCost', 'margin'];
+  const leaked = forbidden.filter((f) => publicCatalog.includes(f));
+  ok(leaked.length === 0, 'catalogue public : aucun champ de coût/marge interne exposé', leaked.join(', '));
+
   /* ---------- 5. Endpoints API ---------- */
   const get = async (path: string) => (await fetch(`${BASE}${path}`, { headers: { cookie: `${SESSION_COOKIE}=${token}` } })).status;
-  ok((await get('/api/admin/customers')) === 404, 'GET /api/admin/customers → 404 (endpoint retiré)');
+  ok((await get('/api/admin/customers')) === 200, 'GET /api/admin/customers → 200 (annuaire CRM)');
+  ok((await get('/api/admin/finances/summary')) === 200, 'GET /api/admin/finances/summary → 200 (consolidé)');
+  const profileApi = await (await fetch(`${BASE}/api/admin/customers/${encodeURIComponent(customersApi.rows[0]?.id ?? 'x')}`, { headers: { cookie: `${SESSION_COOKIE}=${token}` } })).json();
+  ok(Array.isArray(profileApi.timeline) && Array.isArray(profileApi.notes), 'GET /api/admin/customers/:id → profil + chronologie + notes');
   ok((await get('/api/admin/reports')) === 404, 'GET /api/admin/reports → 404 (endpoint retiré)');
   const post = async (path: string) => (await fetch(`${BASE}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', cookie: `${SESSION_COOKIE}=${token}` }, body: '{}' })).status;
   const postExperts = await post('/api/admin/experts');

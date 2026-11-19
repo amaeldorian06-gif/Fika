@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  CheckCircle2, ImagePlus, Loader2, Pencil, Plus, Search, ShoppingCart, Store, Tag, Truck, X,
+  CheckCircle2, ChevronDown, ChevronUp, ImagePlus, Layers, Loader2, Pencil, Plus, Search, ShoppingCart, Store, Tag, Trash2, Truck, X,
 } from 'lucide-react';
 import { EmptyState } from './AdminShell';
 import { Link } from '../../router';
@@ -9,12 +9,14 @@ import { Field, Input, Select, Textarea } from '../forms';
 import { formatPriceFCFA } from '../../lib/pricing';
 import { AVAILABILITY_LABELS, MARKET_STATUS_LABELS, MARKET_TRANSITIONS, type MarketOrderStatus } from '../../lib/market';
 import {
-  assignMarketItem, fetchMarketBatches, fetchMarketCatalogAdmin, fetchMarketOrder, fetchMarketOrders,
-  fetchMarketOverview, recordMarketPayment, reviewMarketPayment, saveMarketCategory, saveMarketDelivery,
+  addMarketCollectionItem, assignMarketItem, deleteMarketCollection, fetchMarketBatches,
+  fetchMarketCatalogAdmin, fetchMarketCollections, fetchMarketOrder, fetchMarketOrders,
+  fetchMarketOverview, moveMarketCollectionItem, recordMarketPayment, removeMarketCollectionItem,
+  reviewMarketPayment, saveMarketCategory, saveMarketCollection, saveMarketDelivery,
   saveMarketProduct, saveMarketSupplier, confirmMarketPrice, saveMarketBatch, updateMarketBatchStatus,
   updateMarketOrderStatus, uploadProductImage,
-  type MarketBatchStatus, type MarketCategoryDto, type MarketDeliveryStatus,
-  type MarketOrderDetailDto, type MarketOrderSummaryDto, type MarketProductDto,
+  type MarketBatchStatus, type MarketCategoryDto, type MarketCollectionDto, type MarketDeliveryStatus,
+  type MarketOrderDetailDto, type MarketOrderSummaryDto, type MarketProductDto, type MarketProductPayload,
   type MarketSupplierDto,
 } from '../../lib/admin/market-api';
 
@@ -151,9 +153,10 @@ export function AdminMarketOverview() {
 /* ------------------------------- Catalogue --------------------------------- */
 
 const emptyProduct = {
-  productId: '', name: '', reference: '', categoryId: '', supplierId: '',
-  description: '', priceSale: '', supplierPrice: '', estimatedLandedCost: '',
-  delayLabel: '', availability: 'PREORDER', active: true, popular: false,
+  productId: '', name: '', reference: '', categoryId: '', subcategoryId: '', supplierId: '',
+  description: '', shortDescription: '', brand: '', tags: '', sourcingType: '',
+  priceSale: '', supplierPrice: '', estimatedLandedCost: '',
+  delayLabel: '', availability: 'PREORDER', active: true, archived: false, popular: false,
   images: '', specs: '',
 };
 
@@ -179,11 +182,14 @@ function ProductDialog({ product, categories, suppliers, onSaved, onClose }: {
 }) {
   const [form, setForm] = useState<ProductForm>(() => product ? {
     productId: product.id, name: product.name, reference: product.reference,
-    categoryId: product.categoryId, supplierId: product.supplierId ?? '',
-    description: product.description ?? '', priceSale: String(product.priceSale),
+    categoryId: product.categoryId, subcategoryId: product.subcategoryId ?? '',
+    supplierId: product.supplierId ?? '',
+    description: product.description ?? '', shortDescription: product.shortDescription ?? '',
+    brand: product.brand ?? '', tags: product.tags.join(', '), sourcingType: product.sourcingType ?? '',
+    priceSale: String(product.priceSale),
     supplierPrice: String(product.supplierPrice), estimatedLandedCost: String(product.estimatedLandedCost),
     delayLabel: product.delayLabel ?? '', availability: product.availability,
-    active: product.active, popular: product.popular,
+    active: product.active, archived: product.archived, popular: product.popular,
     images: product.images.join('\n'),
     specs: product.specs.map((s) => `${s.label}: ${s.value}`).join('\n'),
   } : { ...emptyProduct, categoryId: categories[0]?.id ?? '' });
@@ -225,15 +231,20 @@ function ProductDialog({ product, categories, suppliers, onSaved, onClose }: {
       await saveMarketProduct({
         productId: form.productId || undefined,
         name: form.name.trim(), reference: form.reference.trim(), categoryId: form.categoryId,
+        subcategoryId: form.subcategoryId || null,
         supplierId: form.supplierId || null,
         description: form.description.trim() || undefined,
+        shortDescription: form.shortDescription.trim() || undefined,
+        brand: form.brand.trim() || undefined,
+        tags: form.tags.split(',').map((t) => t.trim()).filter(Boolean).slice(0, 10),
+        sourcingType: (form.sourcingType || null) as MarketProductPayload['sourcingType'],
         specs: parseSpecs(form.specs), images: parseImages(form.images),
         priceSale: Number(form.priceSale),
         supplierPrice: Number(form.supplierPrice || 0),
         estimatedLandedCost: Number(form.estimatedLandedCost || 0),
         delayLabel: form.delayLabel.trim() || undefined,
         availability: form.availability as MarketProductDto['availability'],
-        active: form.active, popular: form.popular,
+        active: form.archived ? false : form.active, archived: form.archived, popular: form.popular,
       });
       onSaved();
     } catch (err) {
@@ -253,8 +264,20 @@ function ProductDialog({ product, categories, suppliers, onSaved, onClose }: {
             <Input id="p-ref" value={form.reference} onChange={(e) => set('reference', e.target.value)} maxLength={40} required />
           </Field>
           <Field label="Catégorie" htmlFor="p-cat" required>
-            <Select id="p-cat" value={form.categoryId} onChange={(e) => set('categoryId', e.target.value)}>
-              {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            <Select id="p-cat" value={form.categoryId} onChange={(e) => {
+              const v = e.target.value;
+              const stillValid = categories.some((c) => c.id === form.subcategoryId && c.parentId === v);
+              setForm((f) => ({ ...f, categoryId: v, subcategoryId: stillValid ? f.subcategoryId : '' }));
+            }}>
+              {categories.filter((c) => !c.parentId).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </Select>
+          </Field>
+          <Field label="Sous-catégorie" htmlFor="p-subcat" hint="Facultatif — affine la navigation">
+            <Select id="p-subcat" value={form.subcategoryId} onChange={(e) => set('subcategoryId', e.target.value)}>
+              <option value="">— Aucune —</option>
+              {categories
+                .filter((c) => c.parentId === form.categoryId)
+                .map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </Select>
           </Field>
           <Field label="Fournisseur" htmlFor="p-sup">
@@ -263,7 +286,13 @@ function ProductDialog({ product, categories, suppliers, onSaved, onClose }: {
               {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </Select>
           </Field>
+          <Field label="Marque" htmlFor="p-brand" hint="Facultatif — ex. Lenovo">
+            <Input id="p-brand" value={form.brand} onChange={(e) => set('brand', e.target.value)} maxLength={80} />
+          </Field>
         </div>
+        <Field label="Description courte" htmlFor="p-shortdesc" hint="Affichée sur les cartes — requise pour publier">
+          <Input id="p-shortdesc" value={form.shortDescription} onChange={(e) => set('shortDescription', e.target.value)} maxLength={160} placeholder="Une phrase qui donne envie de cliquer" />
+        </Field>
         <Field label="Description publique" htmlFor="p-desc"><Textarea id="p-desc" rows={3} value={form.description} onChange={(e) => set('description', e.target.value)} maxLength={3000} /></Field>
         <div className="grid sm:grid-cols-3 gap-4">
           <Field label="Prix de vente (F)" htmlFor="p-price" required><Input id="p-price" type="number" min={100} value={form.priceSale} onChange={(e) => set('priceSale', e.target.value)} required /></Field>
@@ -304,10 +333,33 @@ function ProductDialog({ product, categories, suppliers, onSaved, onClose }: {
         <Field label="Caractéristiques (max 12)" htmlFor="p-specs" hint="Une par ligne : Étiquette: valeur">
           <Textarea id="p-specs" rows={3} value={form.specs} onChange={(e) => set('specs', e.target.value)} />
         </Field>
-        <div className="flex flex-wrap gap-6 text-sm font-semibold">
-          <label className="flex items-center gap-2"><input type="checkbox" className="w-4 h-4 accent-brand-accent" checked={form.active} onChange={(e) => set('active', e.target.checked)} />Visible dans la boutique</label>
-          <label className="flex items-center gap-2"><input type="checkbox" className="w-4 h-4 accent-brand-accent" checked={form.popular} onChange={(e) => set('popular', e.target.checked)} />Mettre en avant</label>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <Field label="Tags de recherche (max 10)" htmlFor="p-tags" hint="Séparés par des virgules — ex. chargeur, usb-c">
+            <Input id="p-tags" value={form.tags} onChange={(e) => set('tags', e.target.value)} placeholder="usb, chargeur rapide" />
+          </Field>
+          <Field label="Approvisionnement" htmlFor="p-sourcing" hint="Interne — jamais affiché aux clients">
+            <Select id="p-sourcing" value={form.sourcingType} onChange={(e) => set('sourcingType', e.target.value)}>
+              <option value="">— Non renseigné —</option>
+              <option value="LOCAL">Local (Ngaoundéré)</option>
+              <option value="NATIONAL">National (Cameroun)</option>
+              <option value="IMPORT">International (import)</option>
+              <option value="PARTNER">Fournisseur partenaire</option>
+            </Select>
+          </Field>
         </div>
+        <div className="flex flex-wrap gap-6 text-sm font-semibold">
+          <label className={`flex items-center gap-2 ${form.archived ? 'opacity-50 pointer-events-none' : ''}`}>
+            <input type="checkbox" className="w-4 h-4 accent-brand-accent" checked={form.active && !form.archived} onChange={(e) => set('active', e.target.checked)} disabled={form.archived} />
+            Visible dans la boutique
+          </label>
+          <label className="flex items-center gap-2"><input type="checkbox" className="w-4 h-4 accent-brand-accent" checked={form.popular} onChange={(e) => set('popular', e.target.checked)} />Mettre en avant</label>
+          <label className="flex items-center gap-2"><input type="checkbox" className="w-4 h-4 accent-red-600" checked={form.archived} onChange={(e) => set('archived', e.target.checked)} />Archiver (hors catalogue)</label>
+        </div>
+        {form.active && !form.archived && (
+          <p className="text-xs text-brand-text-muted bg-brand-bg rounded-xl p-3">
+            Pour publier : description courte, au moins une photo{form.availability === 'PREORDER' ? ' et un délai estimé (produit sur commande)' : ''} sont requis.
+          </p>
+        )}
         {error && <p role="alert" className="rounded-xl bg-red-50 border border-red-200 text-red-700 p-3 text-sm">{error}</p>}
         <div className="flex gap-3 justify-end pt-2">
           <Button type="button" variant="outline" onClick={onClose}>Annuler</Button>
@@ -318,28 +370,171 @@ function ProductDialog({ product, categories, suppliers, onSaved, onClose }: {
   );
 }
 
+/* ------------------------------- Collections -------------------------------- */
+
+const emptyCollection = {
+  name: '', slug: '', description: '', rule: 'MANUAL', priceThreshold: '',
+  position: '0', active: true,
+};
+
+function CollectionDialog({ collection, products, onCreated, onChanged, onClose }: {
+  collection: MarketCollectionDto | null;
+  products: MarketProductDto[];
+  onCreated: (id: string) => void;
+  onChanged: () => void;
+  onClose: () => void;
+}) {
+  const [form, setForm] = useState(collection ? {
+    name: collection.name, slug: collection.slug, description: collection.description ?? '',
+    rule: collection.rule as string,
+    priceThreshold: collection.priceThreshold != null ? String(collection.priceThreshold) : '',
+    position: String(collection.position), active: collection.active,
+  } : { ...emptyCollection });
+  const [error, setError] = useState('');
+  const [pending, setPending] = useState(false);
+  const [pick, setPick] = useState('');
+  const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => setForm((f) => ({ ...f, [key]: value }));
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setPending(true);
+    try {
+      const res = await saveMarketCollection({
+        id: collection?.id, name: form.name.trim(), slug: form.slug.trim() || undefined,
+        description: form.description.trim() || undefined,
+        rule: form.rule as MarketCollectionDto['rule'],
+        priceThreshold: form.rule === 'PRICE_BELOW' ? Number(form.priceThreshold || 0) : null,
+        position: Number(form.position || 0), active: form.active,
+      });
+      if (collection) { onChanged(); onClose(); } else onCreated(res.id ?? '');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Enregistrement impossible.');
+    } finally { setPending(false); }
+  };
+
+  /** Action sur les items : recharge silencieuse, le dialogue reste ouvert. */
+  const act = async (fn: () => Promise<unknown>) => {
+    setError('');
+    try { await fn(); onChanged(); } catch (err) { setError(err instanceof Error ? err.message : 'Action impossible.'); }
+  };
+
+  const publishable = products.filter((p) => p.active && !p.archived);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-start sm:items-center justify-center overflow-y-auto p-4" role="dialog" aria-modal="true" aria-label="Collection">
+      <form onSubmit={submit} noValidate className="bg-white rounded-2xl w-full max-w-xl p-6 space-y-4 my-8">
+        <h2 className="font-heading text-xl font-bold">{collection ? 'Modifier la collection' : 'Nouvelle collection'}</h2>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <Field label="Nom" htmlFor="col-name" required><Input id="col-name" value={form.name} onChange={(e) => set('name', e.target.value)} maxLength={80} required /></Field>
+          <Field label="Slug (URL)" htmlFor="col-slug" hint={collection ? 'Laisser vide pour conserver l’actuel' : 'Généré depuis le nom si vide'}>
+            <Input id="col-slug" value={form.slug} onChange={(e) => set('slug', e.target.value)} maxLength={80} placeholder="ex. selection-fika" />
+          </Field>
+        </div>
+        <Field label="Description" htmlFor="col-desc"><Textarea id="col-desc" rows={2} value={form.description} onChange={(e) => set('description', e.target.value)} maxLength={500} /></Field>
+        <div className="grid sm:grid-cols-3 gap-4">
+          <Field label="Règle" htmlFor="col-rule">
+            <Select id="col-rule" value={form.rule} onChange={(e) => set('rule', e.target.value)}>
+              <option value="MANUAL">Sélection manuelle</option>
+              <option value="NEW_ARRIVALS">Nouveautés (auto)</option>
+              <option value="PRICE_BELOW">Petit prix ≤ seuil (auto)</option>
+            </Select>
+          </Field>
+          {form.rule === 'PRICE_BELOW' && (
+            <Field label="Seuil (F)" htmlFor="col-threshold" required>
+              <Input id="col-threshold" type="number" min={100} value={form.priceThreshold} onChange={(e) => set('priceThreshold', e.target.value)} required />
+            </Field>
+          )}
+          <Field label="Position" htmlFor="col-pos"><Input id="col-pos" type="number" min={0} max={99} value={form.position} onChange={(e) => set('position', e.target.value)} /></Field>
+        </div>
+        <label className="flex items-center gap-2 text-sm font-semibold">
+          <input type="checkbox" className="w-4 h-4 accent-brand-accent" checked={form.active} onChange={(e) => set('active', e.target.checked)} />Collection active (visible si non vide)
+        </label>
+
+        {collection && collection.rule === 'MANUAL' && (
+          <div className="border-t border-brand-border pt-4">
+            <p className="text-sm font-bold mb-2">Produits de la collection ({collection.items.length})</p>
+            {collection.items.length === 0 ? (
+              <p className="text-xs text-brand-text-muted bg-brand-bg rounded-xl p-3 mb-2">Aucun produit : ajoutez-en ci-dessous.</p>
+            ) : (
+              <ul className="space-y-1.5 mb-3">
+                {collection.items.map((it, i) => (
+                  <li key={it.id} className="flex items-center justify-between gap-2 text-sm bg-brand-bg rounded-xl px-3 py-2">
+                    <span className="truncate">
+                      {!it.productActive && <span className="text-amber-700 font-bold text-[11px] mr-1">(non publié)</span>}
+                      {it.productName}
+                    </span>
+                    <span className="flex items-center gap-1 shrink-0">
+                      <button type="button" aria-label={`Monter ${it.productName}`} disabled={i === 0} className="p-1 rounded hover:bg-white disabled:opacity-30" onClick={() => void act(() => moveMarketCollectionItem(it.id, 'UP'))}><ChevronUp className="w-4 h-4" /></button>
+                      <button type="button" aria-label={`Descendre ${it.productName}`} disabled={i === collection.items.length - 1} className="p-1 rounded hover:bg-white disabled:opacity-30" onClick={() => void act(() => moveMarketCollectionItem(it.id, 'DOWN'))}><ChevronDown className="w-4 h-4" /></button>
+                      <button type="button" aria-label={`Retirer ${it.productName}`} className="p-1 rounded hover:bg-white text-red-700" onClick={() => void act(() => removeMarketCollectionItem(it.id))}><X className="w-4 h-4" /></button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="flex gap-2">
+              <Select aria-label="Ajouter un produit à la collection" value={pick} onChange={(e) => setPick(e.target.value)}>
+                <option value="">Choisir un produit publié…</option>
+                {publishable.filter((p) => !collection.items.some((it) => it.productId === p.id)).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </Select>
+              <Button type="button" size="sm" disabled={!pick} onClick={() => { void act(async () => { await addMarketCollectionItem(collection.id, pick); setPick(''); }); }}>Ajouter</Button>
+            </div>
+          </div>
+        )}
+        {collection && collection.rule !== 'MANUAL' && (
+          <p className="text-xs text-brand-text-muted bg-brand-bg rounded-xl p-3">Collection automatique : son contenu est calculé à partir du catalogue — aucun produit à choisir.</p>
+        )}
+        {error && <p role="alert" className="rounded-xl bg-red-50 border border-red-200 text-red-700 p-3 text-sm">{error}</p>}
+        <div className="flex gap-3 justify-end pt-2">
+          <Button type="button" variant="outline" onClick={onClose}>Fermer</Button>
+          <Button type="submit" disabled={pending}>{pending ? 'Enregistrement…' : 'Enregistrer'}</Button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 export function AdminMarketCatalog() {
   const { data, loading, loadError, reload } = useAsync(fetchMarketCatalogAdmin, []);
+  const { data: collections, reload: reloadCollections } = useAsync(fetchMarketCollections, []);
   const [dialog, setDialog] = useState<'product' | 'category' | 'supplier' | null>(null);
   const [editing, setEditing] = useState<MarketProductDto | null>(null);
+  const [collectionId, setCollectionId] = useState<string | null>(null);
   const { run, banner } = useActionBanner();
 
-  const [catForm, setCatForm] = useState({ id: '', name: '', position: '0', active: true });
+  const [catForm, setCatForm] = useState({ id: '', name: '', slug: '', description: '', imageUrl: '', parentId: '', position: '0', active: true, archived: false });
   const [supForm, setSupForm] = useState({ id: '', name: '', contact: '', note: '', active: true });
 
   if (loading) return <Loading />;
   if (loadError || !data) return <LoadError message={loadError ?? 'Données indisponibles.'} retry={reload} />;
   const { categories, suppliers, products } = data;
 
+  /** Payload complet d'un produit existant — évite qu'un toggle n'écrase les champs non affichés. */
+  const productPayload = (p: MarketProductDto, overrides: Partial<MarketProductPayload> = {}): MarketProductPayload => ({
+    productId: p.id, name: p.name, reference: p.reference, categoryId: p.categoryId,
+    subcategoryId: p.subcategoryId, supplierId: p.supplierId,
+    description: p.description ?? undefined, shortDescription: p.shortDescription ?? undefined,
+    brand: p.brand ?? undefined, tags: p.tags, sourcingType: p.sourcingType,
+    specs: p.specs, images: p.images, priceSale: p.priceSale,
+    supplierPrice: p.supplierPrice, estimatedLandedCost: p.estimatedLandedCost,
+    delayLabel: p.delayLabel ?? undefined, availability: p.availability,
+    active: p.active, archived: p.archived, popular: p.popular,
+    ...overrides,
+  });
+
   const toggleProduct = async (p: MarketProductDto) => {
-    if (await run(() => saveMarketProduct({
-      productId: p.id, name: p.name, reference: p.reference, categoryId: p.categoryId,
-      supplierId: p.supplierId, description: p.description ?? undefined,
-      specs: p.specs, images: p.images, priceSale: p.priceSale,
-      supplierPrice: p.supplierPrice, estimatedLandedCost: p.estimatedLandedCost,
-      delayLabel: p.delayLabel ?? undefined, availability: p.availability,
-      active: !p.active, popular: p.popular,
-    }), p.active ? 'Produit masqué de la boutique.' : 'Produit publié dans la boutique.')) reload();
+    if (await run(() => saveMarketProduct(productPayload(p, { active: !p.active })),
+      p.active ? 'Produit masqué de la boutique.' : 'Produit publié dans la boutique.')) reload();
+  };
+
+  const archiveProduct = async (p: MarketProductDto) => {
+    if (!window.confirm(`Archiver « ${p.name} » ? Il sortira du catalogue public. Aucune donnée n’est supprimée (commandes conservées).`)) return;
+    if (await run(() => saveMarketProduct(productPayload(p, { active: false, archived: true })), 'Produit archivé (restaurable à tout moment).')) reload();
+  };
+
+  const restoreProduct = async (p: MarketProductDto) => {
+    if (await run(() => saveMarketProduct(productPayload(p, { active: false, archived: false })), 'Produit restauré en brouillon (masqué).')) reload();
   };
 
   return (
@@ -350,23 +545,57 @@ export function AdminMarketCatalog() {
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-heading font-bold text-lg">Catégories</h2>
-          <Button size="sm" variant="outline" onClick={() => { setCatForm({ id: '', name: '', position: '0', active: true }); setDialog('category'); }}><Plus className="w-4 h-4 mr-1" />Catégorie</Button>
+          <Button size="sm" variant="outline" onClick={() => { setCatForm({ id: '', name: '', slug: '', description: '', imageUrl: '', parentId: '', position: '0', active: true, archived: false }); setDialog('category'); }}><Plus className="w-4 h-4 mr-1" />Catégorie</Button>
         </div>
         {categories.length === 0
           ? <p className="text-sm text-brand-text-muted bg-brand-bg rounded-2xl p-5">Aucune catégorie. Créez-en une pour pouvoir ajouter des produits.</p>
-          : <ul className="flex flex-wrap gap-2">
-            {categories.map((c) => (
-              <li key={c.id} className="flex items-center gap-2 bg-white border border-brand-border rounded-full pl-4 pr-2 py-1.5 text-sm">
-                <Tag className="w-3.5 h-3.5 text-brand-text-muted" />
-                <span className="font-semibold">{c.name}</span>
-                <span className="text-xs text-brand-text-muted">{products.filter((p) => p.categoryId === c.id).length} produit(s)</span>
-                <button type="button" className="p-1 rounded hover:bg-brand-bg" aria-label={`Modifier ${c.name}`}
-                  onClick={() => { setCatForm({ id: c.id, name: c.name, position: String(c.position), active: c.active }); setDialog('category'); }}>
-                  <Pencil className="w-3.5 h-3.5" />
-                </button>
-              </li>
-            ))}
-          </ul>}
+          : <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {categories.filter((c) => !c.parentId).map((c) => {
+              const activeCount = products.filter((p) => p.categoryId === c.id && p.active && !p.archived).length;
+              const subs = categories.filter((s) => s.parentId === c.id);
+              return (
+                <div key={c.id} className={`bg-white border rounded-2xl p-4 ${c.archived ? 'border-brand-border opacity-60' : 'border-brand-border'}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-bold truncate flex items-center gap-2">
+                        <Tag className="w-4 h-4 text-brand-text-muted shrink-0" aria-hidden="true" />
+                        {c.name}
+                      </p>
+                      <p className="text-xs text-brand-text-muted mt-0.5">/{c.slug}</p>
+                    </div>
+                    <button type="button" className="p-1 rounded hover:bg-brand-bg shrink-0" aria-label={`Modifier ${c.name}`}
+                      onClick={() => { setCatForm({ id: c.id, name: c.name, slug: c.slug, description: c.description ?? '', imageUrl: c.imageUrl ?? '', parentId: '', position: String(c.position), active: c.active, archived: c.archived }); setDialog('category'); }}>
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-brand-text-muted mt-2">{activeCount} produit(s) publié(s)</p>
+                  {subs.length > 0 && (
+                    <ul className="mt-2 space-y-1">
+                      {subs.map((s) => (
+                        <li key={s.id} className="flex items-center justify-between gap-2 text-sm text-brand-text-muted">
+                          <span className="flex items-center gap-1.5 min-w-0">
+                            <ChevronDown className="w-3 h-3 shrink-0" aria-hidden="true" />
+                            <span className="truncate">{s.name}</span>
+                            <span className="text-[11px] shrink-0">({products.filter((p) => p.subcategoryId === s.id).length})</span>
+                          </span>
+                          <button type="button" className="p-1 rounded hover:bg-brand-bg shrink-0" aria-label={`Modifier ${s.name}`}
+                            onClick={() => { setCatForm({ id: s.id, name: s.name, slug: s.slug, description: s.description ?? '', imageUrl: s.imageUrl ?? '', parentId: c.id, position: String(s.position), active: s.active, archived: s.archived }); setDialog('category'); }}>
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <div className="flex items-center gap-2 mt-3">
+                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${c.archived ? 'bg-brand-bg text-brand-text-muted border-brand-border' : c.active ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                      {c.archived ? 'Archivée' : c.active ? 'Visible' : 'Masquée'}
+                    </span>
+                    {!c.archived && <Link to={`/boutique/categorie/${c.slug}`} className="text-xs font-bold text-brand-accent hover:underline">Aperçu public</Link>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>}
       </section>
 
       {/* Fournisseurs */}
@@ -391,6 +620,50 @@ export function AdminMarketCatalog() {
                   </button>
                 </div>
                 <p className="text-xs text-brand-text-muted mt-2">{products.filter((p) => p.supplierId === s.id).length} produit(s)</p>
+              </div>
+            ))}
+          </div>}
+      </section>
+
+      {/* Collections */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-heading font-bold text-lg">Collections</h2>
+          <Button size="sm" variant="outline" onClick={() => { setCollectionId('new'); }}><Plus className="w-4 h-4 mr-1" />Collection</Button>
+        </div>
+        <p className="text-xs text-brand-text-muted -mt-1 mb-3">Sélections éditoriales (ex. Sélection Fika), distinctes des catégories : un même produit peut figurer dans plusieurs collections.</p>
+        {(collections ?? []).length === 0
+          ? <p className="text-sm text-brand-text-muted bg-brand-bg rounded-2xl p-5">Aucune collection. Créez « Sélection Fika », « Nouveautés » ou « Petits prix » pour mettre en avant vos produits.</p>
+          : <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {(collections ?? []).map((c) => (
+              <div key={c.id} className="bg-white border border-brand-border rounded-2xl p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-bold truncate flex items-center gap-2">
+                      <Layers className="w-4 h-4 text-brand-text-muted shrink-0" aria-hidden="true" />
+                      {c.name}
+                    </p>
+                    <p className="text-xs text-brand-text-muted mt-0.5">{c.ruleLabel}{c.rule === 'PRICE_BELOW' && c.priceThreshold ? ` : ${formatPriceFCFA(c.priceThreshold)}` : ''}</p>
+                  </div>
+                  <div className="flex gap-1 shrink-0">
+                    <button type="button" className="p-1 rounded hover:bg-brand-bg" aria-label={`Modifier ${c.name}`} onClick={() => setCollectionId(c.id)}>
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button type="button" className="p-1 rounded hover:bg-red-50 text-red-700" aria-label={`Supprimer ${c.name}`}
+                      onClick={async () => {
+                        if (!window.confirm(`Supprimer la collection « ${c.name} » ? Les produits ne sont pas touchés.`)) return;
+                        if (await run(() => deleteMarketCollection(c.id), 'Collection supprimée.')) reloadCollections();
+                      }}>
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+                <p className="text-xs text-brand-text-muted mt-2">
+                  {c.rule === 'MANUAL' ? `${c.items.length} produit(s) choisi(s)` : 'Contenu calculé automatiquement'}
+                </p>
+                <span className={`inline-block text-[11px] font-bold px-2 py-0.5 rounded-full border mt-2 ${c.active ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-brand-bg text-brand-text-muted border-brand-border'}`}>
+                  {c.active ? 'Active' : 'Inactive'}
+                </span>
               </div>
             ))}
           </div>}
@@ -421,7 +694,7 @@ export function AdminMarketCatalog() {
                   <tr key={p.id}>
                     <td className="px-4 py-3">
                       <p className="font-semibold">{p.name}</p>
-                      <p className="text-xs text-brand-text-muted">{p.reference} · {p.categoryName}{p.supplierName ? ` · ${p.supplierName}` : ''}</p>
+                      <p className="text-xs text-brand-text-muted">{p.reference} · {p.categoryName}{p.subcategoryName ? ` › ${p.subcategoryName}` : ''}{p.supplierName ? ` · ${p.supplierName}` : ''}</p>
                     </td>
                     <td className="px-4 py-3 font-semibold whitespace-nowrap">{formatPriceFCFA(p.priceSale)}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
@@ -429,13 +702,18 @@ export function AdminMarketCatalog() {
                     </td>
                     <td className="px-4 py-3 text-xs">{AVAILABILITY_LABELS[p.availability]}</td>
                     <td className="px-4 py-3">
-                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${p.active ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-brand-bg text-brand-text-muted border-brand-border'}`}>
-                        {p.active ? 'Publié' : 'Masqué'}
+                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${p.archived ? 'bg-brand-bg text-brand-text-muted border-brand-border' : p.active ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                        {p.archived ? 'Archivé' : p.active ? 'Publié' : 'Brouillon'}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
                       <button type="button" className="p-2 rounded-lg hover:bg-brand-bg" aria-label={`Modifier ${p.name}`} onClick={() => { setEditing(p); setDialog('product'); }}><Pencil className="w-4 h-4" /></button>
-                      <button type="button" className="p-2 rounded-lg hover:bg-brand-bg font-bold text-xs px-3" onClick={() => void toggleProduct(p)}>{p.active ? 'Masquer' : 'Publier'}</button>
+                      {p.archived
+                        ? <button type="button" className="p-2 rounded-lg hover:bg-brand-bg font-bold text-xs px-3" onClick={() => void restoreProduct(p)}>Restaurer</button>
+                        : <>
+                          <button type="button" className="p-2 rounded-lg hover:bg-brand-bg font-bold text-xs px-3" onClick={() => void toggleProduct(p)}>{p.active ? 'Masquer' : 'Publier'}</button>
+                          <button type="button" className="p-2 rounded-lg hover:bg-red-50 text-red-700" aria-label={`Archiver ${p.name}`} onClick={() => void archiveProduct(p)}><Trash2 className="w-4 h-4" /></button>
+                        </>}
                     </td>
                   </tr>
                 ))}
@@ -447,29 +725,65 @@ export function AdminMarketCatalog() {
       {dialog === 'product' && (
         <ProductDialog
           product={editing}
-          categories={categories.filter((c) => c.active || editing?.categoryId === c.id)}
+          categories={categories.filter((c) => !c.archived || editing?.categoryId === c.id || editing?.subcategoryId === c.id)}
           suppliers={suppliers}
           onSaved={() => { setDialog(null); reload(); }}
           onClose={() => setDialog(null)}
         />
       )}
 
+      {collectionId && (
+        <CollectionDialog
+          collection={collectionId === 'new' ? null : (collections ?? []).find((c) => c.id === collectionId) ?? null}
+          products={products}
+          onCreated={async (id) => { await reloadCollections(); setCollectionId(id); }}
+          onChanged={reloadCollections}
+          onClose={() => setCollectionId(null)}
+        />
+      )}
+
       {dialog === 'category' && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Catégorie">
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-start sm:items-center justify-center overflow-y-auto p-4" role="dialog" aria-modal="true" aria-label="Catégorie">
           <form
             onSubmit={async (e) => {
               e.preventDefault();
               if (await run(() => saveMarketCategory({
                 id: catForm.id || undefined, name: catForm.name.trim(),
-                position: Number(catForm.position || 0), active: catForm.active,
+                slug: catForm.slug.trim() || undefined,
+                description: catForm.description.trim() || undefined,
+                imageUrl: catForm.imageUrl.trim() || undefined,
+                parentId: catForm.parentId || null,
+                position: Number(catForm.position || 0),
+                active: catForm.active, archived: catForm.archived,
               }), 'Catégorie enregistrée.')) { setDialog(null); reload(); }
             }}
-            className="bg-white rounded-2xl w-full max-w-md p-6 space-y-4"
+            className="bg-white rounded-2xl w-full max-w-md p-6 space-y-4 my-8"
           >
             <h2 className="font-heading text-xl font-bold">{catForm.id ? 'Modifier la catégorie' : 'Nouvelle catégorie'}</h2>
             <Field label="Nom" htmlFor="c-name" required><Input id="c-name" value={catForm.name} onChange={(e) => setCatForm({ ...catForm, name: e.target.value })} maxLength={80} required /></Field>
+            <Field label="Slug (URL)" htmlFor="c-slug" hint={catForm.id ? 'Laisser vide pour conserver l’actuel' : 'Généré depuis le nom si vide'}>
+              <Input id="c-slug" value={catForm.slug} onChange={(e) => setCatForm({ ...catForm, slug: e.target.value })} maxLength={80} placeholder="ex. telephones-technologie" />
+            </Field>
+            <Field label="Catégorie parente" htmlFor="c-parent" hint="Choisir une racine crée une sous-catégorie (un seul niveau)">
+              <Select id="c-parent" value={catForm.parentId} onChange={(e) => setCatForm({ ...catForm, parentId: e.target.value })}>
+                <option value="">— Catégorie principale —</option>
+                {categories.filter((c) => !c.parentId && c.id !== catForm.id).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </Select>
+            </Field>
+            <Field label="Description publique" htmlFor="c-desc" hint="Affichée sur la page catégorie">
+              <Textarea id="c-desc" rows={2} value={catForm.description} onChange={(e) => setCatForm({ ...catForm, description: e.target.value })} maxLength={500} />
+            </Field>
+            <Field label="Image (URL)" htmlFor="c-img" hint="Illustration de la carte catégorie">
+              <Input id="c-img" value={catForm.imageUrl} onChange={(e) => setCatForm({ ...catForm, imageUrl: e.target.value })} maxLength={400} placeholder="https://…" />
+            </Field>
             <Field label="Position (ordre d'affichage)" htmlFor="c-pos"><Input id="c-pos" type="number" min={0} max={99} value={catForm.position} onChange={(e) => setCatForm({ ...catForm, position: e.target.value })} /></Field>
-            <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" className="w-4 h-4 accent-brand-accent" checked={catForm.active} onChange={(e) => setCatForm({ ...catForm, active: e.target.checked }) } />Visible dans la boutique</label>
+            <label className={`flex items-center gap-2 text-sm font-semibold ${catForm.archived ? 'opacity-50 pointer-events-none' : ''}`}>
+              <input type="checkbox" className="w-4 h-4 accent-brand-accent" checked={catForm.active && !catForm.archived} onChange={(e) => setCatForm({ ...catForm, active: e.target.checked })} disabled={catForm.archived} />Visible dans la boutique
+            </label>
+            <label className="flex items-center gap-2 text-sm font-semibold">
+              <input type="checkbox" className="w-4 h-4 accent-red-600" checked={catForm.archived} onChange={(e) => setCatForm({ ...catForm, archived: e.target.checked })} />Archiver (aucune suppression physique)
+            </label>
+            {catForm.archived && <p className="text-xs text-brand-text-muted bg-brand-bg rounded-xl p-3">La catégorie est retirée de la navigation. Les produits restent intacts (commandes et historique conservés).</p>}
             <div className="flex gap-3 justify-end">
               <Button type="button" variant="outline" onClick={() => setDialog(null)}>Annuler</Button>
               <Button type="submit">Enregistrer</Button>

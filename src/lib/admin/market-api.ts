@@ -9,6 +9,7 @@ export type MarketPaymentMethod = 'MTN_MOMO' | 'ORANGE_MONEY' | 'CASH';
 
 export interface MarketCategoryDto {
   id: string; name: string; slug: string; position: number; active: boolean;
+  description: string | null; imageUrl: string | null; parentId: string | null; archived: boolean;
 }
 
 export interface MarketSupplierDto {
@@ -18,10 +19,28 @@ export interface MarketSupplierDto {
 export interface MarketProductDto {
   id: string; reference: string; name: string; slug: string; description: string | null;
   categoryId: string; categoryName: string;
+  subcategoryId: string | null; subcategoryName: string | null;
   supplierId: string | null; supplierName: string | null;
-  availability: MarketAvailability; active: boolean; popular: boolean;
+  shortDescription: string | null; brand: string | null; tags: string[];
+  sourcingType: 'LOCAL' | 'NATIONAL' | 'IMPORT' | 'PARTNER' | null;
+  availability: MarketAvailability; active: boolean; archived: boolean; popular: boolean;
   priceSale: number; supplierPrice: number; estimatedLandedCost: number; estimatedMargin: number;
   delayLabel: string | null; images: string[]; specs: { label: string; value: string }[];
+}
+
+export type MarketCollectionRule = 'MANUAL' | 'NEW_ARRIVALS' | 'PRICE_BELOW';
+
+export interface MarketCollectionItemDto {
+  id: string; collectionId: string; productId: string; position: number;
+  productName: string; productActive: boolean;
+}
+
+export interface MarketCollectionDto {
+  id: string; slug: string; name: string; description: string | null;
+  rule: MarketCollectionRule; ruleLabel: string; priceThreshold: number | null;
+  position: number; active: boolean;
+  items: MarketCollectionItemDto[];
+  manualCount: number | null;
 }
 
 export interface MarketOrderSummaryDto {
@@ -105,7 +124,10 @@ export async function fetchMarketBatches(): Promise<MarketBatchDto[]> {
 
 /* ------------------------------- Mutations -------------------------------- */
 
-export async function saveMarketCategory(payload: { id?: string; name: string; position?: number; active?: boolean }): Promise<{ ok: true }> {
+export async function saveMarketCategory(payload: {
+  id?: string; name: string; slug?: string; description?: string; imageUrl?: string;
+  parentId?: string | null; position?: number; active?: boolean; archived?: boolean;
+}): Promise<{ ok: true }> {
   return await postJson('/api/admin/market/categories', payload);
 }
 
@@ -115,18 +137,49 @@ export async function saveMarketSupplier(payload: { id?: string; name: string; c
 
 export interface MarketProductPayload {
   productId?: string;
-  name: string; reference: string; categoryId: string; supplierId?: string | null;
-  description?: string;
+  name: string; reference: string; categoryId: string; subcategoryId?: string | null; supplierId?: string | null;
+  description?: string; shortDescription?: string; brand?: string; tags?: string[];
+  sourcingType?: 'LOCAL' | 'NATIONAL' | 'IMPORT' | 'PARTNER' | null;
   specs?: { label: string; value: string }[];
   images?: string[];
   priceSale: number; supplierPrice?: number; estimatedLandedCost?: number;
   delayLabel?: string;
   availability: MarketAvailability;
-  active?: boolean; popular?: boolean;
+  active?: boolean; archived?: boolean; popular?: boolean;
 }
 
 export async function saveMarketProduct(payload: MarketProductPayload): Promise<{ ok: true }> {
   return await postJson('/api/admin/market/products', payload);
+}
+
+/* ------------------------------ Collections -------------------------------- */
+
+export async function fetchMarketCollections(): Promise<MarketCollectionDto[]> {
+  return await getJson<MarketCollectionDto[]>('/api/admin/market/collections');
+}
+
+export async function saveMarketCollection(payload: {
+  id?: string; name: string; slug?: string; description?: string;
+  rule: MarketCollectionRule; priceThreshold?: number | null;
+  position?: number; active?: boolean;
+}): Promise<{ ok: true; id?: string }> {
+  return await postJson('/api/admin/market/collections', payload);
+}
+
+export async function deleteMarketCollection(id: string): Promise<{ ok: true }> {
+  return await postJson('/api/admin/market/collections/delete', { id });
+}
+
+export async function addMarketCollectionItem(collectionId: string, productId: string): Promise<{ ok: true }> {
+  return await postJson('/api/admin/market/collections/items', { collectionId, productId });
+}
+
+export async function removeMarketCollectionItem(itemId: string): Promise<{ ok: true }> {
+  return await postJson('/api/admin/market/collections/items/remove', { itemId });
+}
+
+export async function moveMarketCollectionItem(itemId: string, direction: 'UP' | 'DOWN'): Promise<{ ok: true }> {
+  return await postJson('/api/admin/market/collections/items/move', { itemId, direction });
 }
 
 /**

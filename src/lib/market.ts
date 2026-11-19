@@ -181,7 +181,11 @@ export interface MarketProductPublic {
   name: string;
   reference: string;
   category: { slug: string; name: string };
+  subcategory: { slug: string; name: string } | null;
   description: string | null;
+  shortDescription: string | null;
+  brand: string | null;
+  tags: string[];
   specs: { label: string; value: string }[];
   images: string[];
   priceSale: number;
@@ -189,6 +193,24 @@ export interface MarketProductPublic {
   availability: MarketAvailability;
   popular: boolean;
   variants: MarketProductVariant[];
+  createdAt: string; // tri « nouveautés » — jamais affiché tel quel
+}
+
+/** Catégorie publique hiérarchique : racines + sous-catégories (un niveau). */
+export interface MarketCategoryPublic {
+  slug: string;
+  name: string;
+  description: string | null;
+  imageUrl: string | null;
+  children: { slug: string; name: string }[];
+}
+
+/** Collection éditoriale publique : produits résolus selon la règle. */
+export interface MarketCollectionPublic {
+  slug: string;
+  name: string;
+  description: string | null;
+  products: MarketProductPublic[];
 }
 
 export const AVAILABILITY_LABELS: Record<string, string> = {

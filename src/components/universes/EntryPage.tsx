@@ -65,11 +65,10 @@ export function EntryPage() {
           <p className="text-brand-text-muted mt-3 leading-relaxed flex-1">{COPY_NAV.entry.services.text}</p>
           <div className="mt-7">
             <Link
-              to="/demande"
-              onClick={() => trackFunnelStep('PATH_SELECTED', { universe: 'services' })}
+              to="/services"
               className="inline-flex items-center justify-center gap-2 w-full h-14 py-3.5 px-6 rounded-full bg-brand-text text-white font-bold hover:bg-black transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
             >
-              {COPY_NAV.entry.services.cta}
+              {COPY_NAV.entry.services.explore}
               <ArrowRight className="w-4 h-4" aria-hidden="true" />
             </Link>
             <p className="flex items-center gap-1.5 text-xs text-brand-text-muted mt-3">
@@ -77,10 +76,11 @@ export function EntryPage() {
               Prix validé avec vous avant toute intervention.
             </p>
             <Link
-              to="/services"
+              to="/demande"
+              onClick={() => trackFunnelStep('PATH_SELECTED', { universe: 'services' })}
               className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-text hover:text-brand-accent transition-colors mt-4 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent rounded-lg"
             >
-              {COPY_NAV.entry.services.explore}
+              {COPY_NAV.entry.services.cta}
               <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
             </Link>
           </div>
@@ -110,11 +110,10 @@ export function EntryPage() {
           <p className="text-brand-text-muted mt-3 leading-relaxed flex-1">{COPY_NAV.entry.market.text}</p>
           <div className="mt-7">
             <Link
-              to="/demande-produit"
-              onClick={() => trackFunnelStep('PATH_SELECTED', { universe: 'market' })}
+              to="/boutique"
               className="inline-flex items-center justify-center gap-2 w-full h-14 py-3.5 px-6 rounded-full bg-brand-text text-white font-bold hover:bg-black transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
             >
-              {COPY_NAV.entry.market.cta}
+              {COPY_NAV.entry.market.explore}
               <ArrowRight className="w-4 h-4" aria-hidden="true" />
             </Link>
             <p className="flex items-center gap-1.5 text-xs text-brand-text-muted mt-3">
@@ -122,10 +121,11 @@ export function EntryPage() {
               Prix final confirmé avant tout paiement.
             </p>
             <Link
-              to="/boutique"
+              to="/demande-produit"
+              onClick={() => trackFunnelStep('PATH_SELECTED', { universe: 'market' })}
               className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-text hover:text-brand-accent transition-colors mt-4 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent rounded-lg"
             >
-              {COPY_NAV.entry.market.explore}
+              {COPY_NAV.entry.market.cta}
               <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
             </Link>
           </div>

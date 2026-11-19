@@ -208,8 +208,23 @@ model Customer {
   orders       Order[]
   leads        Lead[]
   reviews      Review[]
+  notes        CustomerNote[]
+  tags         String[]      @default([]) // tags manuels (segments calculés = code)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+}
+
+// Note interne horodatée rattachée au client (CRM phase 3) — jamais exposée
+// publiquement ; la suppression du client supprime ses notes.
+model CustomerNote {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  author     String? // e-mail de l'administrateur (session)
+  body       String
+  createdAt  DateTime @default(now())
+
+  @@index([customerId])
 }
 
 enum ExpertStatus {
@@ -809,15 +824,27 @@ enum MarketDeliveryStatus {
   FAILED
 }
 
+// Phase 2 refonte Market : hiérarchie à un niveau (racine + sous-catégorie),
+// description et illustration publiques, suppression logique (archived) —
+// une catégorie n'est JAMAIS supprimée physiquement (commandes et produits l'utilisent).
 model MarketCategory {
-  id        String          @id @default(cuid())
-  slug      String          @unique
-  name      String
-  position  Int             @default(0)
-  active    Boolean         @default(true)
-  products  MarketProduct[]
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
+  id          String            @id @default(cuid())
+  slug        String            @unique
+  name        String
+  description String? // courte présentation publique de la catégorie
+  imageUrl    String? // illustration (URL http(s) ou chemin local)
+  parentId    String? // sous-catégorie : le parent doit être une racine (un seul niveau)
+  parent      MarketCategory?   @relation("MarketCategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children    MarketCategory[]  @relation("MarketCategoryTree")
+  position    Int               @default(0)
+  active      Boolean           @default(true)
+  archived    Boolean           @default(false)
+  products    MarketProduct[]
+  subProducts MarketProduct[]   @relation("MarketProductSubcategory")
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([parentId])
 }
 
 model MarketSupplier {
@@ -839,9 +866,15 @@ model MarketProduct {
   name                String
   categoryId          String
   category            MarketCategory        @relation(fields: [categoryId], references: [id])
+  subcategoryId       String? // sous-catégorie optionnelle, enfant de la catégorie principale
+  subcategory         MarketCategory?       @relation("MarketProductSubcategory", fields: [subcategoryId], references: [id], onDelete: SetNull)
   supplierId          String?
   supplier            MarketSupplier?       @relation(fields: [supplierId], references: [id])
   description         String?               @db.Text
+  shortDescription    String? // résumé carte/liste — requis pour publier (CDC §6)
+  brand               String? // marque commerciale (facultatif, jamais une catégorie)
+  tags                String[]              @default([]) // libre, pour recherche et filtres
+  sourcingType        String? // ADMIN ONLY : LOCAL | NATIONAL | IMPORT | PARTNER — jamais public
   specs               Json? // [{ label, value }] — caractéristiques techniques
   images              Json? // [url] —photos (max 6), jamais de fichier binaire en base
   variants            Json? // [{ name, values }] — variantes dynamiques (couleur, taille…)
@@ -851,14 +884,48 @@ model MarketProduct {
   delayLabel          String? // délai estimé, jamais promis sans vérification
   availability        MarketAvailability    @default(PREORDER)
   active              Boolean               @default(true)
+  archived            Boolean               @default(false) // archivé ≠ masqué : sorti du catalogue, redirection prévue
   popular             Boolean               @default(false)
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
   orderItems          MarketOrderItem[]
   analyticEvents      MarketAnalyticEvent[]
+  collectionItems     MarketCollectionItem[]
 
   @@index([categoryId])
   @@index([active])
+  @@index([subcategoryId])
+}
+
+// Phase 2 refonte Market : collections éditoriales (Sélection Fika…),
+// distinctes des catégories (type de produit) et de l'approvisionnement.
+// Règle MANUAL : produits choisis à la main (MarketCollectionItem, ordonnés).
+// Règles NEW_ARRIVALS / PRICE_BELOW : calculées à la lecture, jamais figées.
+model MarketCollection {
+  id             String                @id @default(cuid())
+  slug           String                @unique
+  name           String
+  description    String?               @db.Text
+  rule           String                @default("MANUAL") // MANUAL | NEW_ARRIVALS | PRICE_BELOW
+  priceThreshold Int? // seuil FCFA pour PRICE_BELOW (configurable, ex. petits prix)
+  position       Int                   @default(0)
+  active         Boolean               @default(true)
+  items          MarketCollectionItem[]
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+}
+
+model MarketCollectionItem {
+  id           String           @id @default(cuid())
+  collectionId String
+  collection   MarketCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  productId    String
+  product      MarketProduct    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  position     Int              @default(0)
+  createdAt    DateTime         @default(now())
+
+  @@unique([collectionId, productId])
+  @@index([productId])
 }
 
 model MarketOrder {

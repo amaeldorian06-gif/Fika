@@ -3,19 +3,34 @@ import {
   AdminMarketBatches, AdminMarketCatalog, AdminMarketOrderDetail, AdminMarketOrders, AdminMarketOverview,
 } from './AdminMarket';
 import { AdminShell } from './AdminShell';
+import { AdminCustomers } from './AdminCustomers';
+import { AdminCustomerProfile } from './AdminCustomerProfile';
+import { AdminAllOrders } from './AdminAllOrders';
+import { AdminExperts } from './AdminExperts';
+import { AdminCatalogue } from './AdminCatalogue';
+import { AdminFinances } from './AdminFinances';
 import {
   AdminAnalytics, AdminLeads, AdminOrderDetailView,
   AdminOrders, AdminOverview,
 } from './AdminViews';
 
 /**
- * Routeur du back-office : /admin, /admin/orders, /admin/orders/[id],
- * /admin/leads, /admin/analytics + espace Fika Market.
+ * Routeur du back-office — cinq espaces :
+ *   /admin (vue d'ensemble), /admin/clients (CRM), /admin/orders (opérations),
+ *   /admin/catalogue (produits & partenaires), /admin/finances (consolidé).
+ * Les chemins historiques (/admin/leads, /admin/analytics, /admin/market/*)
+ * restent valides et sont rattachés à leur espace dans la navigation.
  * La garde de session vit dans AdminShell (login si non authentifié).
- * Les anciennes routes /admin/clients, /admin/experts et /admin/reports
- * (sections retirées) retombent sur le tableau de bord — jamais d'erreur.
  */
 export function AdminRouter({ path }: { path: string }) {
+  if (path.startsWith('/admin/clients/')) {
+    const id = decodeURIComponent(path.slice('/admin/clients/'.length));
+    return (
+      <AdminShell path={path} title="Profil client" breadcrumb="Clients">
+        <AdminCustomerProfile customerId={id} />
+      </AdminShell>
+    );
+  }
   if (path.startsWith('/admin/market/orders/')) {
     const id = decodeURIComponent(path.slice('/admin/market/orders/'.length));
     return (
@@ -36,6 +51,13 @@ export function AdminRouter({ path }: { path: string }) {
     case '/admin/market/batches':
       return <AdminShell path={path} title="Fika Market — approvisionnements"><AdminMarketBatches /></AdminShell>;
   }
+  if (path === '/admin/orders/all') {
+    return (
+      <AdminShell path={path} title="Toutes les commandes" breadcrumb="Commandes">
+        <AdminAllOrders />
+      </AdminShell>
+    );
+  }
   if (path.startsWith('/admin/orders/')) {
     const id = decodeURIComponent(path.slice('/admin/orders/'.length));
     return (
@@ -46,6 +68,30 @@ export function AdminRouter({ path }: { path: string }) {
   }
 
   switch (path) {
+    case '/admin/clients':
+      return (
+        <AdminShell path={path} title="Clients" breadcrumb="Clients">
+          <AdminCustomers />
+        </AdminShell>
+      );
+    case '/admin/catalogue':
+      return (
+        <AdminShell path={path} title="Catalogue & partenaires" breadcrumb="Catalogue">
+          <AdminCatalogue />
+        </AdminShell>
+      );
+    case '/admin/prestataires':
+      return (
+        <AdminShell path={path} title="Prestataires de services" breadcrumb="Catalogue">
+          <AdminExperts />
+        </AdminShell>
+      );
+    case '/admin/finances':
+      return (
+        <AdminShell path={path} title="Finances & rapports" breadcrumb="Finances">
+          <AdminFinances />
+        </AdminShell>
+      );
     case '/admin/orders':
       return (
         <AdminShell path={path} title="Commandes" breadcrumb="Commandes">
@@ -54,7 +100,7 @@ export function AdminRouter({ path }: { path: string }) {
       );
     case '/admin/leads':
       return (
-        <AdminShell path={path} title="Demandes à qualifier" breadcrumb="Demandes">
+        <AdminShell path={path} title="Demandes à qualifier" breadcrumb="Commandes">
           <AdminLeads />
         </AdminShell>
       );

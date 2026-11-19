@@ -1,5 +1,4 @@
 import nodemailer from 'nodemailer';
-import { FOUNDER_EMAIL } from './founder';
 
 /**
  * Alertes e-mail Gmail SMTP : nouvelle demande de service, nouvelle commande
@@ -8,11 +7,23 @@ import { FOUNDER_EMAIL } from './founder';
  * Variables (Vercel) :
  *   GMAIL_USER         adresse Gmail expéditrice (ex. amaeldorian06@gmail.com)
  *   GMAIL_APP_PASSWORD mot de passe d'application Google (16 caractères)
- *   NOTIFY_EMAIL       destinataire (optionnel, défaut : e-mail du fondateur)
+ *   NOTIFY_EMAIL       destinataire (optionnel, défaut ci-dessous)
+ *
+ * Ne pas confondre les trois adresses : le compte expéditeur (GMAIL_USER),
+ * le destinataire des alertes (NOTIFY_EMAIL, défaut NOTIFY_RECIPIENT_DEFAULT)
+ * et l'identifiant de connexion admin (aucun rapport avec le courriel).
  *
  * Best-effort : si les variables manquent ou si l'envoi échoue, la demande ou
  * la commande reste enregistrée en base — l'alerte ne bloque jamais le client.
  */
+
+/** Destinataire des alertes opérationnelles (demandes + commandes). */
+const NOTIFY_RECIPIENT_DEFAULT = 'hello1247778@gmail.com';
+
+/** Résolution du destinataire (séparée de l'envoi pour être testable). */
+export function notifyRecipient(env: NodeJS.ProcessEnv = process.env): string {
+  return env.NOTIFY_EMAIL ?? NOTIFY_RECIPIENT_DEFAULT;
+}
 
 export interface LeadAlert {
   leadCode: string;
@@ -111,7 +122,7 @@ async function sendGmail(fromName: string, subject: string, text: string): Promi
     });
     await transport.sendMail({
       from: `"${fromName}" <${process.env.GMAIL_USER}>`,
-      to: process.env.NOTIFY_EMAIL ?? FOUNDER_EMAIL,
+      to: notifyRecipient(),
       subject,
       text,
     });

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../../src/lib/prisma';
 import {
   MARKET_ANALYTIC_TYPES, marketOrderPayloadSchema, marketVariantsSchema,
+  type MarketCategoryPublic, type MarketCollectionPublic,
   type MarketProductPublic, type MarketProductVariant,
 } from '../../src/lib/market';
 import { normalizePhoneE164 } from '../../src/lib/lead';
@@ -42,9 +43,11 @@ type Spec = { label?: unknown; value?: unknown };
 /** Projection publique : champs explicitement choisis, coûts exclus. */
 function toPublicProduct(p: {
   id: string; slug: string; name: string; reference: string; description: string | null;
+  shortDescription: string | null; brand: string | null; tags: string[];
   specs: unknown; images: unknown; variants: unknown; priceSale: number; delayLabel: string | null;
-  availability: MarketProductPublic['availability']; popular: boolean;
+  availability: MarketProductPublic['availability']; popular: boolean; createdAt: Date;
   category: { slug: string; name: string };
+  subcategory: { slug: string; name: string } | null;
 }): MarketProductPublic {
   const specs = Array.isArray(p.specs)
     ? (p.specs as Spec[]).filter((s) => typeof s?.label === 'string' && typeof s?.value === 'string')
@@ -57,35 +60,108 @@ function toPublicProduct(p: {
   const variants: MarketProductVariant[] = parsedVariants.success ? parsedVariants.data : [];
   return {
     id: p.id, slug: p.slug, name: p.name, reference: p.reference,
-    category: p.category, description: p.description, specs, images, variants,
+    category: p.category, subcategory: p.subcategory,
+    description: p.description, shortDescription: p.shortDescription, brand: p.brand,
+    tags: Array.isArray(p.tags) ? p.tags.filter((t) => typeof t === 'string').slice(0, 10) : [],
+    specs, images, variants,
     priceSale: p.priceSale, delayLabel: p.delayLabel, availability: p.availability, popular: p.popular,
+    createdAt: p.createdAt.toISOString(),
   };
 }
 
 const publicProductSelect = {
   id: true, slug: true, name: true, reference: true, description: true, specs: true,
-  images: true, variants: true, priceSale: true, delayLabel: true, availability: true, popular: true,
+  shortDescription: true, brand: true, tags: true,
+  images: true, variants: true, priceSale: true, delayLabel: true, availability: true, popular: true, createdAt: true,
   category: { select: { slug: true, name: true } },
+  subcategory: { select: { slug: true, name: true } },
 };
 
+/** Un produit est public s'il est publié (actif) et non archivé. */
+const publicProductWhere = { active: true, archived: false } as const;
+
 export async function getMarketCatalog(categorySlug?: string): Promise<{
-  categories: { slug: string; name: string }[];
+  categories: MarketCategoryPublic[];
   products: MarketProductPublic[];
 }> {
-  const categories = await prisma.marketCategory.findMany({
-    where: { active: true }, orderBy: { position: 'asc' }, select: { slug: true, name: true },
+  // Hiérarchie publique : racines actives non archivées + leurs sous-catégories actives.
+  const rows = await prisma.marketCategory.findMany({
+    where: { active: true, archived: false },
+    orderBy: { position: 'asc' },
+    select: { id: true, slug: true, name: true, description: true, imageUrl: true, parentId: true },
   });
-  const products = (await prisma.marketProduct.findMany({ where: { active: true }, orderBy: [{ popular: 'desc' }, { name: 'asc' }], select: publicProductSelect }))
-    .filter((p) => !categorySlug || p.category.slug === categorySlug)
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const categories: MarketCategoryPublic[] = rows
+    .filter((r) => !r.parentId)
+    .map((r) => ({
+      slug: r.slug, name: r.name, description: r.description, imageUrl: r.imageUrl,
+      children: rows
+        .filter((c) => c.parentId != null && byId.get(c.parentId)?.slug === r.slug)
+        .map((c) => ({ slug: c.slug, name: c.name })),
+    }));
+  const products = (await prisma.marketProduct.findMany({ where: publicProductWhere, orderBy: [{ popular: 'desc' }, { name: 'asc' }], select: publicProductSelect }))
+    .filter((p) => !categorySlug || p.category.slug === categorySlug || p.subcategory?.slug === categorySlug)
     .map(toPublicProduct);
   return { categories, products };
 }
 
 export async function getMarketProduct(slug: string): Promise<MarketProductPublic | null> {
   const p = await prisma.marketProduct.findFirst({
-    where: { slug, active: true }, select: publicProductSelect,
+    where: { slug, ...publicProductWhere }, select: publicProductSelect,
   });
   return p ? toPublicProduct(p) : null;
+}
+
+/* ----------------------------- Collections -------------------------------- */
+
+/** Taille max des collections automatiques : assez pour un carrousel, pas plus. */
+const AUTO_COLLECTION_LIMIT = 12;
+const NEW_ARRIVALS_LIMIT = 8;
+
+/**
+ * Collections éditoriales publiques. Les règles automatiques (NEW_ARRIVALS,
+ * PRICE_BELOW) sont résolues à la lecture — jamais figées en base, donc
+ * toujours exactes. Seules les collections actives sont renvoyées.
+ */
+export async function getMarketCollections(): Promise<MarketCollectionPublic[]> {
+  const collections = await prisma.marketCollection.findMany({
+    where: { active: true },
+    orderBy: { position: 'asc' },
+    include: {
+      items: {
+        orderBy: { position: 'asc' },
+        include: { product: { select: { ...publicProductSelect, active: true, archived: true } } },
+      },
+    },
+  });
+  const result: MarketCollectionPublic[] = [];
+  for (const c of collections) {
+    let products: MarketProductPublic[] = [];
+    if (c.rule === 'NEW_ARRIVALS') {
+      const rows = await prisma.marketProduct.findMany({
+        where: publicProductWhere, orderBy: { createdAt: 'desc' },
+        take: NEW_ARRIVALS_LIMIT, select: publicProductSelect,
+      });
+      products = rows.map(toPublicProduct);
+    } else if (c.rule === 'PRICE_BELOW') {
+      if (c.priceThreshold != null) {
+        const rows = await prisma.marketProduct.findMany({
+          where: { ...publicProductWhere, priceSale: { lte: c.priceThreshold } },
+          orderBy: { priceSale: 'asc' },
+          take: AUTO_COLLECTION_LIMIT, select: publicProductSelect,
+        });
+        products = rows.map(toPublicProduct);
+      }
+    } else {
+      products = c.items
+        .filter((i) => i.product.active && !i.product.archived)
+        .slice(0, AUTO_COLLECTION_LIMIT)
+        .map((i) => toPublicProduct(i.product));
+    }
+    if (products.length === 0) continue; // collection vide : jamais affichée
+    result.push({ slug: c.slug, name: c.name, description: c.description, products });
+  }
+  return result;
 }
 
 export type MarketOrderResult =

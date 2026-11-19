@@ -32,8 +32,13 @@ const productSchema = z.object({
   name: z.string().trim().min(2).max(120),
   reference: z.string().trim().min(2).max(40),
   categoryId: z.string().min(1),
+  subcategoryId: z.string().max(60).nullable().optional(), // doit être une sous-catégorie de categoryId
   supplierId: z.string().max(60).nullable().optional(),
   description: z.string().trim().max(3000).nullable().optional(),
+  shortDescription: z.string().trim().max(160).nullable().optional(), // requis pour publier (CDC §6)
+  brand: z.string().trim().max(80).nullable().optional(),
+  tags: z.array(z.string().trim().min(1).max(30)).max(10).default([]),
+  sourcingType: z.enum(['LOCAL', 'NATIONAL', 'IMPORT', 'PARTNER']).nullable().optional(), // interne, jamais public
   specs: z.array(specSchema).max(12).default([]),
   images: z.array(z.string().trim().max(400).regex(/^https?:\/\/|^\//, 'URL d’image invalide.')).max(6).default([]),
   variants: marketVariantsSchema.optional(), // absent du formulaire catalogue : préservé à la mise à jour
@@ -43,6 +48,7 @@ const productSchema = z.object({
   delayLabel: z.string().trim().max(120).nullable().optional(),
   availability: z.enum(['AVAILABLE', 'PREORDER', 'UNAVAILABLE']).default('PREORDER'),
   active: z.boolean().default(true),
+  archived: z.boolean().default(false), // archivé : hors catalogue, jamais confondu avec « masqué »
   popular: z.boolean().default(false),
 });
 
@@ -52,11 +58,12 @@ const slugify = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, ''
 export async function listMarketProducts(): Promise<unknown[]> {
   const rows = await prisma.marketProduct.findMany({
     orderBy: [{ active: 'desc' }, { name: 'asc' }],
-    include: { category: { select: { name: true } }, supplier: { select: { name: true } } },
+    include: { category: { select: { name: true } }, subcategory: { select: { name: true } }, supplier: { select: { name: true } } },
   });
   return rows.map((p) => ({
     ...p,
-    categoryName: p.category.name, supplierName: p.supplier?.name ?? null,
+    categoryName: p.category.name, subcategoryName: p.subcategory?.name ?? null,
+    supplierName: p.supplier?.name ?? null,
     estimatedMargin: p.priceSale - p.estimatedLandedCost,
     specsCount: Array.isArray(p.specs) ? (p.specs as unknown[]).length : 0,
     imagesCount: Array.isArray(p.images) ? (p.images as unknown[]).length : 0,
@@ -69,17 +76,37 @@ export async function saveMarketProduct(body: unknown): Promise<R> {
   const d = parsed.data;
   const category = await prisma.marketCategory.findUnique({ where: { id: d.categoryId } });
   if (!category) return fail(400, 'Catégorie introuvable.');
+  // Une sous-catégorie doit être un enfant direct de la catégorie principale.
+  let subcategoryId: string | null = null;
+  if (d.subcategoryId) {
+    const sub = await prisma.marketCategory.findUnique({ where: { id: d.subcategoryId } });
+    if (!sub || sub.parentId !== d.categoryId) return fail(400, 'Sous-catégorie invalide pour cette catégorie.');
+    subcategoryId = sub.id;
+  }
   if (d.supplierId) {
     const supplier = await prisma.marketSupplier.findUnique({ where: { id: d.supplierId } });
     if (!supplier) return fail(400, 'Fournisseur introuvable.');
   }
+  // Règles de publication (CDC §6) : un produit publié doit être présentable —
+  // description courte, au moins une photo, délai si sur commande. L'archivage
+  // retire le produit du catalogue (jamais confondu avec un simple masquage).
+  const archived = d.archived;
+  const active = archived ? false : d.active;
+  if (active) {
+    if (!d.shortDescription || d.shortDescription.length < 3) return fail(400, 'Ajoutez une description courte (visible sur les cartes) pour publier ce produit.');
+    if (d.images.length === 0) return fail(400, 'Ajoutez au moins une photo pour publier ce produit.');
+    if (d.availability === 'PREORDER' && !d.delayLabel) return fail(400, 'Indiquez un délai estimé pour un produit sur commande.');
+  }
   const data = {
-    name: d.name, reference: d.reference, categoryId: d.categoryId,
-    supplierId: d.supplierId ?? null, description: d.description ?? null,
+    name: d.name, reference: d.reference, categoryId: d.categoryId, subcategoryId,
+    supplierId: d.supplierId ?? null,
+    description: d.description ?? null, shortDescription: d.shortDescription ?? null,
+    brand: d.brand ?? null, tags: [...new Set(d.tags)],
+    sourcingType: d.sourcingType ?? null,
     specs: d.specs, images: d.images, priceSale: d.priceSale,
     supplierPrice: d.supplierPrice, estimatedLandedCost: d.estimatedLandedCost,
     delayLabel: d.delayLabel ?? null, availability: d.availability,
-    active: d.active, popular: d.popular,
+    active, archived, popular: d.popular,
   };
   try {
     if (d.productId) {
@@ -111,22 +138,167 @@ export async function saveMarketProduct(body: unknown): Promise<R> {
 const categorySchema = z.object({
   id: z.string().optional(),
   name: z.string().trim().min(2).max(80),
+  slug: z.string().trim().min(2).max(80).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Slug : minuscules, chiffres et tirets uniquement.').optional(),
+  description: z.string().trim().max(500).nullable().optional(),
+  imageUrl: z.string().trim().max(400).regex(/^https?:\/\/|^\//, 'URL d’image invalide.').nullable().optional(),
+  parentId: z.string().max(60).nullable().optional(), // sous-catégorie : parent = racine uniquement
   position: z.number().int().min(0).max(99).default(0),
   active: z.boolean().default(true),
+  archived: z.boolean().default(false), // suppression logique : aucune catégorie supprimée physiquement
 });
 
 export async function saveMarketCategory(body: unknown): Promise<R> {
   const parsed = categorySchema.safeParse(body);
   if (!parsed.success) return fail(400, parsed.error.issues[0].message);
   const d = parsed.data;
-  const data = { name: d.name, position: d.position, active: d.active };
+
+  // Hiérarchie à un niveau : le parent doit exister et être une racine.
+  if (d.parentId) {
+    if (d.id && d.parentId === d.id) return fail(400, 'Une catégorie ne peut pas être sa propre sous-catégorie.');
+    const parent = await prisma.marketCategory.findUnique({ where: { id: d.parentId } });
+    if (!parent) return fail(400, 'Catégorie parente introuvable.');
+    if (parent.parentId) return fail(400, 'Un seul niveau : la sous-catégorie doit dépendre d’une catégorie principale.');
+  }
+  // Archiver masque la catégorie ; une catégorie archivée ne peut pas rester active.
+  const archived = d.archived;
+  const data = {
+    name: d.name, position: d.position, active: archived ? false : d.active, archived,
+    description: d.description ?? null, imageUrl: d.imageUrl ?? null, parentId: d.parentId ?? null,
+  };
+  const slug = d.slug || slugify(d.name);
+  const taken = await prisma.marketCategory.findUnique({ where: { slug } });
+  if (taken && taken.id !== d.id) return fail(409, 'Ce slug de catégorie est déjà utilisé.');
+
   if (d.id) {
-    await prisma.marketCategory.update({ where: { id: d.id }, data });
+    // Un déplacement d'une catégorie utilisée par des produits est sûr :
+    // les commandes référencent le produit, jamais la catégorie.
+    await prisma.marketCategory.update({ where: { id: d.id }, data: { ...data, slug } });
     return ok();
   }
-  const slug = slugify(d.name);
-  if (await prisma.marketCategory.findUnique({ where: { slug } })) return fail(409, 'Cette catégorie existe déjà.');
   await prisma.marketCategory.create({ data: { ...data, slug } });
+  return ok();
+}
+
+/* ----------------------------- Collections -------------------------------- */
+
+const collectionSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().trim().min(2).max(80),
+  slug: z.string().trim().min(2).max(80).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Slug : minuscules, chiffres et tirets uniquement.').optional(),
+  description: z.string().trim().max(500).nullable().optional(),
+  rule: z.enum(['MANUAL', 'NEW_ARRIVALS', 'PRICE_BELOW']).default('MANUAL'),
+  priceThreshold: z.number().int().min(100).max(50_000_000).nullable().optional(),
+  position: z.number().int().min(0).max(99).default(0),
+  active: z.boolean().default(true),
+});
+
+const COLLECTION_RULE_LABELS: Record<string, string> = {
+  MANUAL: 'Sélection manuelle',
+  NEW_ARRIVALS: 'Nouveautés (automatique)',
+  PRICE_BELOW: 'Petit prix ≤ seuil (automatique)',
+};
+
+export async function listMarketCollections(): Promise<unknown[]> {
+  const rows = await prisma.marketCollection.findMany({
+    orderBy: { position: 'asc' },
+    include: {
+      items: { orderBy: { position: 'asc' }, include: { product: { select: { name: true, active: true, archived: true } } } },
+    },
+  });
+  return rows.map((c) => ({
+    ...c,
+    ruleLabel: COLLECTION_RULE_LABELS[c.rule] ?? c.rule,
+    items: c.items.map((i) => ({ ...i, productName: i.product.name, productActive: i.product.active && !i.product.archived })),
+    manualCount: c.rule === 'MANUAL' ? c.items.filter((i) => i.product.active && !i.product.archived).length : null,
+  }));
+}
+
+export async function saveMarketCollection(body: unknown): Promise<R> {
+  const parsed = collectionSchema.safeParse(body);
+  if (!parsed.success) return fail(400, parsed.error.issues[0].message);
+  const d = parsed.data;
+  if (d.rule === 'PRICE_BELOW' && (d.priceThreshold == null || d.priceThreshold < 100)) {
+    return fail(400, 'Indiquez un seuil de prix (FCFA) pour la règle « petit prix ».');
+  }
+  const data = {
+    name: d.name, description: d.description ?? null, rule: d.rule,
+    priceThreshold: d.rule === 'PRICE_BELOW' ? d.priceThreshold! : null,
+    position: d.position, active: d.active,
+  };
+  const slug = d.slug || slugify(d.name);
+  const taken = await prisma.marketCollection.findUnique({ where: { slug } });
+  if (taken && taken.id !== d.id) return fail(409, 'Ce slug de collection est déjà utilisé.');
+  if (d.id) {
+    await prisma.marketCollection.update({ where: { id: d.id }, data: { ...data, slug } });
+    return ok();
+  }
+  const created = await prisma.marketCollection.create({ data: { ...data, slug } });
+  return ok({ id: created.id });
+}
+
+/**
+ * Suppression physique réservée aux collections : elles ne sont référencées
+ * par aucune commande ni aucun produit (les items partent en cascade, les
+ * produits restent intacts). Les catégories, elles, ne se suppriment jamais.
+ */
+export async function deleteMarketCollection(body: unknown): Promise<R> {
+  const parsed = z.object({ id: z.string().min(1) }).safeParse(body);
+  if (!parsed.success) return fail(400, 'Requête invalide.');
+  const existing = await prisma.marketCollection.findUnique({ where: { id: parsed.data.id } });
+  if (!existing) return fail(404, 'Collection introuvable.');
+  await prisma.marketCollection.delete({ where: { id: parsed.data.id } });
+  return ok();
+}
+
+const collectionItemSchema = z.object({
+  collectionId: z.string().min(1),
+  productId: z.string().min(1),
+});
+
+export async function saveMarketCollectionItem(body: unknown): Promise<R> {
+  const parsed = collectionItemSchema.safeParse(body);
+  if (!parsed.success) return fail(400, 'Requête invalide.');
+  const d = parsed.data;
+  const collection = await prisma.marketCollection.findUnique({ where: { id: d.collectionId } });
+  if (!collection) return fail(404, 'Collection introuvable.');
+  if (collection.rule !== 'MANUAL') return fail(400, 'Cette collection est automatique : ses produits sont calculés, pas choisis.');
+  const product = await prisma.marketProduct.findUnique({ where: { id: d.productId } });
+  if (!product) return fail(404, 'Produit introuvable.');
+  if (await prisma.marketCollectionItem.findUnique({ where: { collectionId_productId: { collectionId: d.collectionId, productId: d.productId } } })) {
+    return fail(409, 'Ce produit est déjà dans la collection.');
+  }
+  const last = await prisma.marketCollectionItem.findFirst({ where: { collectionId: d.collectionId }, orderBy: { position: 'desc' } });
+  await prisma.marketCollectionItem.create({ data: { collectionId: d.collectionId, productId: d.productId, position: (last?.position ?? 0) + 1 } });
+  return ok();
+}
+
+export async function removeMarketCollectionItem(body: unknown): Promise<R> {
+  const parsed = z.object({ itemId: z.string().min(1) }).safeParse(body);
+  if (!parsed.success) return fail(400, 'Requête invalide.');
+  const item = await prisma.marketCollectionItem.findUnique({ where: { id: parsed.data.itemId } });
+  if (!item) return fail(404, 'Article introuvable dans la collection.');
+  await prisma.marketCollectionItem.delete({ where: { id: parsed.data.itemId } });
+  return ok();
+}
+
+/** Déplace un item manuel d'un cran (ordre d'affichage de la collection). */
+export async function moveMarketCollectionItem(body: unknown): Promise<R> {
+  const parsed = z.object({ itemId: z.string().min(1), direction: z.enum(['UP', 'DOWN']) }).safeParse(body);
+  if (!parsed.success) return fail(400, 'Requête invalide.');
+  const { itemId, direction } = parsed.data;
+  const item = await prisma.marketCollectionItem.findUnique({ where: { id: itemId } });
+  if (!item) return fail(404, 'Article introuvable dans la collection.');
+  const siblings = await prisma.marketCollectionItem.findMany({
+    where: { collectionId: item.collectionId }, orderBy: { position: 'asc' },
+  });
+  const index = siblings.findIndex((s) => s.id === itemId);
+  const swapWith = direction === 'UP' ? index - 1 : index + 1;
+  if (swapWith < 0 || swapWith >= siblings.length) return ok(); // déjà en butée : rien à faire
+  const other = siblings[swapWith];
+  await prisma.$transaction([
+    prisma.marketCollectionItem.update({ where: { id: item.id }, data: { position: other.position } }),
+    prisma.marketCollectionItem.update({ where: { id: other.id }, data: { position: item.position } }),
+  ]);
   return ok();
 }
 

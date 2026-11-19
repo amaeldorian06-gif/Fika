@@ -1,7 +1,7 @@
 import { parseReportRange } from '../src/lib/report-period';
 import { prisma } from '../src/lib/prisma';
 import {
-  getMarketCatalog, getMarketProduct, createMarketOrder, recordMarketAnalyticEvent,
+  getMarketCatalog, getMarketProduct, getMarketCollections, createMarketOrder, recordMarketAnalyticEvent,
 } from './routes/market';
 import {
   listMarketProducts, saveMarketProduct, saveMarketCategory, listMarketSuppliers, saveMarketSupplier,
@@ -10,8 +10,13 @@ import {
   updateMarketBatchStatus, assignMarketItem, saveMarketDelivery, getMarketOverview,
   createMarketQuote, respondMarketQuote, recordMarketRefund, saveMarketExpense,
   deleteMarketExpense, getMarketBatchAllocation, applyMarketBatchAllocation, getMarketLedger,
+  listMarketCollections, saveMarketCollection, deleteMarketCollection,
+  saveMarketCollectionItem, removeMarketCollectionItem, moveMarketCollectionItem,
 } from './routes/admin-market';
 import { handleRecordPayment, handleReviewPayment } from './routes/admin-payments';
+import { addCustomerNote, getCustomerProfile, getCustomers, mergeCustomers, updateCustomer } from './routes/admin-customers';
+import { getFinancesSummary } from './routes/admin-finances';
+import { getAdminAlerts } from './routes/admin-alerts';
 import express, { type ErrorRequestHandler, type Response } from 'express';
 import { ensureFounderRecord, getCurrentAdmin, handleLogin, handleLogout, SESSION_COOKIE } from './routes/auth';
 import { handleCreateLead } from './routes/leads';
@@ -81,6 +86,7 @@ export function createApp() {
   });
   app.post('/api/market/orders', async (req, res) => send(res, await createMarketOrder(req.body, req.ip ?? 'unknown')));
   app.post('/api/market/events', async (req, res) => send(res, await recordMarketAnalyticEvent(req.body, req.ip ?? 'unknown')));
+  app.get('/api/market/collections', async (_req, res) => res.json(await getMarketCollections()));
 
 
   app.post('/api/events/waclick', async (req, res) => res.json(await handleWaClick(req.body)));
@@ -108,6 +114,19 @@ export function createApp() {
   app.post('/api/admin/files/delivery-proof', async (req, res) => send(res, await handleDeliveryProofUpload(req)));
 
   app.get('/api/admin/overview', async (_req, res) => res.json(await getOverview()));
+  app.get('/api/admin/finances/summary', async (_req, res) => res.json(await getFinancesSummary()));
+  app.get('/api/admin/alerts', async (_req, res) => res.json(await getAdminAlerts()));
+  app.get('/api/admin/customers', async (req, res) => res.json(await getCustomers({
+    q: query(req.query.q), segment: query(req.query.segment),
+    page: query(req.query.page), pageSize: query(req.query.pageSize),
+  })));
+  app.get('/api/admin/customers/:id', async (req, res) => {
+    const profile = await getCustomerProfile(String(req.params.id));
+    res.status(profile ? 200 : 404).json(profile ?? { ok: false, message: 'Client introuvable.' });
+  });
+  app.post('/api/admin/customers/:id/update', async (req, res) => send(res, await updateCustomer(String(req.params.id), req.body)));
+  app.post('/api/admin/customers/:id/notes', async (req, res) => send(res, await addCustomerNote(String(req.params.id), req.body, res.locals.admin?.email ?? null)));
+  app.post('/api/admin/customers/merge', async (req, res) => send(res, await mergeCustomers(req.body)));
   app.get('/api/admin/orders', async (req, res) => res.json(await getOrders(query(req.query.status), query(req.query.q), query(req.query.scope))));
   app.get('/api/admin/orders/:id', async (req, res) => {
     const order = await getOrder(String(req.params.id));
@@ -149,6 +168,12 @@ export function createApp() {
   });
   app.post('/api/admin/market/products', async (req, res) => send(res, await saveMarketProduct(req.body)));
   app.post('/api/admin/market/categories', async (req, res) => send(res, await saveMarketCategory(req.body)));
+  app.get('/api/admin/market/collections', async (_req, res) => res.json(await listMarketCollections()));
+  app.post('/api/admin/market/collections', async (req, res) => send(res, await saveMarketCollection(req.body)));
+  app.post('/api/admin/market/collections/delete', async (req, res) => send(res, await deleteMarketCollection(req.body)));
+  app.post('/api/admin/market/collections/items', async (req, res) => send(res, await saveMarketCollectionItem(req.body)));
+  app.post('/api/admin/market/collections/items/remove', async (req, res) => send(res, await removeMarketCollectionItem(req.body)));
+  app.post('/api/admin/market/collections/items/move', async (req, res) => send(res, await moveMarketCollectionItem(req.body)));
   app.post('/api/admin/market/suppliers', async (req, res) => send(res, await saveMarketSupplier(req.body)));
   app.post('/api/admin/market/orders/status', async (req, res) => send(res, await updateMarketOrderStatus(req.body, res.locals.admin.id)));
   app.post('/api/admin/market/orders/price', async (req, res) => send(res, await confirmMarketPrice(req.body, res.locals.admin.id)));

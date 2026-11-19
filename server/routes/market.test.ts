@@ -9,7 +9,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 const db = vi.hoisted(() => ({
   $transaction: vi.fn(),
-  marketCategory: { findMany: vi.fn(), findUnique: vi.fn() },
+  marketCategory: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
   marketProduct: { findMany: vi.fn(), findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
   marketOrder: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
   marketOrderItem: { findMany: vi.fn(), update: vi.fn() },
@@ -20,6 +20,8 @@ const db = vi.hoisted(() => ({
   marketRefund: { findMany: vi.fn(), create: vi.fn() },
   marketExpense: { findMany: vi.fn(), create: vi.fn(), delete: vi.fn(), findUnique: vi.fn() },
   marketAnalyticEvent: { findMany: vi.fn(), create: vi.fn() },
+  marketCollection: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
+  marketCollectionItem: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), delete: vi.fn() },
   marketProcurementBatch: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
   customer: { upsert: vi.fn() },
   documentCounter: { findUnique: vi.fn(), upsert: vi.fn() },
@@ -32,6 +34,7 @@ import { createMarketOrder, getMarketCatalog, recordMarketAnalyticEvent } from '
 import {
   confirmMarketPrice, createMarketQuote, recordMarketRefund,
   respondMarketQuote, reviewMarketPayment, saveMarketProduct, updateMarketOrderStatus,
+  saveMarketCategory, saveMarketCollection, saveMarketCollectionItem, deleteMarketCollection,
 } from './admin-market';
 import {
   allocateMarketExpense, canTransitionBatch, computeMarketMargin, deriveMarketPaymentStatus,
@@ -149,20 +152,26 @@ describe('Catalogue public : aucune fuite de coûts', () => {
     db.marketCategory.findMany.mockResolvedValue([{ slug: 'maison', name: 'Maison' }]);
     db.marketProduct.findMany.mockResolvedValue([{
       id: 'prod-1', slug: 'aspirateur-compact', name: 'Aspirateur compact', reference: 'FK-MKT-001',
-      description: null, specs: [{ label: 'Puissance', value: '700 W' }, { bad: true }],
+      description: null, shortDescription: 'Aspirateur puissant et compact.', brand: 'FikaTest', tags: ['ménage'],
+      specs: [{ label: 'Puissance', value: '700 W' }, { bad: true }],
       images: ['https://exemple.com/a.jpg', 'javascript:alert(1)'],
       priceSale: 45000, delayLabel: '2 à 3 semaines', availability: 'PREORDER', popular: true,
-      category: { slug: 'maison', name: 'Maison' },
+      category: { slug: 'maison', name: 'Maison' }, subcategory: null, createdAt: new Date('2026-01-01T00:00:00Z'),
       // Champs pièges : ils ne doivent JAMAIS ressortir.
-      supplierPrice: 12000, estimatedLandedCost: 20000,
+      supplierPrice: 12000, estimatedLandedCost: 20000, sourcingType: 'IMPORT', archived: false,
     }]);
     const catalog = await getMarketCatalog();
     expect(catalog.products).toHaveLength(1);
     const p = catalog.products[0] as unknown as Record<string, unknown>;
     expect(p.supplierPrice).toBeUndefined();
     expect(p.estimatedLandedCost).toBeUndefined();
+    expect(p.sourcingType).toBeUndefined(); // approvisionnement : interne, jamais public
+    expect(p.archived).toBeUndefined();
     expect(p.specs).toEqual([{ label: 'Puissance', value: '700 W' }]);
     expect(p.images).toEqual(['https://exemple.com/a.jpg']);
+    expect(p.shortDescription).toBe('Aspirateur puissant et compact.');
+    expect(p.brand).toBe('FikaTest');
+    expect(p.tags).toEqual(['ménage']);
   });
 });
 
@@ -508,7 +517,13 @@ describe('recordMarketAnalyticEvent', () => {
 /* -------------------- Édition catalogue : variantes préservées --------------------- */
 
 describe('saveMarketProduct : les variantes survivent à une édition catalogue', () => {
-  const base = { name: 'Écouteurs Bluetooth', reference: 'FK-TEST-1', categoryId: 'cat-1', priceSale: 14500, supplierPrice: 9000, estimatedLandedCost: 11000 };
+  // Depuis la refonte Market (CDC §6), publier exige une description courte,
+  // au moins une photo et un délai si sur commande : la fixture est conforme.
+  const base = {
+    name: 'Écouteurs Bluetooth', reference: 'FK-TEST-1', categoryId: 'cat-1', priceSale: 14500,
+    supplierPrice: 9000, estimatedLandedCost: 11000, availability: 'AVAILABLE' as const,
+    shortDescription: 'Écouteurs sans fil compacts.', images: ['https://exemple.com/a.jpg'],
+  };
 
   it('préserve les variantes existantes quand le formulaire ne les envoie pas', async () => {
     db.marketCategory.findUnique.mockResolvedValue({ id: 'cat-1' });
@@ -576,5 +591,130 @@ describe('Rate limit scopé : les événements ne consomment pas le budget de co
     }
     const blocked = await createMarketOrder(validPayload, ip);
     expect(blocked.status).toBe(429);
+  });
+});
+
+/* ------------- Refonte Market phase 2 : publication et taxonomie -------------- */
+
+describe('Refonte Market phase 2 : règles de publication (CDC §6)', () => {
+  const conforme = {
+    name: 'Clé USB 32 Go', reference: 'FK-TEST-P2', categoryId: 'cat-1', priceSale: 5000,
+    availability: 'AVAILABLE' as const, active: true,
+    shortDescription: 'Clé USB fiable et rapide.', images: ['https://exemple.com/a.jpg'],
+  };
+
+  beforeEach(() => {
+    db.marketCategory.findUnique.mockResolvedValue({ id: 'cat-1' });
+    db.marketProduct.findUnique.mockResolvedValue(null);
+  });
+
+  it('refuse de publier sans description courte', async () => {
+    const res = await saveMarketProduct({ ...conforme, shortDescription: null });
+    expect(res.status).toBe(400);
+    expect((res.body as { message: string }).message).toContain('description courte');
+  });
+
+  it('refuse de publier sans photo', async () => {
+    const res = await saveMarketProduct({ ...conforme, images: [] });
+    expect(res.status).toBe(400);
+    expect((res.body as { message: string }).message).toContain('photo');
+  });
+
+  it('refuse un produit sur commande sans délai estimé', async () => {
+    const res = await saveMarketProduct({ ...conforme, availability: 'PREORDER', delayLabel: null });
+    expect(res.status).toBe(400);
+    expect((res.body as { message: string }).message).toContain('délai');
+  });
+
+  it('un brouillon incomplet est accepté (masqué, jamais public)', async () => {
+    const res = await saveMarketProduct({ ...conforme, active: false, shortDescription: null, images: [] });
+    expect(res.status).toBe(200);
+  });
+
+  it('archiver force le retrait du catalogue', async () => {
+    db.marketProduct.findUnique.mockResolvedValue({ variants: [] });
+    const res = await saveMarketProduct({ ...conforme, productId: 'prod-1', archived: true });
+    expect(res.status).toBe(200);
+    expect(db.marketProduct.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ active: false, archived: true }),
+    }));
+  });
+
+  it('rejette une sous-catégorie qui n’est pas enfant de la catégorie', async () => {
+    db.marketCategory.findUnique
+      .mockResolvedValueOnce({ id: 'cat-1' })
+      .mockResolvedValueOnce({ id: 'sub-autre', parentId: 'cat-autre' });
+    const res = await saveMarketProduct({ ...conforme, subcategoryId: 'sub-autre' });
+    expect(res.status).toBe(400);
+    expect((res.body as { message: string }).message).toContain('Sous-catégorie');
+  });
+
+  it('accepte une sous-catégorie valide et la range', async () => {
+    db.marketCategory.findUnique
+      .mockResolvedValueOnce({ id: 'cat-1' })
+      .mockResolvedValueOnce({ id: 'sub-1', parentId: 'cat-1' });
+    db.marketProduct.findUnique.mockResolvedValue(null);
+    const res = await saveMarketProduct({ ...conforme, subcategoryId: 'sub-1' });
+    expect(res.status).toBe(200);
+    expect(db.marketProduct.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ subcategoryId: 'sub-1' }),
+    }));
+  });
+});
+
+describe('Refonte Market phase 2 : catégories et collections', () => {
+  beforeEach(() => {
+    db.marketCategory.findUnique.mockResolvedValue(null);
+    db.marketCategory.findMany.mockResolvedValue([]);
+  });
+
+  it('refuse une sous-catégorie de sous-catégorie (un seul niveau)', async () => {
+    db.marketCategory.findUnique.mockResolvedValue({ id: 'sub-1', parentId: 'cat-1' });
+    const res = await saveMarketCategory({ name: 'Trop profond', parentId: 'sub-1' });
+    expect(res.status).toBe(400);
+    expect((res.body as { message: string }).message).toContain('Un seul niveau');
+  });
+
+  it('refuse un slug de catégorie déjà pris', async () => {
+    db.marketCategory.findUnique.mockResolvedValue({ id: 'autre', slug: 'mode' });
+    const res = await saveMarketCategory({ name: 'Mode & Accessoires', slug: 'mode' });
+    expect(res.status).toBe(409);
+  });
+
+  it('archiver une catégorie la masque', async () => {
+    db.marketCategory.findUnique.mockResolvedValue(null);
+    const res = await saveMarketCategory({ name: 'Ancienne', archived: true, active: true });
+    expect(res.status).toBe(200);
+    expect(db.marketCategory.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ active: false, archived: true }),
+    }));
+  });
+
+  it('exige un seuil pour la règle petit prix', async () => {
+    const res = await saveMarketCollection({ name: 'Petits prix', rule: 'PRICE_BELOW' });
+    expect(res.status).toBe(400);
+    expect((res.body as { message: string }).message).toContain('seuil');
+  });
+
+  it('refuse d’ajouter un produit à une collection automatique', async () => {
+    db.marketCollection.findUnique.mockResolvedValue({ id: 'col-1', rule: 'NEW_ARRIVALS' });
+    const res = await saveMarketCollectionItem({ collectionId: 'col-1', productId: 'prod-1' });
+    expect(res.status).toBe(400);
+    expect((res.body as { message: string }).message).toContain('automatique');
+  });
+
+  it('refuse un doublon dans une collection manuelle', async () => {
+    db.marketCollection.findUnique.mockResolvedValue({ id: 'col-1', rule: 'MANUAL' });
+    db.marketProduct.findUnique.mockResolvedValue({ id: 'prod-1' });
+    db.marketCollectionItem.findUnique.mockResolvedValue({ id: 'item-1' });
+    const res = await saveMarketCollectionItem({ collectionId: 'col-1', productId: 'prod-1' });
+    expect(res.status).toBe(409);
+  });
+
+  it('la suppression physique reste réservée aux collections', async () => {
+    db.marketCollection.findUnique.mockResolvedValue({ id: 'col-1', rule: 'MANUAL' });
+    const res = await deleteMarketCollection({ id: 'col-1' });
+    expect(res.status).toBe(200);
+    expect(db.marketCollection.delete).toHaveBeenCalledWith({ where: { id: 'col-1' } });
   });
 });

@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import {
-  Activity, BarChart, Calculator, Inbox, LogOut, Package, Store, Tags, ChevronRight, Loader2,
+  Activity, Calculator, Inbox, LogOut, Package, Tags, Users, ChevronRight, Loader2,
 } from 'lucide-react';
 import { Link, navigate } from '../../router';
 import { fetchSession, fetchOrders, logout, type AdminIdentity } from '../../lib/admin/api';
@@ -14,20 +14,59 @@ import { AdminLoginPage } from './AdminLoginPage';
  */
 
 /**
- * Sections essentielles uniquement (allègement 13/11) : Clients, Experts et
- * Exports & archives ont été retirés — 0 donnée réelle, informations déjà
- * couvertes par Demandes/Analytiques. Code restaurable depuis git, données
- * conservées en base.
+ * Cinq espaces d'administration (architecture cible) :
+ *   1. Vue d'ensemble — tableau de bord + analytiques
+ *   2. Clients — CRM unifié Services + Market
+ *   3. Commandes & opérations — Services, demandes, Market, approvisionnements
+ *   4. Catalogue & partenaires — produits + fournisseurs
+ *   5. Finances & rapports — consolidation des deux univers
+ * Les chemins historiques (/admin/leads, /admin/market/*…) restent valides.
  */
 export const ADMIN_NAV = [
   { path: '/admin', label: "Vue d'ensemble", icon: Activity },
+  { path: '/admin/clients', label: 'Clients', icon: Users },
   { path: '/admin/orders', label: 'Commandes', icon: Package, badge: true },
-  { path: '/admin/leads', label: 'Demandes', icon: Inbox },
-  { path: '/admin/analytics', label: 'Analytiques', icon: BarChart },
-  { path: '/admin/market', label: 'Fika Market', icon: Store },
-  { path: '/admin/market/catalog', label: 'Catalogue produits', icon: Tags },
-  { path: '/admin/market/releves', label: 'Relevés & marges', icon: Calculator },
+  { path: '/admin/catalogue', label: 'Catalogue & partenaires', icon: Tags },
+  { path: '/admin/finances', label: 'Finances', icon: Calculator },
 ] as const;
+
+/** Sous-navigation de chaque espace (rendue sous l'entrée active). */
+export const ADMIN_SUBNAV: Record<string, { path: string; label: string }[]> = {
+  '/admin': [
+    { path: '/admin', label: 'Tableau de bord' },
+    { path: '/admin/analytics', label: 'Analytiques' },
+  ],
+  '/admin/clients': [
+    { path: '/admin/clients', label: 'Annuaire unifié' },
+  ],
+  '/admin/orders': [
+    { path: '/admin/orders/all', label: 'Toutes les commandes' },
+    { path: '/admin/orders', label: 'Commandes Services' },
+    { path: '/admin/leads', label: 'Demandes à qualifier' },
+    { path: '/admin/market/orders', label: 'Commandes Market' },
+    { path: '/admin/market/batches', label: 'Approvisionnements' },
+  ],
+  '/admin/catalogue': [
+    { path: '/admin/catalogue', label: 'Produits & fournisseurs' },
+    { path: '/admin/prestataires', label: 'Prestataires' },
+  ],
+  '/admin/finances': [
+    { path: '/admin/finances', label: 'Vue consolidée' },
+  ],
+};
+
+/** Mapping explicite chemin → espace de navigation (gère les chemins historiques). */
+function spaceForPath(path: string): string {
+  if (path.startsWith('/admin/clients')) return '/admin/clients';
+  if (path.startsWith('/admin/orders')) return '/admin/orders';
+  if (path.startsWith('/admin/leads')) return '/admin/orders';
+  if (path.startsWith('/admin/market/orders') || path.startsWith('/admin/market/batches')) return '/admin/orders';
+  if (path.startsWith('/admin/catalogue') || path.startsWith('/admin/market/catalog') || path.startsWith('/admin/prestataires')) return '/admin/catalogue';
+  if (path.startsWith('/admin/finances') || path.startsWith('/admin/market/releves')) return '/admin/finances';
+  if (path.startsWith('/admin/analytics')) return '/admin';
+  if (path.startsWith('/admin/market')) return '/admin/orders'; // pilotage Market : espace opérations
+  return '/admin';
+}
 
 export function AdminShell({
   path, title, breadcrumb, children,
@@ -77,11 +116,11 @@ export function AdminShell({
 
   if (!admin) return <AdminLoginPage onSuccess={(identity) => { setSessionError(null); setAdmin(identity); }} initialError={sessionError} />;
 
-  // Entrée active = correspondance par préfixe LA PLUS LONGUE (sinon « Fika Market »
-  // et « Catalogue produits » seraient actifs en même temps sur /admin/market/catalog).
-  const activeNav = ADMIN_NAV
-    .filter((item) => (item.path === '/admin' ? path === '/admin' : path.startsWith(item.path)))
-    .sort((a, b) => b.path.length - a.path.length)[0];
+  // Espace actif : mapping explicite chemin → espace (les chemins historiques
+  // /admin/leads, /admin/analytics, /admin/market/* restent routés vers leur espace).
+  const activeSpace = spaceForPath(path);
+  const activeNav = ADMIN_NAV.find((item) => item.path === activeSpace);
+  const subItems = ADMIN_SUBNAV[activeSpace] ?? [];
 
   const handleLogout = async () => {
     try { await logout(); } catch {
@@ -102,22 +141,41 @@ export function AdminShell({
           <p className="text-xs text-brand-text-muted font-medium uppercase tracking-wider mt-1">Admin Ops</p>
         </div>
 
-        <nav className="flex-1 py-6 px-4 space-y-1" aria-label="Navigation back-office">
+        <nav className="flex-1 py-6 px-4 space-y-1 overflow-y-auto" aria-label="Navigation back-office">
           {ADMIN_NAV.map((item) => {
             const active = item === activeNav;
             return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-colors ${
-                  active ? 'bg-brand-bg text-brand-text' : 'text-brand-text-muted hover:bg-brand-bg hover:text-brand-text'
-                }`}
-              >
-                <item.icon className="w-5 h-5" /> {item.label}
-                {'badge' in item && item.badge && todoCount ? (
-                  <span className="ml-auto bg-brand-accent text-white text-[10px] px-2 py-0.5 rounded-full">{todoCount}</span>
-                ) : null}
-              </Link>
+              <div key={item.path}>
+                <Link
+                  to={item.path}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-colors ${
+                    active ? 'bg-brand-bg text-brand-text' : 'text-brand-text-muted hover:bg-brand-bg hover:text-brand-text'
+                  }`}
+                >
+                  <item.icon className="w-5 h-5" /> {item.label}
+                  {'badge' in item && item.badge && todoCount ? (
+                    <span className="ml-auto bg-brand-accent text-white text-[10px] px-2 py-0.5 rounded-full">{todoCount}</span>
+                  ) : null}
+                </Link>
+                {active && subItems.length > 0 && (
+                  <div className="mt-1 mb-2 ml-4 pl-4 border-l border-brand-border space-y-0.5">
+                    {subItems.map((sub) => (
+                      <Link
+                        key={sub.path}
+                        to={sub.path}
+                        aria-current={path === sub.path ? 'page' : undefined}
+                        className={`block px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                          path === sub.path
+                            ? 'text-brand-accent bg-brand-bg'
+                            : 'text-brand-text-muted hover:text-brand-text hover:bg-brand-bg'
+                        }`}
+                      >
+                        {sub.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
             );
           })}
         </nav>
@@ -157,8 +215,8 @@ export function AdminShell({
             </div>
           </div>
 
-          {/* Navigation mobile */}
-          <div className="md:hidden flex gap-2 mb-6 overflow-x-auto pb-2">
+          {/* Navigation mobile : espaces + sous-navigation de l'espace actif */}
+          <div className="md:hidden flex gap-2 mb-2 overflow-x-auto pb-2">
             {ADMIN_NAV.map((item) => (
               <Link
                 key={item.path}
@@ -171,6 +229,22 @@ export function AdminShell({
               </Link>
             ))}
           </div>
+          {subItems.length > 1 && (
+            <div className="md:hidden flex gap-2 mb-6 overflow-x-auto pb-2" aria-label="Sections de l’espace actif">
+              {subItems.map((sub) => (
+                <Link
+                  key={sub.path}
+                  to={sub.path}
+                  aria-current={path === sub.path ? 'page' : undefined}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap border transition-colors ${
+                    path === sub.path ? 'bg-brand-bg text-brand-accent border-brand-accent' : 'bg-brand-surface text-brand-text-muted border-brand-border'
+                  }`}
+                >
+                  {sub.label}
+                </Link>
+              ))}
+            </div>
+          )}
 
           {sessionError && <p role="alert" className="mb-4 text-red-700">{sessionError}</p>}
           <button type="button" onClick={handleLogout} className="md:hidden mb-4 text-sm font-bold underline">Se déconnecter</button>

@@ -33,10 +33,16 @@ const post = async (path, body) => {
 
 const browser = await chromium.launch();
 try {
-  // --- 1. Événements réels : requête avec résultats ×2, sans résultat ×1 ---
+  // --- 1. Événements réels : requête avec résultats ×2, sans résultat ×3 ---
+  // La requête « sans résultat » est seedée 3 fois : le bloc Analytiques
+  // n'affiche que le top 10 des requêtes, et les vraies recherches des
+  // visiteurs s'accumulent en base — à 1 occurrence, la requête de test
+  // finirait mécaniquement hors du top (échec non lié au code).
   ok((await post('/api/events/service-search', { query: 'plomberie', results: 3 })).status === 200, 'événement plomberie (3 résultats) accepté');
   ok((await post('/api/events/service-search', { query: 'plomberie', results: 3 })).status === 200, 'événement plomberie répété (agrégation attendue : 2)');
   ok((await post('/api/events/service-search', { query: 'e2exyzqq', results: 0 })).status === 200, 'événement sans résultat accepté');
+  ok((await post('/api/events/service-search', { query: 'e2exyzqq', results: 0 })).status === 200, 'événement sans résultat répété (top 10 garanti)');
+  ok((await post('/api/events/service-search', { query: 'e2exyzqq', results: 0 })).status === 200, 'événement sans résultat répété (top 10 garanti)');
   const short = await post('/api/events/service-search', { query: 'x', results: 0 });
   const shortPersisted = await prisma.event.count({ where: { type: 'SERVICE_SEARCH', createdAt: { gte: startedAt }, meta: { path: ['query'], equals: 'x' } } });
   ok(short.body.ok === false && shortPersisted === 0, 'requête trop courte rejetée, rien persisté', `ok=${short.body.ok} persistés=${shortPersisted}`);

@@ -14,6 +14,7 @@ import { DEFAULT_QUOTE_MARGIN_PERCENT, calculateQuotePricing, formatPriceFCFA, q
 import { compileExpertAssignedMessage, compileQuoteMessage } from '../../lib/whatsapp/engine';
 import { VERIFICATION_LEVEL_LABELS } from '../../lib/trust';
 import { computeTrend, formatMonthLabel } from '../../lib/admin/kpi';
+import { fetchAdminAlerts } from '../../lib/admin/api';
 import {
   ALLOWED_TRANSITIONS, COST_TYPE_LABELS, LEAD_STATUS_LABELS,
   ORDER_STATUS_META, QUOTE_STATUS_LABELS, orderStatusLabel,
@@ -99,27 +100,46 @@ const dateTimeFr = (iso: string) =>
 
 /* ------------------------------ Vue d'ensemble ----------------------------- */
 
-function KpiCard({ label, value, Icon, hint, accent }: {
-  label: string; value: string; Icon: typeof DollarSign; hint?: string; accent?: boolean;
+function KpiCard({ label, value, Icon, hint, accent, to }: {
+  label: string; value: string; Icon: typeof DollarSign; hint?: string; accent?: boolean; to?: string;
 }) {
-  return (
-    <div className="bg-brand-surface p-6 rounded-2xl border border-brand-border shadow-sm">
+  const content = (
+    <>
       <div className="flex items-center justify-between mb-4">
         <p className="text-sm text-brand-text-muted font-semibold uppercase tracking-wider">{label}</p>
         <Icon className="w-5 h-5 text-brand-border-dark" />
       </div>
       <p className={`text-3xl font-extrabold ${accent ? 'text-brand-accent' : 'text-brand-text'}`}>{value}</p>
       {hint && <p className="text-sm font-medium text-brand-text-muted mt-2">{hint}</p>}
+    </>
+  );
+  if (to) {
+    return (
+      <Link to={to} className="block bg-brand-surface p-6 rounded-2xl border border-brand-border shadow-sm hover:border-brand-accent hover:shadow-premium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent">
+        {content}
+        <p className="text-xs font-bold text-brand-accent mt-2">Voir la liste →</p>
+      </Link>
+    );
+  }
+  return (
+    <div className="bg-brand-surface p-6 rounded-2xl border border-brand-border shadow-sm">
+      {content}
     </div>
   );
 }
 
 export function AdminOverview() {
-  const { data, loading, loadError, reload } = useAsync(fetchOverview, []);
+  const { data, loading, loadError, reload } = useAsync(async () => {
+    const [overview, alerts] = await Promise.all([
+      fetchOverview(),
+      fetchAdminAlerts().catch(() => []),
+    ]);
+    return { overview, alerts };
+  }, []);
 
   if (loading) return <Loading />;
   if (loadError) return <LoadError message={loadError} retry={reload} />;
-  if (!data) {
+  if (!data || !data.overview) {
     return (
       <EmptyState
         icon={Activity}
@@ -129,32 +149,64 @@ export function AdminOverview() {
     );
   }
 
-  const trend = computeTrend(data.revenue, data.previousRevenue);
+  const trend = computeTrend(data.overview.revenue, data.overview.previousRevenue);
 
   return (
     <>
       <div className="flex justify-end mb-6">
         <span className="text-sm text-brand-text-muted font-medium bg-brand-surface px-4 py-2 rounded-lg border border-brand-border shadow-sm">
-          {data.monthLabel || formatMonthLabel(new Date())}
+          {data.overview.monthLabel || formatMonthLabel(new Date())}
         </span>
       </div>
 
+      {/* Alertes opérationnelles : compteurs réels, chaque ligne agit */}
+      {data.alerts.length > 0 && (
+        <section className="mb-8" aria-labelledby="alerts-title">
+          <h2 id="alerts-title" className="font-heading font-bold text-lg text-brand-text mb-3">Alertes opérationnelles</h2>
+          <ul className="grid gap-2">
+            {data.alerts.map((a) => (
+              <li key={a.key}>
+                <Link
+                  to={a.link}
+                  className={`flex items-center justify-between gap-3 rounded-xl border p-4 transition-colors ${
+                    a.severity === 'action'
+                      ? 'bg-amber-50 border-amber-200 hover:border-amber-400'
+                      : 'bg-brand-surface border-brand-border hover:border-brand-accent'
+                  }`}
+                >
+                  <span className={`text-sm font-semibold ${a.severity === 'action' ? 'text-amber-900' : 'text-brand-text'}`}>
+                    {a.label}
+                  </span>
+                  <span className={`shrink-0 font-heading font-bold text-lg tabular-nums ${a.severity === 'action' ? 'text-amber-900' : 'text-brand-text'}`}>
+                    {a.count}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-brand-text-muted mt-2">Chaque alerte mène directement à la liste concernée. Aucune alerte n’est affichée quand le compteur est à zéro.</p>
+        </section>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <KpiCard
-          label="CA du mois" value={formatPriceFCFA(data.revenue)} Icon={DollarSign}
+          label="CA du mois" value={formatPriceFCFA(data.overview.revenue)} Icon={DollarSign}
           hint={trend.percent === null ? 'Première période mesurée' : `${trend.percent > 0 ? '+' : ''}${trend.percent.toFixed(1)} % vs mois dernier`}
+          to="/admin/analytics"
         />
         <KpiCard
-          label="Marge brute" value={formatPriceFCFA(data.marginAmount)} Icon={Activity} accent
-          hint={`${data.marginPercent.toFixed(1)} % du CA`}
+          label="Marge brute" value={formatPriceFCFA(data.overview.marginAmount)} Icon={Activity} accent
+          hint={`${data.overview.marginPercent.toFixed(1)} % du CA`}
         />
         <KpiCard
-          label="À traiter" value={String(data.todoCount)} Icon={AlertCircle}
+          label="À traiter" value={String(data.overview.todoCount)} Icon={AlertCircle}
           hint="Demandes à qualifier ou confirmer"
+          to="/admin/leads"
         />
         <KpiCard
-          label="Panier moyen" value={formatPriceFCFA(data.averageBasket)} Icon={FileText}
-          hint={`${data.ordersCount} commande(s) facturée(s)`}
+          label="Panier moyen" value={formatPriceFCFA(data.overview.averageBasket)} Icon={FileText}
+          hint={`${data.overview.ordersCount} commande(s) facturée(s)`}
+          to="/admin/orders/all"
         />
       </div>
 
@@ -166,8 +218,8 @@ export function AdminOverview() {
               Voir tout
             </Link>
           </div>
-          {data.recentOrders.length > 0 ? (
-            <OrdersTable orders={data.recentOrders} />
+          {data.overview.recentOrders.length > 0 ? (
+            <OrdersTable orders={data.overview.recentOrders} />
           ) : (
             <p className="p-6 text-sm text-brand-text-muted">Aucune commande sur la période.</p>
           )}
@@ -179,10 +231,10 @@ export function AdminOverview() {
               <h2 className="font-heading font-bold text-brand-text text-lg">Pipeline</h2>
             </div>
             <div className="p-2">
-              {Object.entries(data.pipeline).length === 0 && (
+              {Object.entries(data.overview.pipeline).length === 0 && (
                 <p className="px-4 py-3 text-sm text-brand-text-muted">Pipeline vide.</p>
               )}
-              {Object.entries(data.pipeline)
+              {Object.entries(data.overview.pipeline)
                 .sort(([a], [b]) => (ORDER_STATUS_META[a as OrderStatus]?.step ?? 99) - (ORDER_STATUS_META[b as OrderStatus]?.step ?? 99))
                 .map(([status, count]) => (
                   <div key={status} className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-brand-bg transition-colors">
@@ -198,10 +250,10 @@ export function AdminOverview() {
               <h2 className="font-heading font-bold text-brand-text text-lg">Top services</h2>
             </div>
             <div className="p-2">
-              {data.topServices.length === 0 && (
+              {data.overview.topServices.length === 0 && (
                 <p className="px-4 py-3 text-sm text-brand-text-muted">Aucune vente enregistrée.</p>
               )}
-              {data.topServices.map((s) => (
+              {data.overview.topServices.map((s) => (
                 <div key={s.name} className="px-4 py-3 rounded-xl hover:bg-brand-bg transition-colors">
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-sm font-bold text-brand-text truncate">{s.name}</span>
