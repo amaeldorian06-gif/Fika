@@ -3,13 +3,16 @@ import type { MarketAnalyticType } from './market';
 /**
  * Télémétrie funnel Fika Market — fire-and-forget, silencieuse en cas d'échec
  * (la navigation ne doit jamais dépendre de la télémétrie). Seuls les
- * événements pré-commande sont déclarés par le client ; les indicateurs
- * commerciaux (devis, paiements, livraisons) sont dérivés des données réelles
- * côté serveur.
+ * événements pré-commande sont déclarés par le client (vues, panier, recherche,
+ * filtres) ; les indicateurs commerciaux (ORDER_SUBMITTED, ORDER_CONFIRMED,
+ * devis, paiements, livraisons) sont dérivés des données réelles côté serveur.
  */
 export function trackMarketEvent(
   type: MarketAnalyticType,
-  data: { productId?: string; slug?: string; category?: string } = {},
+  data: {
+    productId?: string; slug?: string; category?: string;
+    query?: string; filters?: Record<string, string>; resultCount?: number;
+  } = {},
 ): void {
   try {
     void fetch('/api/market/events', {

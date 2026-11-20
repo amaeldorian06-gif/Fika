@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import type { Transporter } from 'nodemailer';
 
 /**
  * Alertes e-mail Gmail SMTP : nouvelle demande de service, nouvelle commande
@@ -113,13 +114,29 @@ export function renderMarketOrderAlert(a: MarketOrderAlert, appUrl: string | nul
 
 /* ------------------------------ Envoi commun ------------------------------- */
 
-async function sendGmail(fromName: string, subject: string, text: string): Promise<boolean> {
-  if (!isNotifyConfigured()) return false;
-  try {
-    const transport = nodemailer.createTransport({
+/**
+ * Transporteur SMTP Gmail réutilisé pour tous les envois — recommandation
+ * nodemailer : créer le transporteur UNE fois (chaque instance neuve ouvre
+ * des connexions et s'authentifie à nouveau ; gaspillage de ressources).
+ * Créé paresseusement au premier envoi réel ; les variables d'environnement
+ * ne changent pas sans redémarrage du serveur.
+ */
+let sharedTransport: Transporter | null = null;
+function getTransporter(env: NodeJS.ProcessEnv = process.env): Transporter | null {
+  if (!(env.GMAIL_USER && env.GMAIL_APP_PASSWORD)) return null;
+  if (!sharedTransport) {
+    sharedTransport = nodemailer.createTransport({
       service: 'gmail',
-      auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD },
+      auth: { user: env.GMAIL_USER, pass: env.GMAIL_APP_PASSWORD },
     });
+  }
+  return sharedTransport;
+}
+
+async function sendGmail(fromName: string, subject: string, text: string): Promise<boolean> {
+  const transport = getTransporter();
+  if (!transport) return false;
+  try {
     await transport.sendMail({
       from: `"${fromName}" <${process.env.GMAIL_USER}>`,
       to: notifyRecipient(),

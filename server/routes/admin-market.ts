@@ -451,6 +451,13 @@ export async function updateMarketOrderStatus(body: unknown, adminId: string): P
       },
     });
     await tx.marketOrderEvent.create({ data: { orderId, from: order.status, to, note: note ?? null, actorId: adminId } });
+    // Conversion réelle mesurée côté serveur (jamais déclarée par le client) :
+    // ORDER_CONFIRMED, avec le seul numéro de commande — aucune donnée personnelle.
+    if (to === 'CONFIRMED') {
+      await tx.marketAnalyticEvent.create({
+        data: { type: 'ORDER_CONFIRMED', meta: { orderNumber: order.orderNumber } },
+      });
+    }
     return ok();
   });
 }

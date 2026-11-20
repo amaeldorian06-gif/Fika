@@ -30,6 +30,15 @@ const db = vi.hoisted(() => ({
 
 vi.mock('../../src/lib/prisma', () => ({ prisma: db }));
 
+// Les alertes e-mail ne partent JAMAIS depuis les tests unitaires : Vitest
+// charge le .env local (identifiants Gmail réels), l'envoi SMTP serait donc
+// réel — lent (timeout) et polluant la boîte du destinataire. Seules les
+// fonctions d'envoi sont mockées ; rendus et helpers restent réels.
+vi.mock('../lib/notify', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/notify')>()),
+  sendMarketOrderAlert: vi.fn(async () => true),
+  sendLeadAlert: vi.fn(async () => true),
+}));
 import { createMarketOrder, getMarketCatalog, recordMarketAnalyticEvent } from './market';
 import {
   confirmMarketPrice, createMarketQuote, recordMarketRefund,
@@ -176,7 +185,7 @@ describe('Catalogue public : aucune fuite de coûts', () => {
 });
 
 const pricedOrder = {
-  id: 'order-1', status: 'AWAITING_CLIENT', confirmedAt: null, deliveredAt: null,
+  id: 'order-1', status: 'AWAITING_CLIENT', confirmedAt: null, deliveredAt: null, orderNumber: 'MKT-2026-0042',
   items: [{ unitPrice: 45000, quantity: 2 }],
   deliveryFee: 1000,
 };
@@ -210,6 +219,10 @@ describe('updateMarketOrderStatus : gardes métier', () => {
     expect(db.marketOrderEvent.create).toHaveBeenCalledWith(expect.objectContaining({
       data: { orderId: 'order-1', from: 'AWAITING_CLIENT', to: 'CONFIRMED', note: 'Client d’accord', actorId: 'admin-1' },
     }));
+    // Conversion mesurée côté serveur uniquement : ORDER_CONFIRMED, numéro de commande, rien de personnel.
+    expect(db.marketAnalyticEvent.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: { type: 'ORDER_CONFIRMED', meta: { orderNumber: 'MKT-2026-0042' } },
+    }));
   });
 
   it('refuse DELIVERED si le paiement confirmé ne couvre pas le total', async () => {
@@ -228,6 +241,8 @@ describe('updateMarketOrderStatus : gardes métier', () => {
     expect(db.marketOrder.update).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ status: 'DELIVERED', deliveredAt: expect.any(Date) }),
     }));
+    // Seule la transition CONFIRMED crée l'événement ORDER_CONFIRMED.
+    expect(db.marketAnalyticEvent.create).not.toHaveBeenCalled();
   });
 });
 

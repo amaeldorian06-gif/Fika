@@ -258,9 +258,12 @@ const analyticEventSchema = z.object({
   productId: z.string().max(60).optional(),
   slug: z.string().trim().max(120).optional(),
   category: z.string().trim().max(120).optional(),
+  query: z.string().trim().max(100).optional(), // recherche : texte tapé, jamais de donnée personnelle
+  filters: z.record(z.string(), z.string().max(60)).optional(), // filtres actifs ({marque: "Lenovo", …})
+  resultCount: z.number().int().min(0).max(10_000).optional(),
 });
 
-/** Funnel pré-commande : vues boutique/produit, ajout panier, début commande. Sans données personnelles. */
+/** Funnel pré-commande : vues boutique/produit, ajout panier, début commande, recherche, filtres. Sans données personnelles. */
 export async function recordMarketAnalyticEvent(body: unknown, ip: string): Promise<{ status: number; body: Record<string, unknown> }> {
   if (!checkMarketRate(`${ip || 'unknown'}:events`, 60, 60_000)) return { status: 429, body: { ok: false, code: 'RATE_LIMITED', message: 'Trop de requêtes.' } };
   const parsed = analyticEventSchema.safeParse(body);
@@ -278,7 +281,10 @@ export async function recordMarketAnalyticEvent(body: unknown, ip: string): Prom
     data: {
       type: d.type,
       productId,
-      meta: { slug: d.slug ?? null, category: d.category ?? null },
+      meta: {
+        slug: d.slug ?? null, category: d.category ?? null,
+        query: d.query ?? null, filters: d.filters ?? null, resultCount: d.resultCount ?? null,
+      },
     },
   });
   return { status: 200, body: { ok: true } };

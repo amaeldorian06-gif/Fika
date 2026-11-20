@@ -15,6 +15,14 @@ const db = vi.hoisted(() => ({
 
 vi.mock('../../src/lib/prisma', () => ({ prisma: db }));
 
+// Idem market.test.ts : aucun envoi e-mail réel depuis les tests (Vitest
+// charge le .env local — identifiants Gmail réels — l'alerte partirait vite).
+vi.mock('../lib/notify', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/notify')>()),
+  sendMarketOrderAlert: vi.fn(async () => true),
+  sendLeadAlert: vi.fn(async () => true),
+}));
+
 import { handleCreateLead } from './leads';
 import { leadPayloadSchema } from '../../src/lib/lead';
 import { handleConvertLead } from './admin-leads';
