@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { serialTransaction, nextDocumentNumber, hasPrismaCode } from '../lib/transaction';
 import { prisma } from '../../src/lib/prisma';
 import type { MutationResult } from './admin-orders';
+import { sendServiceOrderAlert, type ServiceOrderAlert } from '../lib/notify';
 
 /**
  * Leads du back-office (P06) : file « à qualifier » → conversion en commande.
@@ -42,11 +43,12 @@ export async function handleConvertLead(
 
   type Result = MutationResult<{ orderId: string; orderNumber: string }>;
   const success = (order: { id: string; orderNumber: string }): Result => ({ status: 200, body: { ok: true, orderId: order.id, orderNumber: order.orderNumber } });
+  let alertAfterCommit: ServiceOrderAlert | null = null;
   try {
-    return await serialTransaction<Result>(async tx => {
+    const result = await serialTransaction<Result>(async tx => {
       const existing = await tx.order.findUnique({ where: { leadId: parsed.data.leadId } });
       if (existing) return success(existing); // Replayed request: no second order.
-      const lead = await tx.lead.findUnique({ where: { id: parsed.data.leadId } });
+      const lead = await tx.lead.findUnique({ where: { id: parsed.data.leadId }, include: { customer: true, service: true, city: true } });
       if (!lead) return { status: 404, body: { ok: false, code: 'NOT_FOUND', message: 'Demande introuvable.' } };
       if (!['NEW', 'QUALIFYING'].includes(lead.status)) {
         return { status: 409, body: { ok: false, code: 'INVALID_STATUS', message: 'Seule une demande nouvelle ou en qualification peut être convertie.' } };
@@ -71,8 +73,22 @@ export async function handleConvertLead(
         events: { create: [{ to: 'QUALIFYING', note: `Créée depuis la demande LEAD-${lead.id.slice(-6).toUpperCase()}.`, actorId: adminId }] },
       } });
       await tx.lead.update({ where: { id: lead.id }, data: { status: 'CONVERTED', customerId, archiveBatchId: null, history: { create: { actorId: adminId, changes: { from: lead.status, to: 'CONVERTED', orderNumber } } } } });
+      alertAfterCommit = {
+        orderNumber,
+        leadCode: `LEAD-${lead.id.slice(-6).toUpperCase()}`,
+        name: lead.customer?.name ?? parsed.data.name ?? null,
+        phone: lead.customer?.phone ?? parsed.data.phone ?? null,
+        serviceName: lead.service?.name ?? customItemName(lead.description),
+        cityName: lead.city?.name ?? 'Ville non renseignée',
+        zoneName: lead.zoneName ?? 'Quartier non renseigné',
+        description: lead.description ?? 'Besoin non renseigné',
+      };
       return success(order);
     });
+    // L'e-mail part uniquement après la transaction validée et seulement pour
+    // une nouvelle commande. Une conversion rejouée ne déclenche pas de doublon.
+    if (alertAfterCommit) await sendServiceOrderAlert(alertAfterCommit);
+    return result;
   } catch (error) {
     if (!hasPrismaCode(error, 'P2002')) throw error;
     const existing = await prisma.order.findUnique({ where: { leadId: parsed.data.leadId } });
