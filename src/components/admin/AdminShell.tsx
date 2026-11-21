@@ -252,9 +252,16 @@ export function AdminShell({
                 <p className="text-sm font-bold text-brand-text">Alertes e-mail</p>
                 <p className="text-xs text-brand-text-muted">
                   {notificationStatus
-                    ? (notificationStatus.configured ? 'Gmail configuré' : 'Configuration Gmail incomplète') + ' · ' + notificationStatus.recipient
+                    ? (notificationStatus.configured
+                      ? 'Variables présentes · authentification SMTP non vérifiée'
+                      : 'Variables Gmail incomplètes')
                     : 'État de la configuration indisponible'}
                 </p>
+                {notificationStatus && (
+                  <p className="mt-1 text-xs text-brand-text-muted break-words">
+                    Expéditeur : {notificationStatus.sender ?? 'non défini'} · Destinataire : {notificationStatus.recipient}
+                  </p>
+                )}
                 {notificationFeedback && (
                   <p role="status" className={`mt-1 text-xs font-medium ${notificationFeedback.kind === 'success' ? 'text-brand-wa' : 'text-red-700'}`}>
                     {notificationFeedback.text}
