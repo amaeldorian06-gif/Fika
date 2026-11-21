@@ -105,7 +105,7 @@ export function renderLeadAlert(a: LeadAlert, appUrl: string | null): { subject:
     'Besoin :',
     a.need,
     '',
-    appUrl ? 'Traiter : ' + appUrl : "Traiter dans l'espace admin → Demandes.",
+    appUrl ? 'Traiter : ' + appUrl.replace(/\/$/, '') + '/admin/leads' : "Traiter dans l'espace admin → Demandes.",
   ];
   return { subject, text: lines.join('\n') };
 }
@@ -124,7 +124,7 @@ export function renderServiceOrderAlert(a: ServiceOrderAlert, appUrl: string | n
     'Besoin initial :',
     a.description,
     '',
-    appUrl ? 'Traiter : ' + appUrl : "Traiter dans l'espace admin → Commandes Services.",
+    appUrl ? 'Traiter : ' + appUrl.replace(/\/$/, '') + '/admin/orders' : "Traiter dans l'espace admin → Commandes Services.",
   ];
   return { subject, text: lines.join('\n') };
 }
@@ -145,7 +145,7 @@ export function renderMarketOrderAlert(a: MarketOrderAlert, appUrl: string | nul
     lines.push('', 'Total indicatif : ' + fcfa(a.totalIndicatif) + ' — prix final confirmé avec le client avant tout paiement.');
   }
   if (a.notes) lines.push('', 'Notes du client : ' + a.notes);
-  lines.push('', appUrl ? 'Traiter : ' + appUrl : "Traiter dans l'espace admin → Fika Market → Commandes.");
+  lines.push('', appUrl ? 'Traiter : ' + appUrl.replace(/\/$/, '') + '/admin/market/orders' : "Traiter dans l'espace admin → Fika Market → Commandes.");
   return { subject, text: lines.join('\n') };
 }
 
@@ -290,13 +290,13 @@ export async function sendNotificationTest(): Promise<{
 }
 
 export async function sendLeadAlert(alert: LeadAlert): Promise<boolean> {
-  return sendNotification('lead', 'Fika — demandes', renderLeadAlert(alert, adminUrl('/admin/leads')));
+  return sendNotification('lead', 'Fika — demandes', renderLeadAlert(alert, adminUrl('')));
 }
 
 export async function sendServiceOrderAlert(alert: ServiceOrderAlert): Promise<boolean> {
-  return sendNotification('service-order', 'Fika Services', renderServiceOrderAlert(alert, adminUrl('/admin/orders')));
+  return sendNotification('service-order', 'Fika Services', renderServiceOrderAlert(alert, adminUrl('')));
 }
 
 export async function sendMarketOrderAlert(alert: MarketOrderAlert): Promise<boolean> {
-  return sendNotification('market-order', 'Fika Market', renderMarketOrderAlert(alert, adminUrl('/admin/market/orders')));
+  return sendNotification('market-order', 'Fika Market', renderMarketOrderAlert(alert, adminUrl('')));
 }
