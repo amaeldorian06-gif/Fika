@@ -20,6 +20,7 @@ import { getAdminAlerts } from './routes/admin-alerts';
 import express, { type ErrorRequestHandler, type Response } from 'express';
 import { ensureFounderRecord, getCurrentAdmin, handleLogin, handleLogout, SESSION_COOKIE } from './routes/auth';
 import { handleCreateLead } from './routes/leads';
+import { getNotificationStatus, sendNotificationTest } from './lib/notify';
 import { handleServiceRequestFile, handleProductImageUpload, handleDeliveryProofUpload } from './routes/files';
 import { handleWaClick } from './routes/events-waclick';
 import { handleLeadView } from './routes/events-leadview';
@@ -112,6 +113,15 @@ export function createApp() {
   // Téléversements admin (multipart — session vérifiée par le middleware ci-dessus).
   app.post('/api/admin/files/product-image', async (req, res) => send(res, await handleProductImageUpload(req)));
   app.post('/api/admin/files/delivery-proof', async (req, res) => send(res, await handleDeliveryProofUpload(req)));
+
+  // État des alertes opérationnelles et test réel SMTP, uniquement admin.
+  app.get('/api/admin/notifications/status', (_req, res) => {
+    res.json({ ok: true, ...getNotificationStatus() });
+  });
+  app.post('/api/admin/notifications/test', async (_req, res) => {
+    const result = await sendNotificationTest();
+    res.status(result.ok ? 200 : 503).json(result);
+  });
 
   app.get('/api/admin/overview', async (_req, res) => res.json(await getOverview()));
   app.get('/api/admin/finances/summary', async (_req, res) => res.json(await getFinancesSummary()));
