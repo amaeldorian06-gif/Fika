@@ -43,7 +43,7 @@ describe('renderServiceOrderAlert (e-mail conversion en commande Services)', () 
   });
 });
 
-describe('renderMarketOrderAlert (e-mail commande Fika Market)', () =>
+describe('renderMarketOrderAlert (e-mail commande Fika Market)', () => {
   const alert = {
     orderNumber: 'MKT-2026-0011', name: 'Awa', phone: '+237690000001', zoneName: 'Manwi',
     address: 'près de la station Total', notes: 'Appeler avant de venir',
