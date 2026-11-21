@@ -14,6 +14,14 @@ const db = vi.hoisted(() => ({
   documentCounter: { findUnique: vi.fn(), upsert: vi.fn() },
 }));
 vi.mock('../../src/lib/prisma', () => ({ prisma: db }));
+
+// Jamais d'envoi SMTP réel depuis la suite de tests.
+vi.mock('../lib/notify', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/notify')>()),
+  sendLeadAlert: vi.fn(async () => true),
+  sendServiceOrderAlert: vi.fn(async () => true),
+  sendMarketOrderAlert: vi.fn(async () => true),
+}));
 import { handleRecordPayment, handleReviewPayment } from './admin-payments';
 import { handleConvertLead, handleUpdateLeadStatus } from './admin-leads';
 import { handleBuildQuote, handleCreateQuote, handleUpdateStatus } from './admin-orders';
