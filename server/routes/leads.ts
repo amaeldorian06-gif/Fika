@@ -163,6 +163,7 @@ export async function handleCreateLead(body: unknown, ip: string): Promise<Creat
     need: data.need, serviceName: data.serviceName ?? null, cityName: data.cityName, zoneName: data.zoneName,
     deadline: data.deadline ?? null, budgetLabel: budgetLabel(data.budgetMin, data.budgetMax),
     campaign: data.context?.campaign ?? null, referrer: meta.referrer, device: meta.device,
+    intent: meta.intent, productName: meta.productName, productLink: meta.productLink, quantity: meta.quantity,
   });
 
   return { status: 200, body: { ok: true, leadId: lead.id, leadCode } };
