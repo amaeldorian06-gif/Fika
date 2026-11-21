@@ -1,9 +1,9 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import {
-  Activity, Calculator, Inbox, LogOut, Package, Tags, Users, ChevronRight, Loader2,
+  Activity, Calculator, Inbox, LogOut, Package, Tags, Users, ChevronRight, Loader2, MailCheck,
 } from 'lucide-react';
 import { Link, navigate } from '../../router';
-import { fetchSession, fetchOrders, logout, type AdminIdentity } from '../../lib/admin/api';
+import { fetchSession, fetchOrders, logout, fetchNotificationStatus, sendNotificationTest, type AdminIdentity, type NotificationStatus } from '../../lib/admin/api';
 import { TODO_STATUSES } from '../../lib/admin/status';
 import { AdminLoginPage } from './AdminLoginPage';
 
@@ -75,6 +75,9 @@ export function AdminShell({
   const [checking, setChecking] = useState(true);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [todoCount, setTodoCount] = useState<number | null>(null);
+  const [notificationStatus, setNotificationStatus] = useState<NotificationStatus | null>(null);
+  const [notificationBusy, setNotificationBusy] = useState(false);
+  const [notificationFeedback, setNotificationFeedback] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -105,6 +108,33 @@ export function AdminShell({
     }).catch(() => { if (alive) setTodoCount(null); });
     return () => { alive = false; };
   }, [admin]);
+
+  useEffect(() => {
+    if (!admin) return;
+    let alive = true;
+    fetchNotificationStatus().then((status) => {
+      if (alive) setNotificationStatus(status);
+    }).catch(() => {
+      if (alive) setNotificationStatus(null);
+    });
+    return () => { alive = false; };
+  }, [admin]);
+
+  const handleNotificationTest = async () => {
+    setNotificationBusy(true);
+    setNotificationFeedback(null);
+    try {
+      const result = await sendNotificationTest();
+      setNotificationFeedback({ kind: 'success', text: result.message });
+    } catch (error) {
+      setNotificationFeedback({
+        kind: 'error',
+        text: error instanceof Error ? error.message : "Le test d'envoi a échoué. Consultez les logs Vercel.",
+      });
+    } finally {
+      setNotificationBusy(false);
+    }
+  };
 
   if (checking) {
     return (
@@ -214,6 +244,34 @@ export function AdminShell({
               <h1 className="text-2xl font-heading font-bold text-brand-text">{title}</h1>
             </div>
           </div>
+
+          <section className="mb-6 rounded-2xl border border-brand-border bg-brand-surface px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3" aria-label="État des notifications e-mail">
+            <div className="flex items-start gap-3 min-w-0">
+              <MailCheck className="w-5 h-5 mt-0.5 text-brand-accent shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-brand-text">Alertes e-mail</p>
+                <p className="text-xs text-brand-text-muted">
+                  {notificationStatus
+                    ? (notificationStatus.configured ? 'Gmail configuré' : 'Configuration Gmail incomplète') + ' · ' + notificationStatus.recipient
+                    : 'État de la configuration indisponible'}
+                </p>
+                {notificationFeedback && (
+                  <p role="status" className={`mt-1 text-xs font-medium ${notificationFeedback.kind === 'success' ? 'text-brand-wa' : 'text-red-700'}`}>
+                    {notificationFeedback.text}
+                  </p>
+                )}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => void handleNotificationTest()}
+              disabled={notificationBusy || !notificationStatus?.configured}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-brand-border px-4 py-2 text-xs font-bold text-brand-text hover:border-brand-accent hover:text-brand-accent disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {notificationBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <MailCheck className="w-4 h-4" />}
+              {notificationBusy ? 'Envoi du test…' : "Tester l'envoi"}
+            </button>
+          </section>
 
           {/* Navigation mobile : espaces + sous-navigation de l'espace actif */}
           <div className="md:hidden flex gap-2 mb-2 overflow-x-auto pb-2">
