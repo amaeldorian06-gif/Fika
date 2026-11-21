@@ -34,7 +34,7 @@ describe('renderServiceOrderAlert (e-mail conversion en commande Services)', () 
   };
 
   it('identifie la commande issue de la demande et donne le lien de traitement', () => {
-    const { subject, text } = renderServiceOrderAlert(alert, 'https://fika.example/admin/orders');
+    const { subject, text } = renderServiceOrderAlert(alert, 'https://fika.example');
     expect(subject).toContain('CMD-2026-1042');
     expect(text).toContain('LEAD-ABCDEF');
     expect(text).toContain('Intervention plomberie');
@@ -78,7 +78,7 @@ describe('renderMarketOrderAlert (e-mail commande Fika Market)', () => {
   it('sans prix connu : pas de ligne total, commande toujours alertée', () => {
     const { text } = renderMarketOrderAlert({ ...alert, totalIndicatif: null }, null);
     expect(text).not.toMatch(/Total indicatif/);
-    expect(text).toContain('Nouvelle commande MKT-2026-0011');
+    expect(text).toContain('Nouvelle commande Fika Market MKT-2026-0011');
   });
 
   it('prix unitaire affiché quand connu, absent sinon', () => {
