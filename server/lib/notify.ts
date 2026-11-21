@@ -44,6 +44,10 @@ export interface LeadAlert {
   campaign: string | null;
   referrer: string | null;
   device: string | null;
+  intent?: string | null;
+  productName?: string | null;
+  productLink?: string | null;
+  quantity?: number | null;
 }
 
 export interface ServiceOrderAlert {
@@ -93,6 +97,7 @@ export function renderLeadAlert(a: LeadAlert, appUrl: string | null): { subject:
     'WhatsApp : ' + (a.phone ?? '—') + (whatsAppLink(a.phone) ? '  → ' + whatsAppLink(a.phone) : ''),
     'Lieu     : ' + a.cityName + ' / ' + a.zoneName,
     'Service  : ' + (a.serviceName ?? 'non précisé'),
+    ...(a.intent === 'PRODUCT' ? ['Produit demandé : ' + (a.productName ?? 'non précisé'), 'Quantité : ' + (a.quantity ?? '—'), ...(a.productLink ? ['Lien produit : ' + a.productLink] : [])] : []),
     'Délai    : ' + (a.deadline ?? '—'),
     'Budget   : ' + (a.budgetLabel ?? '—'),
     'Source   : ' + (a.campaign ?? a.referrer ?? 'direct') + (a.device ? ' (' + a.device + ')' : ''),
