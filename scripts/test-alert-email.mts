@@ -14,7 +14,7 @@ import 'dotenv/config';
 async function main() {
   const user = process.env.GMAIL_USER;
   const pass = process.env.GMAIL_APP_PASSWORD;
-  const to = process.env.NOTIFY_EMAIL ?? 'hello1247778@gmail.com';
+  const to = process.env.NOTIFY_EMAIL ?? 'amaeldorian06@gmail.com';
   console.log(`Expéditeur  : ${user ?? '(absent)'}`);
   console.log(`Destinataire : ${to}`);
   console.log(`Mot de passe d'application : ${pass ? `défini (${pass.length} car.)` : 'ABSENT'}`);

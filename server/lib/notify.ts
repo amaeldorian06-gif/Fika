@@ -2,28 +2,31 @@ import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 
 /**
- * Alertes e-mail Gmail SMTP : nouvelle demande de service, nouvelle commande
- * Fika Market.
+ * Notifications opérationnelles Fika.
  *
- * Variables (Vercel) :
- *   GMAIL_USER         adresse Gmail expéditrice (ex. amaeldorian06@gmail.com)
- *   GMAIL_APP_PASSWORD mot de passe d'application Google (16 caractères)
- *   NOTIFY_EMAIL       destinataire (optionnel, défaut ci-dessous)
+ * Tous les événements métier créés côté serveur passent par ce module :
+ * - nouvelle demande Fika Services ;
+ * - nouvelle commande Fika Services (conversion d'une demande) ;
+ * - nouvelle commande Fika Market.
  *
- * Ne pas confondre les trois adresses : le compte expéditeur (GMAIL_USER),
- * le destinataire des alertes (NOTIFY_EMAIL, défaut NOTIFY_RECIPIENT_DEFAULT)
- * et l'identifiant de connexion admin (aucun rapport avec le courriel).
+ * Variables Vercel : GMAIL_USER, GMAIL_APP_PASSWORD, NOTIFY_EMAIL, APP_URL.
+ * Le mot de passe d'application Gmail peut être copié avec des espaces :
+ * ils sont supprimés avant l'authentification.
  *
- * Best-effort : si les variables manquent ou si l'envoi échoue, la demande ou
- * la commande reste enregistrée en base — l'alerte ne bloque jamais le client.
+ * Un échec d'e-mail ne doit jamais annuler une commande déjà enregistrée.
+ * Chaque échec est cependant journalisé sans secret ni donnée client.
  */
 
-/** Destinataire des alertes opérationnelles (demandes + commandes). */
-const NOTIFY_RECIPIENT_DEFAULT = 'hello1247778@gmail.com';
+const NOTIFY_RECIPIENT_DEFAULT = 'amaeldorian06@gmail.com';
 
-/** Résolution du destinataire (séparée de l'envoi pour être testable). */
 export function notifyRecipient(env: NodeJS.ProcessEnv = process.env): string {
-  return env.NOTIFY_EMAIL ?? NOTIFY_RECIPIENT_DEFAULT;
+  return env.NOTIFY_EMAIL?.trim() || NOTIFY_RECIPIENT_DEFAULT;
+}
+
+const cleanPassword = (value: string | undefined): string => (value ?? '').replace(/\s+/g, '');
+
+export function isNotifyConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
+  return Boolean(env.GMAIL_USER?.trim() && cleanPassword(env.GMAIL_APP_PASSWORD));
 }
 
 export interface LeadAlert {
@@ -41,49 +44,27 @@ export interface LeadAlert {
   campaign: string | null;
   referrer: string | null;
   device: string | null;
+  intent?: string | null;
+  productName?: string | null;
+  productLink?: string | null;
+  quantity?: number | null;
 }
 
-export function isNotifyConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
-  return Boolean(env.GMAIL_USER && env.GMAIL_APP_PASSWORD);
+export interface ServiceOrderAlert {
+  orderNumber: string;
+  leadCode: string;
+  name: string | null;
+  phone: string | null;
+  serviceName: string;
+  cityName: string;
+  zoneName: string;
+  description: string;
 }
-
-const fcfa = (n: number) => `${n.toLocaleString('fr-FR')} F`;
-
-export function budgetLabel(min: number | null | undefined, max: number | null | undefined): string | null {
-  if (min == null && max == null) return null;
-  if (min != null && max != null) return `${fcfa(min)} – ${fcfa(max)}`;
-  if (max != null) return `moins de ${fcfa(max)}`;
-  return `plus de ${fcfa(min as number)}`;
-}
-
-export function renderLeadAlert(a: LeadAlert, appUrl: string | null): { subject: string; text: string } {
-  const who = [a.name, a.clientType].filter(Boolean).join(' · ') || 'client non identifié';
-  const subject = `[Fika] Nouvelle demande ${a.leadCode} — ${a.serviceName ?? 'besoin libre'} (${who})`;
-  const lines = [
-    `Nouvelle demande ${a.leadCode}`,
-    '',
-    `Client   : ${a.name ?? '—'} (${a.clientType ?? 'type non précisé'})`,
-    `WhatsApp : ${a.phone ?? '—'}${a.phone ? `  → https://wa.me/${a.phone.replace(/^\+/, '')}` : ''}`,
-    `Lieu     : ${a.cityName} / ${a.zoneName}`,
-    `Service  : ${a.serviceName ?? 'non précisé'}`,
-    `Délai    : ${a.deadline ?? '—'}`,
-    `Budget   : ${a.budgetLabel ?? '—'}`,
-    `Source   : ${a.campaign ?? a.referrer ?? 'direct'}${a.device ? ` (${a.device})` : ''}`,
-    '',
-    'Besoin :',
-    a.need,
-    '',
-    appUrl ? `Traiter : ${appUrl.replace(/\/$/, '')}/admin/leads` : 'Traiter dans l\'espace admin → Demandes.',
-  ];
-  return { subject, text: lines.join('\n') };
-}
-
-/* ------------------------- Commande Fika Market ---------------------------- */
 
 export interface MarketOrderAlert {
   orderNumber: string;
   name: string;
-  phone: string; // E.164
+  phone: string;
   zoneName: string;
   address: string | null;
   notes: string | null;
@@ -92,72 +73,230 @@ export interface MarketOrderAlert {
   totalIndicatif: number | null;
 }
 
-export function renderMarketOrderAlert(a: MarketOrderAlert, appUrl: string | null): { subject: string; text: string } {
-  const subject = `[Fika Market] Nouvelle commande ${a.orderNumber} — ${a.name}`;
-  const lines: string[] = [
-    `Nouvelle commande ${a.orderNumber}`,
+const fcfa = (n: number) => n.toLocaleString('fr-FR') + ' F';
+const whatsAppLink = (phone: string | null) => phone ? 'https://wa.me/' + phone.replace(/^\+/, '') : null;
+const adminUrl = (path: string): string | null => {
+  const base = process.env.APP_URL ?? (process.env.VERCEL_PROJECT_PRODUCTION_URL ? 'https://' + process.env.VERCEL_PROJECT_PRODUCTION_URL : null);
+  return base ? base.replace(/\/$/, '') + path : null;
+};
+
+export function budgetLabel(min: number | null | undefined, max: number | null | undefined): string | null {
+  if (min == null && max == null) return null;
+  if (min != null && max != null) return fcfa(min) + ' – ' + fcfa(max);
+  if (max != null) return 'moins de ' + fcfa(max);
+  return 'plus de ' + fcfa(min as number);
+}
+
+export function renderLeadAlert(a: LeadAlert, appUrl: string | null): { subject: string; text: string } {
+  const who = [a.name, a.clientType].filter(Boolean).join(' · ') || 'client non identifié';
+  const subject = '[Fika Services] Nouvelle demande ' + a.leadCode + ' — ' + (a.serviceName ?? 'besoin libre') + ' (' + who + ')';
+  const lines = [
+    'Nouvelle demande Fika Services ' + a.leadCode,
     '',
-    `Client   : ${a.name}`,
-    `WhatsApp : ${a.phone}  → https://wa.me/${a.phone.replace(/^\+/, '')}`,
-    `Lieu     : ${a.zoneName}${a.address ? ` — ${a.address}` : ''}`,
+    'Client   : ' + (a.name ?? '—') + ' (' + (a.clientType ?? 'type non précisé') + ')',
+    'WhatsApp : ' + (a.phone ?? '—') + (whatsAppLink(a.phone) ? '  → ' + whatsAppLink(a.phone) : ''),
+    'Lieu     : ' + a.cityName + ' / ' + a.zoneName,
+    'Service  : ' + (a.serviceName ?? 'non précisé'),
+    ...(a.intent === 'PRODUCT' ? ['Produit demandé : ' + (a.productName ?? 'non précisé'), 'Quantité : ' + (a.quantity ?? '—'), ...(a.productLink ? ['Lien produit : ' + a.productLink] : [])] : []),
+    'Délai    : ' + (a.deadline ?? '—'),
+    'Budget   : ' + (a.budgetLabel ?? '—'),
+    'Source   : ' + (a.campaign ?? a.referrer ?? 'direct') + (a.device ? ' (' + a.device + ')' : ''),
     '',
-    'Articles :',
-    ...a.items.map((i) => `  · ${i.productName}${i.variantLabel ? ` (${i.variantLabel})` : ''} ×${i.quantity}${i.unitPrice != null ? ` — ${fcfa(i.unitPrice)} l'unité` : ''}`),
+    'Besoin :',
+    a.need,
+    '',
+    appUrl ? 'Traiter : ' + appUrl.replace(/\/$/, '') + '/admin/leads' : "Traiter dans l'espace admin → Demandes.",
   ];
-  if (a.totalIndicatif != null) {
-    lines.push('', `Total indicatif : ${fcfa(a.totalIndicatif)} — prix final confirmé avec le client avant tout paiement.`);
-  }
-  if (a.notes) lines.push('', `Notes du client : ${a.notes}`);
-  lines.push('', appUrl ? `Traiter : ${appUrl.replace(/\/$/, '')}/admin/market/orders` : 'Traiter dans l\'espace admin → Fika Market → Commandes.');
   return { subject, text: lines.join('\n') };
 }
 
-/* ------------------------------ Envoi commun ------------------------------- */
+export function renderServiceOrderAlert(a: ServiceOrderAlert, appUrl: string | null): { subject: string; text: string } {
+  const subject = '[Fika Services] Nouvelle commande ' + a.orderNumber + ' — ' + (a.name ?? 'client à identifier');
+  const lines = [
+    'Nouvelle commande Fika Services ' + a.orderNumber,
+    'Issue de la demande ' + a.leadCode,
+    '',
+    'Client   : ' + (a.name ?? '—'),
+    'WhatsApp : ' + (a.phone ?? '—') + (whatsAppLink(a.phone) ? '  → ' + whatsAppLink(a.phone) : ''),
+    'Lieu     : ' + a.cityName + ' / ' + a.zoneName,
+    'Prestation : ' + a.serviceName,
+    '',
+    'Besoin initial :',
+    a.description,
+    '',
+    appUrl ? 'Traiter : ' + appUrl.replace(/\/$/, '') + '/admin/orders' : "Traiter dans l'espace admin → Commandes Services.",
+  ];
+  return { subject, text: lines.join('\n') };
+}
 
-/**
- * Transporteur SMTP Gmail réutilisé pour tous les envois — recommandation
- * nodemailer : créer le transporteur UNE fois (chaque instance neuve ouvre
- * des connexions et s'authentifie à nouveau ; gaspillage de ressources).
- * Créé paresseusement au premier envoi réel ; les variables d'environnement
- * ne changent pas sans redémarrage du serveur.
- */
+export function renderMarketOrderAlert(a: MarketOrderAlert, appUrl: string | null): { subject: string; text: string } {
+  const subject = '[Fika Market] Nouvelle commande ' + a.orderNumber + ' — ' + a.name;
+  const lines: string[] = [
+    'Nouvelle commande Fika Market ' + a.orderNumber,
+    '',
+    'Client   : ' + a.name,
+    'WhatsApp : ' + a.phone + '  → https://wa.me/' + a.phone.replace(/^\+/, ''),
+    'Lieu     : ' + a.zoneName + (a.address ? ' — ' + a.address : ''),
+    '',
+    'Articles :',
+    ...a.items.map((i) => '  · ' + i.productName + (i.variantLabel ? ' (' + i.variantLabel + ')' : '') + ' ×' + i.quantity + (i.unitPrice != null ? ' — ' + fcfa(i.unitPrice) + " l'unité" : '')),
+  ];
+  if (a.totalIndicatif != null) {
+    lines.push('', 'Total indicatif : ' + fcfa(a.totalIndicatif) + ' — prix final confirmé avec le client avant tout paiement.');
+  }
+  if (a.notes) lines.push('', 'Notes du client : ' + a.notes);
+  lines.push('', appUrl ? 'Traiter : ' + appUrl.replace(/\/$/, '') + '/admin/market/orders' : "Traiter dans l'espace admin → Fika Market → Commandes.");
+  return { subject, text: lines.join('\n') };
+}
+
+/* ------------------------- Transport Gmail partagé ------------------------- */
+
 let sharedTransport: Transporter | null = null;
-function getTransporter(env: NodeJS.ProcessEnv = process.env): Transporter | null {
-  if (!(env.GMAIL_USER && env.GMAIL_APP_PASSWORD)) return null;
+
+function getTransporter(): Transporter | null {
+  const user = process.env.GMAIL_USER?.trim();
+  const pass = cleanPassword(process.env.GMAIL_APP_PASSWORD);
+  if (!user || !pass) return null;
+
   if (!sharedTransport) {
     sharedTransport = nodemailer.createTransport({
       service: 'gmail',
-      auth: { user: env.GMAIL_USER, pass: env.GMAIL_APP_PASSWORD },
+      auth: { user, pass },
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 15_000,
     });
   }
   return sharedTransport;
 }
 
-async function sendGmail(fromName: string, subject: string, text: string): Promise<boolean> {
+type DispatchResult =
+  | { ok: true; messageId: string }
+  | { ok: false; status: 'NOT_CONFIGURED' | 'RECIPIENT_REJECTED' | 'SMTP_ERROR' };
+
+function acceptedRecipientMatches(accepted: unknown[], recipient: string): boolean {
+  return accepted.some((entry) => {
+    if (typeof entry === 'string') return entry.trim().toLowerCase() === recipient.toLowerCase();
+    if (entry && typeof entry === 'object' && 'address' in entry) {
+      const address = (entry as { address?: unknown }).address;
+      return typeof address === 'string' && address.trim().toLowerCase() === recipient.toLowerCase();
+    }
+    return false;
+  });
+}
+
+async function sendGmail(event: string, fromName: string, subject: string, text: string): Promise<DispatchResult> {
+  const user = process.env.GMAIL_USER?.trim();
+  const recipient = notifyRecipient();
   const transport = getTransporter();
-  if (!transport) return false;
+
+  if (!transport || !user) {
+    console.error('[notify] email non envoyé : configuration Gmail manquante', { event });
+    return { ok: false, status: 'NOT_CONFIGURED' };
+  }
+
   try {
-    await transport.sendMail({
-      from: `"${fromName}" <${process.env.GMAIL_USER}>`,
-      to: notifyRecipient(),
+    const info = await transport.sendMail({
+      from: '"' + fromName + '" <' + user + '>',
+      to: recipient,
       subject,
       text,
     });
-    return true;
+    const accepted = Array.isArray(info.accepted) ? info.accepted as unknown[] : [];
+    if (!acceptedRecipientMatches(accepted, recipient)) {
+      console.error('[notify] email refusé par le serveur SMTP', {
+        event,
+        rejectedCount: Array.isArray(info.rejected) ? info.rejected.length : 0,
+      });
+      return { ok: false, status: 'RECIPIENT_REJECTED' };
+    }
+    const messageId = typeof info.messageId === 'string' ? info.messageId : '';
+    console.info('[notify] email accepté par SMTP', { event, messageId });
+    return { ok: true, messageId };
   } catch (error) {
-    console.warn('[notify] Alerte e-mail non envoyée :', error instanceof Error ? error.message : 'erreur');
-    return false;
+    const details = error && typeof error === 'object' ? error as { code?: unknown; responseCode?: unknown; command?: unknown } : {};
+    console.error('[notify] erreur SMTP', {
+      event,
+      code: typeof details.code === 'string' ? details.code : 'UNKNOWN',
+      responseCode: typeof details.responseCode === 'number' ? details.responseCode : null,
+      command: typeof details.command === 'string' ? details.command : null,
+    });
+    return { ok: false, status: 'SMTP_ERROR' };
   }
 }
 
+async function sendNotification(kind: 'lead' | 'service-order' | 'market-order', fromName: string, rendered: { subject: string; text: string }): Promise<boolean> {
+  const result = await sendGmail(kind, fromName, rendered.subject, rendered.text);
+  return result.ok;
+}
+
+export function getNotificationStatus(): {
+  configured: boolean;
+  provider: 'Gmail SMTP';
+  sender: string | null;
+  recipient: string;
+} {
+  return {
+    configured: isNotifyConfigured(),
+    provider: 'Gmail SMTP',
+    sender: process.env.GMAIL_USER?.trim() || null,
+    recipient: notifyRecipient(),
+  };
+}
+
+/**
+ * Appelé depuis le back-office authentifié. Vérifie d'abord l'authentification
+ * SMTP puis expédie un message réel ; aucune réussite n'est simulée.
+ */
+export async function sendNotificationTest(): Promise<{
+  ok: boolean;
+  status: 'ACCEPTED' | 'NOT_CONFIGURED' | 'SMTP_AUTH_FAILED' | 'SMTP_SEND_FAILED';
+  message: string;
+  recipient: string;
+}> {
+  const recipient = notifyRecipient();
+  const transport = getTransporter();
+  if (!transport) {
+    console.error('[notify] test email impossible : configuration Gmail manquante');
+    return { ok: false, status: 'NOT_CONFIGURED', message: 'Configuration Gmail incomplète. Vérifiez GMAIL_USER et GMAIL_APP_PASSWORD dans Vercel.', recipient };
+  }
+  try {
+    await transport.verify();
+  } catch (error) {
+    const details = error && typeof error === 'object' ? error as { code?: unknown } : {};
+    console.error('[notify] authentification SMTP refusée', { code: typeof details.code === 'string' ? details.code : 'UNKNOWN' });
+    return { ok: false, status: 'SMTP_AUTH_FAILED', message: 'Gmail refuse l’authentification. Vérifiez le mot de passe d’application Google.', recipient };
+  }
+
+  const result = await sendGmail(
+    'test',
+    'Fika — test alertes',
+    '[TEST] Fika — alertes opérationnelles',
+    [
+      'Ceci est un test réel du système de notifications Fika.',
+      '',
+      'Les événements couverts sont :',
+      '1. Nouvelle demande Fika Services.',
+      '2. Nouvelle commande Fika Services (conversion d’une demande).',
+      '3. Nouvelle commande Fika Market.',
+      '',
+      'Le serveur SMTP a accepté ce message pour : ' + recipient,
+    ].join('\n'),
+  );
+  if (!result.ok) {
+    return { ok: false, status: 'SMTP_SEND_FAILED', message: 'Gmail est joignable mais n’a pas accepté le message. Consultez les logs Vercel.', recipient };
+  }
+  return { ok: true, status: 'ACCEPTED', message: 'Gmail a accepté le message de test. Vérifiez la boîte de réception et les spams.', recipient };
+}
+
 export async function sendLeadAlert(alert: LeadAlert): Promise<boolean> {
-  const appUrl = process.env.APP_URL ?? (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : null);
-  const { subject, text } = renderLeadAlert(alert, appUrl);
-  return sendGmail('Fika — demandes', subject, text);
+  return sendNotification('lead', 'Fika — demandes', renderLeadAlert(alert, adminUrl('')));
+}
+
+export async function sendServiceOrderAlert(alert: ServiceOrderAlert): Promise<boolean> {
+  return sendNotification('service-order', 'Fika Services', renderServiceOrderAlert(alert, adminUrl('')));
 }
 
 export async function sendMarketOrderAlert(alert: MarketOrderAlert): Promise<boolean> {
-  const appUrl = process.env.APP_URL ?? (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : null);
-  const { subject, text } = renderMarketOrderAlert(alert, appUrl);
-  return sendGmail('Fika Market', subject, text);
+  return sendNotification('market-order', 'Fika Market', renderMarketOrderAlert(alert, adminUrl('')));
 }

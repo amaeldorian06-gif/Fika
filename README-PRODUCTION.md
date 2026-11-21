@@ -11,12 +11,12 @@ pas Next.js. Les anciens contrats Next dans certains commentaires sont historiqu
 - Variable **obligatoire** : `DATABASE_URL` (chaîne Supabase *Transaction pooler*, port 6543).
   Facultatives : `DIRECT_URL` (migrations), `AUTH_SECRET` (sinon dérivé de `DATABASE_URL`),
   `VITE_WA_PHONE` au build, `TRUST_PROXY_HOPS=1` derrière Vercel, `PORT`.
-- Alerte e-mail à chaque demande et commande (optionnel) : `GMAIL_USER`, `GMAIL_APP_PASSWORD` (mot de passe
-  d'application Google), `NOTIFY_EMAIL` (destinataire — défaut serveur : `hello1247778@gmail.com` ; ne pas
-  confondre avec l'adresse expéditrice `GMAIL_USER`), `APP_URL`. Sans ces variables, les demandes sont simplement
-  enregistrées en base (consultables dans `/admin` → Demandes).
-  **À configurer dans Vercel** (Settings → Environment Variables) pour la production : ajouter
-  `NOTIFY_EMAIL=hello1247778@gmail.com` puis Redeploy si l'adresse diffère du défaut.
+- Alertes e-mail pour les événements opérationnels : `GMAIL_USER`, `GMAIL_APP_PASSWORD` (mot de passe
+  d'application Google), `NOTIFY_EMAIL` (destinataire, défaut serveur : `amaeldorian06@gmail.com`) et `APP_URL`.
+  Les alertes couvrent les nouvelles demandes Services, les commandes Services créées par conversion et les
+  commandes Market. Les doublons idempotents ne renvoient pas une deuxième alerte. Configurez les variables
+  dans Vercel → Settings → Environment Variables et redéployez. Dans l'administration, la carte « Alertes e-mail »
+  affiche l'état de configuration et permet un test SMTP réel.
 - Export des données : `/admin` → Demandes / Clients / Analytiques → « Télécharger le CSV »
   (`GET /api/admin/export/{leads|customers|orders|events}?from=AAAA-MM-JJ&to=AAAA-MM-JJ`).
 - Connexion admin : le **compte fondateur** est intégré au code (`server/lib/founder.ts`,

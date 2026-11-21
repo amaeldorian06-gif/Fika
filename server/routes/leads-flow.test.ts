@@ -21,6 +21,7 @@ vi.mock('../lib/notify', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../lib/notify')>()),
   sendMarketOrderAlert: vi.fn(async () => true),
   sendLeadAlert: vi.fn(async () => true),
+  sendServiceOrderAlert: vi.fn(async () => true),
 }));
 
 import { handleCreateLead } from './leads';
@@ -62,6 +63,8 @@ describe('Parcours simple : formulaire → enregistrement → commande', () => {
       fileIds: ['file-cuid-aaa', 'file-cuid-bbb'],
     }, 'ip-test');
     expect(created.status).toBe(200);
+    const { sendLeadAlert } = await import('../lib/notify');
+    expect(sendLeadAlert).toHaveBeenCalledTimes(1);
     // Liaison anti-détournement : where leadId: null — jamais d'écrasement d'une autre demande.
     expect(db.serviceRequestFile.updateMany).toHaveBeenCalledWith({
       where: { id: { in: ['file-cuid-aaa', 'file-cuid-bbb'] }, leadId: null },
@@ -107,6 +110,9 @@ describe('Parcours simple : formulaire → enregistrement → commande', () => {
     expect(converted.status).toBe(200);
     expect((converted as { body: { orderNumber: string } }).body.orderNumber).toBe('CMD-2026-1042');
     expect(db.order.create).toHaveBeenCalledWith({ data: expect.objectContaining({ customerId: 'cust-1', status: 'QUALIFYING' }) });
+    const { sendServiceOrderAlert } = await import('../lib/notify');
+    expect(sendServiceOrderAlert).toHaveBeenCalledTimes(1);
+    expect(sendServiceOrderAlert).toHaveBeenCalledWith(expect.objectContaining({ orderNumber: 'CMD-2026-1042', leadCode: 'LEAD-123456' }));
     expect(db.lead.update).toHaveBeenCalledWith({
       where: { id: 'lead-cuid-123456' },
       data: expect.objectContaining({
@@ -122,6 +128,8 @@ describe('Parcours simple : formulaire → enregistrement → commande', () => {
     expect(replay.status).toBe(200);
     expect((replay as { body: { orderNumber: string } }).body.orderNumber).toBe('CMD-2026-1042');
     expect(db.order.create).not.toHaveBeenCalled();
+    const { sendServiceOrderAlert } = await import('../lib/notify');
+    expect(sendServiceOrderAlert).not.toHaveBeenCalled();
   });
 
   it('refuse de convertir une demande déjà convertie', async () => {

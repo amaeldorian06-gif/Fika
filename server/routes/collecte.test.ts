@@ -10,6 +10,15 @@ const db = vi.hoisted(() => ({
 
 vi.mock('../../src/lib/prisma', () => ({ prisma: db }));
 
+// Tests de collecte : empêcher tout appel SMTP réel même si .env est chargé.
+// Les helpers de configuration et de rendu restent ceux du module original.
+vi.mock('../lib/notify', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/notify')>()),
+  sendLeadAlert: vi.fn(async () => true),
+  sendServiceOrderAlert: vi.fn(async () => true),
+  sendMarketOrderAlert: vi.fn(async () => true),
+}));
+
 import { handleCreateLead, checkRateLimit } from './leads';
 import { buildExport, isExportDataset, parseRange } from './admin-export';
 import { isNotifyConfigured, renderLeadAlert } from '../lib/notify';

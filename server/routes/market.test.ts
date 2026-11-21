@@ -119,6 +119,11 @@ describe('createMarketOrder', () => {
     expect(createArgs.data.source).toBe('SITE');
     expect(createArgs.data.items.create).toEqual([{ productId: 'prod-1', productName: 'Aspirateur compact', variantLabel: null, quantity: 2 }]);
     expect(createArgs.data.events.create).toEqual({ to: 'REQUESTED', note: 'Demande reçue depuis la boutique.' });
+    const { sendMarketOrderAlert } = await import('../lib/notify');
+    expect(sendMarketOrderAlert).toHaveBeenCalledTimes(1);
+    expect(sendMarketOrderAlert).toHaveBeenCalledWith(expect.objectContaining({
+      orderNumber: 'MKT-2026-0007', name: 'Aïcha M.', phone: '+237677123456',
+    }));
   });
 
   it('est idempotent : même requestKey → même commande, aucune recréation', async () => {
@@ -129,6 +134,8 @@ describe('createMarketOrder', () => {
     expect(res.body.orderNumber).toBe('MKT-2026-0003');
     expect(db.marketOrder.create).not.toHaveBeenCalled();
     expect(db.customer.upsert).not.toHaveBeenCalled();
+    const { sendMarketOrderAlert } = await import('../lib/notify');
+    expect(sendMarketOrderAlert).not.toHaveBeenCalled();
   });
 
   it('refuse un produit indisponible (précommande impossible)', async () => {

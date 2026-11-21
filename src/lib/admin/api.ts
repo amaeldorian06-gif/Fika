@@ -182,6 +182,27 @@ export class ApiUnavailableError extends Error {
   }
 }
 
+export interface NotificationStatus {
+  configured: boolean;
+  provider: 'Gmail SMTP';
+  sender: string | null;
+  recipient: string;
+}
+
+export async function fetchNotificationStatus(): Promise<NotificationStatus> {
+  const data = await getJson<{ ok: true } & NotificationStatus>('/api/admin/notifications/status');
+  return {
+    configured: data.configured,
+    provider: data.provider,
+    sender: data.sender,
+    recipient: data.recipient,
+  };
+}
+
+export async function sendNotificationTest(): Promise<{ ok: true; status: 'ACCEPTED'; message: string; recipient: string }> {
+  return postJson('/api/admin/notifications/test', {});
+}
+
 export async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(path, { credentials: 'same-origin', headers: { Accept: 'application/json' } });
   if (res.status === 401) {
