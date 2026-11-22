@@ -1,5 +1,5 @@
 # Fika — charte et contrat-cadre prestataire (projet)
-**Ne pas faire signer sans revue par avocat camerounais.**
+**Ne pas faire signer sans revue par avocat camerounais. Fika n'est actuellement pas une personne morale immatriculée : le présent projet ne peut pas être signé sous le seul nom « Fika » comme si une société existait. Après création, remplacer les champs par l'identité juridique exacte ; avant création, un éventuel contrat doit identifier la personne physique réellement partie et son statut légal, après avis du conseil.**
 
 ## Parties
 Fika : [dénomination juridique, forme, RCCM, NIU, siège, représentant]. Professionnel : [identité/raison sociale, forme, RCCM/NIU le cas échéant, adresse, téléphone, représentant].

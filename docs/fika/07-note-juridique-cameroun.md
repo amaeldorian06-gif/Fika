@@ -1,8 +1,11 @@
 # Note juridique préliminaire — Fika au Cameroun
 Date : 22 novembre 2026. Document d'analyse préparatoire, non un avis juridique.
 
+## Fait juridique nouveau confirmé par le fondateur
+Fika n'est pas encore constituée ni immatriculée. La marque n'a donc pas, à ce stade, de personnalité juridique propre. Les contrats, factures et encaissements précédemment réalisés sous le nom Fika doivent être examinés pour identifier la personne physique effectivement engagée et les obligations fiscales/consommateur en résultant. Ne pas utiliser les projets CGV/contrats comme si la société existait déjà.
+
 ## Conclusion opérationnelle
-Le modèle actuellement implémenté s'apparente à Fika comme prestataire principal sur Services et vendeur sur Market. Un modèle d'intermédiaire n'est exact que si le client contracte réellement directement avec le professionnel, l'identifie et sait précisément ce que Fika facture et assume. Le choix doit être confirmé avec un avocat à partir de l'entité juridique, du parcours et des contrats réellement utilisés.
+Le modèle actuellement implémenté s'apparente économiquement à une activité de prestataire principal sur Services et de vendeur sur Market, mais aucune entité Fika n'existe aujourd'hui pour assumer ce rôle en son nom propre. Un modèle d'intermédiaire n'est exact que si le client contracte réellement directement avec le professionnel, l'identifie et sait précisément ce que Fika facture et assume. Le choix doit être confirmé avec un avocat à partir de l'entité juridique, du parcours et des contrats réellement utilisés.
 
 ## Loi n°2025/010 du 15 juillet 2025 sur la sous-traitance
 Texte officiel PRC : https://prc.cm/fr/actualites/actes/lois/7891-loi-n-2025-010-du-15-juillet-2025-portant-regime-de-la-sous-traitance-au-cameroun  

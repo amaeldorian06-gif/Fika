@@ -1,10 +1,13 @@
 # Fika — modèle économique
 Date : 22 novembre 2026 · Document de cadrage, taux à valider.
 
-## Modèle recommandé
-**Services : Fika prestataire principal.** Ce modèle correspond au parcours réel : le client passe commande auprès de Fika, accepte le devis de Fika, paie selon les conditions de Fika, puis Fika organise l'exécution par un professionnel. Fika assume envers le client les engagements qu'elle prend et se retourne contractuellement contre l'exécutant selon un contrat valide.
+## Préalable juridique impératif
+À la date du présent document, Fika n'est pas immatriculée et ne constitue pas une personne morale. Le modèle ci-dessous est une cible après formalisation ; il ne permet pas de présenter aujourd'hui la marque Fika comme un cocontractant autonome. Jusqu'à formalisation et avis juridique, les documents doivent identifier la personne physique effectivement contractante et son statut réel, ou la vente/prise de nouvelles commandes au nom de Fika doit être suspendue.
 
-**Market : Fika vendeur contractuel** lorsque Fika sélectionne l'offre, fixe ou confirme le prix, collecte le paiement et organise l'approvisionnement/livraison. Le fournisseur est alors un fournisseur amont de Fika.
+## Modèle recommandé après formalisation
+**Services : Fika prestataire principal après constitution et validation juridique.** Ce modèle correspond au parcours réel : le client passe commande auprès de Fika, accepte le devis de Fika, paie selon les conditions de Fika, puis Fika organise l'exécution par un professionnel. Fika assume envers le client les engagements qu'elle prend et se retourne contractuellement contre l'exécutant selon un contrat valide.
+
+**Market : Fika vendeur contractuel après constitution** lorsque Fika sélectionne l'offre, fixe ou confirme le prix, collecte le paiement et organise l'approvisionnement/livraison. Le fournisseur est alors un fournisseur amont de Fika.
 
 **Intermédiation séparée possible uniquement** si le client conclut réellement avec le prestataire identifié, connaît son prix et ses responsabilités, et paie selon le contrat affiché. Un simple changement de vocabulaire sans changement des opérations n'est pas acceptable.
 

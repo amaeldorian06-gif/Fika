@@ -2,6 +2,9 @@
 Date : 22 novembre 2026  
 Dépôt : `amaeldorian06-gif/Fika` · branche initiale `main` · commit audité `38b755f89dab58869d47b2f234902b368270883c`.
 
+## Statut juridique de Fika — information confirmée par le fondateur
+À la date du présent audit, Fika n'est pas encore immatriculée et ne dispose pas d'une structure juridique propre. Fika est une marque/projet exploité à ce stade sans personne morale distincte. Toute personne physique qui a signé, encaissé ou promis une prestation en son nom peut être personnellement concernée selon les faits et les documents utilisés. Ne pas désigner « Fika » comme une société, inventer de RCCM/NIU, ni publier les projets contractuels avant formalisation ou avis juridique sur la personne physique contractante.
+
 ## Architecture réelle
 Application React 19 / Vite 7 / TypeScript, API Express 5, Prisma 5, PostgreSQL Supabase, Supabase Storage et Vercel. Il ne s'agit pas de Next.js. La documentation `docs/architecture-donnees.md` décrit 44 tables, les domaines clients, demandes, commandes Services, prestataires, tâches, paiements, coûts, livraisons et Market, avec le territoire initial Ngaoundéré.
 

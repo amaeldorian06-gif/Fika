@@ -5,6 +5,8 @@ PR : https://github.com/amaeldorian06-gif/Fika/pull/4
 Commit code : `e2032c6eaf8b77ea168511f232a2e8f7cd552b96`
 
 ## I. État initial
+**Information du fondateur confirmée après le premier audit : Fika n'est pas encore une structure légale immatriculée.** La marque/projet ne possède donc pas de personnalité juridique distincte. Cette situation modifie le statut des documents commerciaux : ils restent des projets et ne doivent pas présenter Fika comme société constituée.
+
 Voir `00-audit-initial.md`. Architecture Vite/Express/Prisma/Supabase. Les fonctions Services, Market et les workflows manuels existaient. L'absence de réponse prestataire tracée, alertes et jalons explicites était l'écart principal. Le statut juridique et fiscal de l'entité n'est pas confirmé.
 
 ## II. Modifications réalisées
@@ -47,12 +49,12 @@ Modèle recommandé : Fika prestataire principal sur Services, vendeur contractu
 Dossiers créés : procédure opérationnelle, charte/contrat prestataire, CGV Services, conditions Market, notice protection données, note juridique, kit de devis/ordre de mission/incident/réclamation/paiement/remboursement/qualité. Tous projets en attente d'avocat et expert-comptable avant signature/publication. Rien n'est encore intégré à l'application.
 
 ## VI. Risques et prochaines décisions
-1. Avis écrit sur champ loi 2025/010, éligibilité et paiements/avances.
+2. Avis écrit sur champ loi 2025/010, éligibilité et paiements/avances.
 2. Confirmer statut juridique, RCCM, NIU, régime fiscal, obligations facture et importateur Market.
-3. Autorisations et transferts internationaux données loi 2024/017.
-4. Développer portails ou processus prestataire plus robuste, jalons et preuves.
-5. Implémenter les seuils SLA 4h/24h ouvrées, timezone/calendrier.
-6. Développer réclamation/remboursement Services.
+4. Autorisations et transferts internationaux données loi 2024/017.
+5. Développer portails ou processus prestataire plus robuste, jalons et preuves.
+6. Implémenter les seuils SLA 4h/24h ouvrées, timezone/calendrier.
+7. Développer réclamation/remboursement Services.
 7. Confirmer suivi public Market et corriger la divergence documentaire.
 8. Tester envoi et réception email réels.
 9. Sauvegarde et stratégie retour arrière avant toute fusion/déploiement.

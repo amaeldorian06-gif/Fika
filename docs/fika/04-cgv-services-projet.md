@@ -1,5 +1,5 @@
 # Fika Services — conditions générales (projet)
-**Document non publié, non opposable sans validation juridique.**
+**Document non publié, non opposable sans validation juridique. Fika n'est actuellement pas une entité immatriculée : ce projet ne doit pas désigner « Fika » comme vendeur ou prestataire contractuel autonome. Il ne pourra être utilisé qu'après création et renseignement de l'identité complète ; ou, avant cela, après adaptation à la personne physique réellement cocontractante et validation juridique.**
 
 ## Identité du cocontractant
 Compléter avant toute utilisation : raison sociale, forme, siège, RCCM, NIU, téléphone, email, responsable de réclamation. Le nom commercial « Fika » seul ne suffit pas.
