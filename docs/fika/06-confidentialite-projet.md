@@ -1,6 +1,9 @@
 # Notice de confidentialité et registre initial — projet
 **Non publié. Doit être complété et validé selon la loi n°2024/017.**
 
+## Référence légale officielle
+Loi n°2024/017 du 23 décembre 2024 : https://www.prc.cm/fr/multimedia/documents/10258-loi-n-2024-017-du-23-12-2024-web
+
 ## Responsable
 À compléter : raison sociale, adresse, contact de protection des données, procédure d'exercice des droits et réclamation.
 
