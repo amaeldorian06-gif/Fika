@@ -28,6 +28,8 @@ export async function getAdminAlerts(): Promise<AdminAlertDto[]> {
     marketInDelivery,
     paymentsPending,
     marketPaymentsPending,
+    providerResponsesPending,
+    tasksOverdue,
   ] = await Promise.all([
     prisma.lead.count({ where: { status: 'NEW' } }),
     prisma.order.count({ where: { status: { in: ['NEW', 'QUALIFYING', 'QUOTED', 'AWAITING_CONFIRMATION'] } } }),
@@ -39,6 +41,8 @@ export async function getAdminAlerts(): Promise<AdminAlertDto[]> {
     prisma.marketOrder.count({ where: { status: { in: ['PROCURING', 'SHIPPED_INBOUND', 'RECEIVED', 'READY', 'DELIVERING'] } } }),
     prisma.payment.count({ where: { status: 'PENDING' } }),
     prisma.marketPayment.count({ where: { status: 'PENDING' } }),
+    prisma.taskAssignment.count({ where: { status: 'ASSIGNED', task: { status: 'ASSIGNED' } } }),
+    prisma.task.count({ where: { deadline: { lt: new Date() }, status: { notIn: ['COMPLETED', 'CANCELLED'] } } }),
   ]);
 
   const alerts: AdminAlertDto[] = [
@@ -46,6 +50,8 @@ export async function getAdminAlerts(): Promise<AdminAlertDto[]> {
     { key: 'services-todo', label: 'Commandes Services à traiter (devis, confirmation)', count: servicesTodo, link: '/admin/orders', severity: 'action' },
     { key: 'market-process', label: 'Commandes Market à confirmer (réception, vérification fournisseur)', count: marketToProcess, link: '/admin/market/orders', severity: 'action' },
     { key: 'payments-verify', label: 'Paiements déclarés à vérifier (Services + Market)', count: paymentsPending + marketPaymentsPending, link: '/admin/finances', severity: 'action' },
+    { key: 'provider-response', label: 'Prestataires affectés sans réponse enregistrée', count: providerResponsesPending, link: '/admin/orders', severity: 'action' },
+    { key: 'tasks-overdue', label: 'Missions Services dont l’échéance est dépassée', count: tasksOverdue, link: '/admin/orders', severity: 'action' },
     { key: 'services-disputed', label: 'Commandes Services en litige', count: servicesDisputed, link: '/admin/orders', severity: 'action' },
     { key: 'market-delayed', label: 'Commandes Market en retard', count: marketDelayed, link: '/admin/market/orders', severity: 'action' },
     { key: 'services-execution', label: 'Interventions Services en cours d’exécution', count: servicesExecution, link: '/admin/orders', severity: 'suivi' },

@@ -23,7 +23,7 @@ import {
 import {
   addOrderCost, assignExpert, buildQuote, createQuote, createReview, exportUrl, fetchAssignableExperts,
   fetchLeads, fetchOrder, fetchOrders, fetchOverview,
-  publishPortfolio, saveDelivery, updateOrderStatus, updateTask,
+  publishPortfolio, recordAssignmentResponse, saveDelivery, updateOrderStatus, updateTask,
   type AdminLead, type AdminOrderDetail,
   type AdminOrderSummary, type AssignableExpertDto,
 } from '../../lib/admin/api';
@@ -823,6 +823,7 @@ function ExecutionPanel({ order, busy, run }: {
   const { data, loadError, reload } = useAsync(fetchAssignableExperts, [order.id]);
   const [expertId, setExpertId] = useState('');
   const [compensation, setCompensation] = useState('');
+  const [responseSource, setResponseSource] = useState<'WHATSAPP' | 'PHONE' | 'IN_PERSON'>('WHATSAPP');
 
   const experts: AssignableExpertDto[] = data ?? [];
   const ranked = useMemo(
@@ -864,6 +865,59 @@ function ExecutionPanel({ order, busy, run }: {
                     {TASK_STATUS_LABELS[task.status] ?? task.status}
                   </span>
                 </div>
+                {task.assignmentStatus && (
+                  <p className="text-xs text-brand-text-muted mb-2">
+                    Réponse prestataire : <strong className="text-brand-text">
+                      {task.assignmentStatus === 'ACCEPTED' ? 'Acceptée' : task.assignmentStatus === 'DECLINED' ? 'Refusée' : 'En attente de réponse'}
+                    </strong>
+                    {task.assignedAt ? ` · affecté le ${new Date(task.assignedAt).toLocaleString('fr-FR')}` : ''}
+                  </p>
+                )}
+                {task.deadline && (
+                  <p className={`text-xs mb-2 ${new Date(task.deadline).getTime() < Date.now() && !['COMPLETED', 'CANCELLED'].includes(task.status) ? 'text-brand-accent font-bold' : 'text-brand-text-muted'}`}>
+                    Échéance : {new Date(task.deadline).toLocaleString('fr-FR')}
+                    {new Date(task.deadline).getTime() < Date.now() && !['COMPLETED', 'CANCELLED'].includes(task.status) ? ' · En retard' : ''}
+                  </p>
+                )}
+                {task.expertPhone && task.assignmentStatus === 'ASSIGNED' && (() => {
+                  const message = [
+                    `Bonjour ${task.expertName?.split(' ')[0] ?? ''},`,
+                    `Fika vous propose la mission ${order.orderNumber}.`,
+                    `Prestation : ${task.deliverables ?? order.serviceName ?? 'Mission à préciser'}`,
+                    task.deadline ? `Échéance proposée : ${new Date(task.deadline).toLocaleString('fr-FR')}` : '',
+                    task.internalCompensation != null ? `Rémunération convenue : ${formatPriceFCFA(task.internalCompensation)}` : '',
+                    'Merci de répondre explicitement : ACCEPTER ou REFUSER.',
+                  ].filter(Boolean).join('\n');
+                  const link = getCustomerWALink(task.expertPhone!, message);
+                  return link ? (
+                    <a href={link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-bold text-brand-wa hover:underline mb-2">
+                      <MessageCircle className="w-3.5 h-3.5" /> Envoyer la mission au prestataire
+                    </a>
+                  ) : null;
+                })()}
+                {task.assignmentStatus === 'ASSIGNED' && (
+                  <div className="mt-2 rounded-xl border border-brand-border p-3 space-y-2">
+                    <p className="text-[11px] text-brand-text-muted">
+                      Après réception de sa réponse, enregistre-la ici. WhatsApp et les appels ne sont pas lus automatiquement par Fika.
+                    </p>
+                    <Select value={responseSource} onChange={(e) => setResponseSource(e.target.value as typeof responseSource)} aria-label="Canal de réponse du prestataire">
+                      <option value="WHATSAPP">Réponse reçue sur WhatsApp</option>
+                      <option value="PHONE">Réponse reçue par téléphone</option>
+                      <option value="IN_PERSON">Réponse reçue en personne</option>
+                    </Select>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" disabled={busy} onClick={() => run(() => recordAssignmentResponse(task.id, 'ACCEPTED', responseSource))} className="px-3 py-1.5 rounded-lg bg-brand-wa text-white text-xs font-bold disabled:opacity-40">
+                        Confirmer l’acceptation
+                      </button>
+                      <button type="button" disabled={busy} onClick={() => {
+                        const reason = window.prompt('Motif du refus du prestataire (obligatoire) :');
+                        if (reason && reason.trim().length >= 5) void run(() => recordAssignmentResponse(task.id, 'DECLINED', responseSource, reason.trim()));
+                      }} className="px-3 py-1.5 rounded-lg border border-brand-border text-brand-text text-xs font-bold disabled:opacity-40">
+                        Enregistrer un refus
+                      </button>
+                    </div>
+                  </div>
+                )}
                 {task.expertPublicSignals && task.expertPublicSignals.length > 0 && (
                   <p className="text-[11px] text-brand-text-muted mb-2">
                     Visible client : {task.expertPublicSignals.join(' · ')}
