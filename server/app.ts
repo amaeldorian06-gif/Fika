@@ -31,7 +31,7 @@ import { getExperts, getLeads, getOrder, getOrders, getOverview, getAnalyticsOrd
 import { getAnalytics, isPeriodKey } from './routes/admin-analytics';
 import { handleAddCost, handleBuildQuote, handleCreateQuote, handleUpdateStatus } from './routes/admin-orders';
 import { handleConvertLead, handleUpdateLeadStatus } from './routes/admin-leads';
-import { handleAssignExpert, handlePublishPortfolio, handleUpdateTask, handleUpsertDelivery } from './routes/admin-execution';
+import { handleAssignExpert, handlePublishPortfolio, handleRecordAssignmentResponse, handleUpdateTask, handleUpsertDelivery } from './routes/admin-execution';
 import { buildExport, isExportDataset } from './routes/admin-export';
 
 function send(res: Response, result: { status: number; body: unknown; cookie?: string }) {
@@ -215,6 +215,7 @@ export function createApp() {
     '/api/admin/leads/status': handleUpdateLeadStatus,
     '/api/admin/orders/assign': handleAssignExpert,
     '/api/admin/tasks/status': handleUpdateTask,
+    '/api/admin/tasks/response': handleRecordAssignmentResponse,
     '/api/admin/orders/delivery': handleUpsertDelivery,
     '/api/admin/portfolio': handlePublishPortfolio,
   };

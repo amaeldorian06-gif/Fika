@@ -57,6 +57,10 @@ export interface AdminTask {
   deliverables: string | null;
   notes: string | null;
   internalCompensation: number | null;
+  deadline?: string | null;
+  assignedAt?: string | null;
+  assignmentStatus?: string | null;
+  expertPhone?: string | null;
   expertName: string | null;
   expertTrade?: string | null;
   /** Signaux publics du professionnel (même définition que src/lib/trust.ts). */
@@ -463,6 +467,15 @@ export async function assignExpert(orderId: string, expertId: string, compensati
 
 export async function updateTask(taskId: string, status: string, notes?: string): Promise<{ ok: true }> {
   return await postJson<{ ok: true }>('/api/admin/tasks/status', { taskId, status, notes });
+}
+
+export async function recordAssignmentResponse(
+  taskId: string,
+  response: 'ACCEPTED' | 'DECLINED',
+  source: 'WHATSAPP' | 'PHONE' | 'IN_PERSON',
+  reason?: string,
+): Promise<{ ok: true; response: 'ACCEPTED' | 'DECLINED' }> {
+  return await postJson('/api/admin/tasks/response', { taskId, response, source, reason });
 }
 
 export async function saveDelivery(payload: {

@@ -67,8 +67,8 @@ export async function getOrder(id: string): Promise<AdminOrderDetail | null> {
     costs: o.costs.map(c => ({ id: c.id, type: c.type, amount: c.amount, note: c.note })),
     events: o.events.map(e => ({ id: e.id, from: e.from, to: e.to, note: e.note, actorEmail: e.actor?.email ?? null, createdAt: e.createdAt.toISOString() })),
     tasks: o.tasks.map(t => {
-      const assignment = t.assignments.find(a => a.status !== 'DECLINED');
-      return { id: t.id, status: t.status, deliverables: t.deliverables, notes: t.notes, internalCompensation: t.internalCompensation, expertName: assignment?.expert.name ?? null, expertId: assignment?.expertId ?? null, expertTrade: assignment?.expert.trade ?? null, expertPublicSignals: expertSignals.get(assignment?.expertId ?? '') ?? [] };
+      const assignment = t.assignments.find(a => a.status !== 'DECLINED') ?? t.assignments[0];
+      return { id: t.id, status: t.status, deliverables: t.deliverables, notes: t.notes, deadline: t.deadline?.toISOString() ?? null, assignedAt: assignment?.assignedAt?.toISOString() ?? null, assignmentStatus: assignment?.status ?? null, internalCompensation: t.internalCompensation, expertName: assignment?.expert.name ?? null, expertPhone: assignment?.expert.phone ?? null, expertId: assignment?.expertId ?? null, expertTrade: assignment?.expert.trade ?? null, expertPublicSignals: expertSignals.get(assignment?.expertId ?? '') ?? [] };
     }),
     payments: o.payments.map(p => ({ id: p.id, amount: p.amount, method: p.method, status: p.status, reference: p.reference, confirmedAt: p.confirmedAt?.toISOString() ?? null })),
     deliveries: o.deliveries.map(d => ({ id: d.id, status: d.status, fee: d.fee, zoneName: d.zone?.name ?? null, proofUrl: d.proofUrl })),

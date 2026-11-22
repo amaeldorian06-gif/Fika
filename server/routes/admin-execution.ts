@@ -110,6 +110,76 @@ export async function handleAssignExpert(
   });
 }
 
+/* ------------------- Réponse du prestataire (canal vérifié) ------------------ */
+
+const assignmentResponseSchema = z.object({
+  taskId: z.string().min(1),
+  response: z.enum(['ACCEPTED', 'DECLINED']),
+  source: z.enum(['WHATSAPP', 'PHONE', 'IN_PERSON']),
+  reason: z.string().trim().max(1000).optional(),
+});
+
+export async function handleRecordAssignmentResponse(
+  body: unknown,
+  adminId: string | null,
+): Promise<MutationResult<{ response: 'ACCEPTED' | 'DECLINED' }>> {
+  if (!adminId) return unauthorized();
+  const parsed = assignmentResponseSchema.safeParse(body);
+  if (!parsed.success || (parsed.data?.response === 'DECLINED' && (parsed.data.reason?.trim().length ?? 0) < 5)) {
+    return { status: 400, body: { ok: false, code: 'VALIDATION', message: 'Réponse invalide. Un refus doit comporter un motif d’au moins 5 caractères.' } };
+  }
+
+  const sourceLabels = { WHATSAPP: 'WhatsApp', PHONE: 'téléphone', IN_PERSON: 'en personne' } as const;
+  return serialTransaction<MutationResult<{ response: 'ACCEPTED' | 'DECLINED' }>>(async tx => {
+    const task = await tx.task.findUnique({
+      where: { id: parsed.data.taskId },
+      include: {
+        assignments: {
+          where: { status: 'ASSIGNED' },
+          include: { expert: { select: { id: true, status: true } } },
+        },
+        order: { select: { id: true, status: true } },
+      },
+    });
+    if (!task) return { status: 404, body: { ok: false, code: 'NOT_FOUND', message: 'Mission introuvable.' } };
+    if (task.status !== 'ASSIGNED') {
+      return { status: 409, body: { ok: false, code: 'TASK_NOT_AWAITING_RESPONSE', message: 'Cette mission ne peut plus recevoir de réponse prestataire.' } };
+    }
+    if (task.assignments.length !== 1) {
+      return { status: 409, body: { ok: false, code: 'ASSIGNMENT_NOT_UNIQUE', message: 'Affectation introuvable ou ambiguë. Vérifiez le dossier avant toute modification.' } };
+    }
+
+    const assignment = task.assignments[0];
+    await tx.taskAssignment.update({
+      where: { id: assignment.id },
+      data: { status: parsed.data.response },
+    });
+
+    if (parsed.data.response === 'DECLINED') {
+      await tx.task.update({ where: { id: task.id }, data: { status: 'CANCELLED' } });
+      // Ne jamais réactiver automatiquement un professionnel déjà suspendu ou en pause.
+      if (assignment.expert.status === 'ACTIVE' || assignment.expert.status === 'BACKUP') {
+        await tx.expert.update({ where: { id: assignment.expertId }, data: { availability: true } });
+      }
+    }
+
+    const detail = parsed.data.response === 'ACCEPTED'
+      ? 'a accepté la mission'
+      : `a refusé la mission. Motif : ${parsed.data.reason!.trim()}`;
+    await tx.orderEvent.create({
+      data: {
+        orderId: task.order.id,
+        from: task.order.status,
+        to: task.order.status,
+        note: `Réponse prestataire enregistrée par Fika via ${sourceLabels[parsed.data.source]} : ${detail}.`,
+        actorId: adminId,
+      },
+    });
+
+    return { status: 200, body: { ok: true, response: parsed.data.response } };
+  });
+}
+
 /* --------------------------- Avancement des tâches ------------------------- */
 
 const taskStatusSchema = z.object({
