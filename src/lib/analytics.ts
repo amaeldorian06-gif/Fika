@@ -58,6 +58,8 @@ export interface AnalyticsOrder {
   createdAt: Date;
   completedAt: Date | null;
   leadId: string | null;
+  /** Attribution de secours quand les lignes de commande sont libres. */
+  leadServiceId?: string | null;
   costs: { type: string; amount: number }[];
   payments: { amount: number; status: string }[];
   items: { serviceId: string | null; serviceName: string | null; price: number | null; quantity: number }[];
@@ -67,6 +69,49 @@ export interface AnalyticsLead {
   id: string;
   source: string;
   createdAt: Date;
+  serviceId?: string | null;
+  /** true lorsqu'une commande est reliée à cette demande, quel que soit son statut. */
+  converted?: boolean;
+}
+
+export interface AnalyticsCatalogService {
+  serviceId: string;
+  slug: string;
+  name: string;
+  universeId: string;
+  universeSlug: string;
+  universeName: string;
+  displayOrder: number;
+}
+
+export interface CommercialPerformanceMetrics {
+  consultations: number;
+  whatsappClicks: number;
+  leads: number;
+  convertedLeads: number;
+  orders: number;
+  revenue: number;
+  /** Ratio de demandes enregistrées sur consultations de fiche (événements, pas visiteurs uniques). */
+  leadPerConsultationPercent: number | null;
+  /** Demandes créées sur la période qui ont ensuite été converties en commande. */
+  leadToOrderPercent: number | null;
+}
+
+export interface ServicePerformanceRow extends CommercialPerformanceMetrics {
+  serviceId: string;
+  slug: string;
+  name: string;
+  universeId: string;
+  universeSlug: string;
+  universeName: string;
+  displayOrder: number;
+}
+
+export interface UniversePerformanceRow extends CommercialPerformanceMetrics {
+  universeId: string;
+  universeSlug: string;
+  universeName: string;
+  serviceCount: number;
 }
 
 export interface AnalyticsEvent {
@@ -311,6 +356,147 @@ export function topServices(
     })
     .sort((a, b) => b.revenue - a.revenue)
     .slice(0, limit);
+}
+
+/**
+ * Performance commerciale par service et par univers.
+ *
+ * Les consultations et clics sont des événements bruts : ils ne représentent
+ * PAS des visiteurs uniques. Le taux demande/consultation est donc directionnel.
+ * Le taux demande→commande est calculé sur les demandes créées dans la période,
+ * à partir de leur relation réelle avec une commande.
+ */
+export function commercialPerformanceBreakdown(
+  services: AnalyticsCatalogService[],
+  leads: AnalyticsLead[],
+  events: AnalyticsEvent[],
+  orders: AnalyticsOrder[],
+): { services: ServicePerformanceRow[]; universes: UniversePerformanceRow[] } {
+  const serviceRows = new Map<string, ServicePerformanceRow>();
+
+  for (const service of services) {
+    serviceRows.set(service.serviceId, {
+      ...service,
+      consultations: 0,
+      whatsappClicks: 0,
+      leads: 0,
+      convertedLeads: 0,
+      orders: 0,
+      revenue: 0,
+      leadPerConsultationPercent: null,
+      leadToOrderPercent: null,
+    });
+  }
+
+  for (const lead of leads) {
+    if (!lead.serviceId) continue;
+    const row = serviceRows.get(lead.serviceId);
+    if (!row) continue;
+    row.leads += 1;
+    if (lead.converted) row.convertedLeads += 1;
+  }
+
+  for (const event of events) {
+    if (!event.serviceId) continue;
+    const row = serviceRows.get(event.serviceId);
+    if (!row) continue;
+    if (event.type === 'LEAD_VIEW') row.consultations += 1;
+    if (event.type === 'WACLICK') row.whatsappClicks += 1;
+  }
+
+  const revenueOrders = orders.filter((order) => REVENUE_STATUSES.includes(order.status));
+  for (const order of orders) {
+    const itemServiceIds = new Set(order.items.flatMap((item) => item.serviceId ? [item.serviceId] : []));
+    // When an order has only custom/free-text lines, retain the original
+    // service attribution from its lead without guessing line-level revenue.
+    const attributedServiceIds = itemServiceIds.size > 0
+      ? itemServiceIds
+      : new Set(order.leadServiceId ? [order.leadServiceId] : []);
+
+    for (const serviceId of attributedServiceIds) {
+      const row = serviceRows.get(serviceId);
+      if (!row) continue;
+      row.orders += 1;
+      if (REVENUE_STATUSES.includes(order.status)) {
+        row.revenue += order.items
+          .filter((item) => item.serviceId === serviceId)
+          .reduce((sum, item) => sum + (item.price ?? 0) * item.quantity, 0);
+      }
+    }
+  }
+
+  const roundRate = (numerator: number, denominator: number): number | null =>
+    denominator > 0 ? Math.round((numerator / denominator) * 1000) / 10 : null;
+
+  const serviceResults = [...serviceRows.values()].map((row) => ({
+    ...row,
+    leadPerConsultationPercent: roundRate(row.leads, row.consultations),
+    leadToOrderPercent: roundRate(row.convertedLeads, row.leads),
+  })).sort((a, b) =>
+    b.convertedLeads - a.convertedLeads ||
+    b.leads - a.leads ||
+    b.revenue - a.revenue ||
+    b.consultations - a.consultations ||
+    a.displayOrder - b.displayOrder ||
+    a.name.localeCompare(b.name, 'fr'),
+  );
+
+  const universeMap = new Map<string, UniversePerformanceRow>();
+  for (const service of serviceResults) {
+    const row = universeMap.get(service.universeId) ?? {
+      universeId: service.universeId,
+      universeSlug: service.universeSlug,
+      universeName: service.universeName,
+      serviceCount: 0,
+      consultations: 0,
+      whatsappClicks: 0,
+      leads: 0,
+      convertedLeads: 0,
+      orders: 0,
+      revenue: 0,
+      leadPerConsultationPercent: null,
+      leadToOrderPercent: null,
+    };
+    row.serviceCount += 1;
+    row.consultations += service.consultations;
+    row.whatsappClicks += service.whatsappClicks;
+    row.leads += service.leads;
+    row.convertedLeads += service.convertedLeads;
+    row.revenue += service.revenue;
+    universeMap.set(service.universeId, row);
+  }
+
+  // Count each order once per universe, even when it contains multiple services
+  // from that same universe.
+  const serviceUniverse = new Map(services.map((service) => [service.serviceId, service.universeId]));
+  const ordersByUniverse = new Map<string, Set<string>>();
+  for (const order of orders) {
+    const itemServiceIds = new Set(order.items.flatMap((item) => item.serviceId ? [item.serviceId] : []));
+    const attributedServiceIds = itemServiceIds.size > 0
+      ? itemServiceIds
+      : new Set(order.leadServiceId ? [order.leadServiceId] : []);
+    const universeIds = new Set([...attributedServiceIds].map((id) => serviceUniverse.get(id)).filter((id): id is string => Boolean(id)));
+    for (const universeId of universeIds) {
+      const ids = ordersByUniverse.get(universeId) ?? new Set<string>();
+      ids.add(order.id);
+      ordersByUniverse.set(universeId, ids);
+    }
+  }
+
+  const universeResults = [...universeMap.values()].map((row) => ({
+    ...row,
+    orders: ordersByUniverse.get(row.universeId)?.size ?? 0,
+    leadPerConsultationPercent: roundRate(row.leads, row.consultations),
+    leadToOrderPercent: roundRate(row.convertedLeads, row.leads),
+  })).sort((a, b) =>
+    b.convertedLeads - a.convertedLeads ||
+    b.leads - a.leads ||
+    b.revenue - a.revenue ||
+    b.consultations - a.consultations ||
+    a.universeName.localeCompare(b.universeName, 'fr'),
+  );
+
+  return { services: serviceResults, universes: universeResults };
 }
 
 /** Délai moyen (en jours) entre création et complétion des commandes terminées. */
