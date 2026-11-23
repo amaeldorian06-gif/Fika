@@ -175,7 +175,7 @@ export function UniversePage({ slug }: { slug: string }) {
         {filteredServices.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredServices.map((service, idx) => (
-              <ServiceCard key={service.id} service={service} idx={idx} priority={idx === 0} />
+              <ServiceCard key={service.id} service={service} idx={idx} priority={allServices[0]?.id === service.id} />
             ))}
           </div>
         ) : (
