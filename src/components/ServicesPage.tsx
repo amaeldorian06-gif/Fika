@@ -29,7 +29,7 @@ function UniverseCard({ slug, title, examples, icon, color, count }: { slug: str
   return (
     <Link
       to={`/univers/${slug}`}
-      className="group block h-full p-6 rounded-3xl bg-brand-surface border border-brand-border hover:shadow-premium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
+      className="group block h-full p-6 rounded-3xl glass-surface hover:shadow-premium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
     >
       <div className={`relative -mx-6 -mt-6 mb-5 h-44 sm:h-48 rounded-t-3xl overflow-hidden ${noPhoto ? color : 'bg-brand-bg'}`}>
         {noPhoto ? (
@@ -120,7 +120,7 @@ export function ServicesPage() {
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Ex. plomberie, réparation téléphone, déménagement…"
                 aria-label="Rechercher un service"
-                className="w-full pl-12 pr-12 py-3.5 bg-white border border-brand-border rounded-full text-base font-medium focus:outline-none focus:ring-2 focus:ring-brand-accent transition-all placeholder:text-brand-text-muted"
+                className="w-full pl-12 pr-12 py-3.5 glass-surface rounded-full text-base font-medium focus:outline-none focus:ring-2 focus:ring-brand-accent transition-all placeholder:text-brand-text-muted"
               />
               {query && (
                 <button
