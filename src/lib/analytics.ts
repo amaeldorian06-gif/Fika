@@ -404,7 +404,6 @@ export function commercialPerformanceBreakdown(
     if (event.type === 'WACLICK') row.whatsappClicks += 1;
   }
 
-  const revenueOrders = orders.filter((order) => REVENUE_STATUSES.includes(order.status));
   for (const order of orders) {
     const itemServiceIds = new Set(order.items.flatMap((item) => item.serviceId ? [item.serviceId] : []));
     // When an order has only custom/free-text lines, retain the original
