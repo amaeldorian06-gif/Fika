@@ -129,7 +129,7 @@ export function UniversePage({ slug }: { slug: string }) {
 
       {/* Search and Filter Section */}
       <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto py-12">
-        <div className="bg-brand-surface border border-brand-border rounded-2xl p-6 mb-8">
+        <div className="glass-surface rounded-2xl p-6 mb-8">
           <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
             <div className="relative w-full md:max-w-md">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-brand-text-muted" />
@@ -175,7 +175,7 @@ export function UniversePage({ slug }: { slug: string }) {
         {filteredServices.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredServices.map((service, idx) => (
-              <ServiceCard key={service.id} service={service} idx={idx} />
+              <ServiceCard key={service.id} service={service} idx={idx} priority={allServices[0]?.id === service.id} />
             ))}
           </div>
         ) : (

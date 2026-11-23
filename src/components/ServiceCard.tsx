@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, Flame, Truck } from 'lucide-react';
+import { ArrowRight, Flame, Sparkles, Truck } from 'lucide-react';
 import type { Service } from '../lib/types';
 import { getServiceCTA } from '../lib/whatsapp';
 import { displayPrice, getCityPricing, pricingMode } from '../lib/pricing';
@@ -18,7 +18,7 @@ import { UniverseIcon } from './ui';
  * lib/pricing et badges (populaire / livré chez vous). Variantes :
  * `compact` supprime la description pour les grilles denses.
  */
-export function ServiceCard({ service, idx = 0, compact = false }: { service: Service; idx?: number; compact?: boolean }) {
+export function ServiceCard({ service, idx = 0, compact = false, priority = false }: { service: Service; idx?: number; compact?: boolean; priority?: boolean }) {
   const universe = getCategoryBySlug(service.categoryId);
   const [noPhoto, setNoPhoto] = useState(false);
 
@@ -32,7 +32,7 @@ export function ServiceCard({ service, idx = 0, compact = false }: { service: Se
     >
       <Link
         to={`/service/${service.slug}`}
-        className="group h-full rounded-card bg-brand-surface border border-brand-border flex flex-col overflow-hidden hover:shadow-premium-hover hover:border-brand-border-dark transition-all active:scale-[0.99]"
+        className={`group h-full rounded-card glass-surface flex flex-col overflow-hidden hover:shadow-premium-hover hover:border-brand-accent/30 transition-all active:scale-[0.99] ${priority ? "ring-1 ring-brand-accent/25" : ""}`}
       >
         <div className={`relative h-40 sm:h-44 shrink-0 overflow-hidden ${noPhoto ? universe?.color ?? 'bg-brand-bg' : 'bg-brand-bg'}`}>
           {noPhoto ? (
@@ -68,6 +68,11 @@ export function ServiceCard({ service, idx = 0, compact = false }: { service: Se
         </div>
 
         <div className="px-6 pb-6 md:px-7 md:pb-7 flex flex-col flex-1 pt-4">
+          {priority && (
+            <span className="inline-flex items-center gap-1.5 self-start mb-3 rounded-full border border-brand-accent/15 bg-white/70 px-3 py-1 text-[10px] font-heading font-bold uppercase tracking-[0.12em] text-brand-accent backdrop-blur-xl">
+              <Sparkles className="h-3 w-3" aria-hidden="true" /> En tête de l’univers
+            </span>
+          )}
           <p className="text-[11px] font-heading font-bold uppercase tracking-[0.18em] text-brand-text-muted mb-2">
             {universe?.title ?? 'Service'}
           </p>
