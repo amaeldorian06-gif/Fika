@@ -1416,7 +1416,8 @@ export function AdminAnalytics() {
                     <th className="px-4 py-3 text-right">Fiches vues</th>
                     <th className="px-4 py-3 text-right">Clics WA</th>
                     <th className="px-4 py-3 text-right">Demandes</th>
-                    <th className="px-4 py-3 text-right">Commandes</th>
+                    <th className="px-4 py-3 text-right">Demande / vues</th>
+                    <th className="px-4 py-3 text-right">Commandes créées</th>
                     <th className="px-4 py-3 text-right">Demande → commande</th>
                     <th className="px-5 py-3 text-right">CA attribué</th>
                   </tr>
@@ -1431,6 +1432,7 @@ export function AdminAnalytics() {
                       <td className="px-4 py-4 text-right tabular-nums">{u.consultations}</td>
                       <td className="px-4 py-4 text-right tabular-nums">{u.whatsappClicks}</td>
                       <td className="px-4 py-4 text-right font-semibold tabular-nums">{u.leads}</td>
+                      <td className="px-4 py-4 text-right tabular-nums">{u.leadPerConsultationPercent != null ? `${u.leadPerConsultationPercent.toFixed(1)} %` : '—'}</td>
                       <td className="px-4 py-4 text-right tabular-nums">{u.orders}</td>
                       <td className="px-4 py-4 text-right tabular-nums">{u.leadToOrderPercent != null ? `${u.leadToOrderPercent.toFixed(1)} %` : '—'}</td>
                       <td className="px-5 py-4 text-right font-semibold tabular-nums">{formatPriceFCFA(u.revenue)}</td>
@@ -1458,7 +1460,9 @@ export function AdminAnalytics() {
                     <th className="px-3 py-3 text-right">Vues fiche</th>
                     <th className="px-3 py-3 text-right">Clics WA</th>
                     <th className="px-3 py-3 text-right">Demandes</th>
-                    <th className="px-3 py-3 text-right">Converties</th>
+                    <th className="px-3 py-3 text-right">Demande / vues</th>
+                    <th className="px-3 py-3 text-right">Demandes converties</th>
+                    <th className="px-3 py-3 text-right">Commandes créées</th>
                     <th className="px-3 py-3 text-right">Demande → commande</th>
                     <th className="px-5 py-3 text-right">CA attribué</th>
                   </tr>
@@ -1473,7 +1477,9 @@ export function AdminAnalytics() {
                       <td className="px-3 py-4 text-right tabular-nums">{s.consultations}</td>
                       <td className="px-3 py-4 text-right tabular-nums">{s.whatsappClicks}</td>
                       <td className="px-3 py-4 text-right font-semibold tabular-nums">{s.leads}</td>
+                      <td className="px-3 py-4 text-right tabular-nums">{s.leadPerConsultationPercent != null ? `${s.leadPerConsultationPercent.toFixed(1)} %` : '—'}</td>
                       <td className="px-3 py-4 text-right tabular-nums">{s.convertedLeads}</td>
+                      <td className="px-3 py-4 text-right tabular-nums">{s.orders}</td>
                       <td className="px-3 py-4 text-right tabular-nums">{s.leadToOrderPercent != null ? `${s.leadToOrderPercent.toFixed(1)} %` : '—'}</td>
                       <td className="px-5 py-4 text-right font-semibold tabular-nums">{formatPriceFCFA(s.revenue)}</td>
                     </tr>
@@ -1483,7 +1489,7 @@ export function AdminAnalytics() {
             </div>
           )}
           <p className="px-6 py-4 text-[11px] leading-relaxed text-brand-text-muted bg-brand-bg/70 border-t border-brand-border">
-            Méthode : les demandes converties sont des demandes ayant une commande liée (quel que soit son statut). Le chiffre d'affaires attribué additionne les lignes de commande associées à une prestation sur les statuts facturables. Les consultations et clics sont des événements, pas des personnes uniques ; le ratio demandes / vues est donc indicatif et peut dépasser 100 %.
+            Méthode : « Demandes converties » = demandes créées sur la période ayant une commande reliée (quel que soit son statut). « Commandes créées » = commandes créées sur la période. Le chiffre d'affaires attribué additionne les lignes de commande rattachées à une prestation sur les statuts facturables. Les consultations et clics sont des événements, pas des personnes uniques ; le ratio demandes / vues est indicatif et peut dépasser 100 %.
           </p>
         </div>
       </section>
