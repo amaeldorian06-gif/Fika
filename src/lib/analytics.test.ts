@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  averageCompletionDays, costBreakdown, financeSummary, leadConversionRate,
+  averageCompletionDays, commercialPerformanceBreakdown, costBreakdown, financeSummary, leadConversionRate,
   funnelBreakdown, makePeriod, searchQueriesBreakdown, sourceBreakdown, statusFunnel, topServices, weeklyRevenue,
   type AnalyticsEvent, type AnalyticsLead, type AnalyticsOrder,
 } from './analytics';
@@ -234,5 +234,81 @@ describe('funnelBreakdown — étapes de parcours (FUNNEL_STEP)', () => {
   it('les étapes inconnues gardent leur identifiant technique en libellé', () => {
     const rows = funnelBreakdown([ev({ step: 'NOUVELLE_ETAPE_FUTURE' })]);
     expect(rows[0].label).toBe('NOUVELLE_ETAPE_FUTURE');
+  });
+});
+
+
+describe('performance commerciale par prestation et univers', () => {
+  const services = [
+    { serviceId: 's1', slug: 'plomberie', name: 'Plomberie', universeId: 'u1', universeSlug: 'maison', universeName: 'Maison & Travaux', displayOrder: 1 },
+    { serviceId: 's2', slug: 'electricite', name: 'Électricité', universeId: 'u1', universeSlug: 'maison', universeName: 'Maison & Travaux', displayOrder: 2 },
+    { serviceId: 's3', slug: 'cv', name: 'CV', universeId: 'u2', universeSlug: 'numerique', universeName: 'Numérique & Documents', displayOrder: 1 },
+  ];
+
+  const event = (id: string, type: string, serviceId: string | null): AnalyticsEvent => ({
+    id, type, serviceId, campaign: null, createdAt: d('2026-11-10T10:00:00Z'), meta: null,
+  });
+
+  it('relie consultations, WhatsApp, demandes, commandes et chiffre par service', () => {
+    const result = commercialPerformanceBreakdown(
+      services,
+      [
+        { id: 'l1', source: 'SITE', createdAt: d('2026-11-10'), serviceId: 's1', converted: true },
+        { id: 'l2', source: 'SITE', createdAt: d('2026-11-11'), serviceId: 's1', converted: false },
+        { id: 'l3', source: 'WHATSAPP', createdAt: d('2026-11-12'), serviceId: 's2', converted: true },
+      ],
+      [
+        event('v1', 'LEAD_VIEW', 's1'), event('v2', 'LEAD_VIEW', 's1'), event('v3', 'LEAD_VIEW', 's1'),
+        event('w1', 'WACLICK', 's1'), event('w2', 'WACLICK', 's1'),
+        event('v4', 'LEAD_VIEW', 's2'),
+        event('ignored', 'LEAD_VIEW', null),
+      ],
+      [
+        order({ id: 'o1', status: 'COMPLETED', leadId: 'l1', items: [{ serviceId: 's1', serviceName: 'Plomberie', price: 5000, quantity: 1 }] }),
+        order({ id: 'o2', status: 'NEW', leadId: 'l3', items: [{ serviceId: 's2', serviceName: 'Électricité', price: 2000, quantity: 1 }] }),
+      ],
+    );
+
+    const plumbing = result.services.find((row) => row.serviceId === 's1');
+    expect(plumbing).toMatchObject({
+      consultations: 3, whatsappClicks: 2, leads: 2, convertedLeads: 1,
+      orders: 1, revenue: 5000, leadPerConsultationPercent: 66.7, leadToOrderPercent: 50,
+    });
+    const electrical = result.services.find((row) => row.serviceId === 's2');
+    expect(electrical).toMatchObject({ consultations: 1, leads: 1, convertedLeads: 1, orders: 1, revenue: 0, leadToOrderPercent: 100 });
+  });
+
+  it('agrège un univers sans compter deux fois une commande multi-services', () => {
+    const result = commercialPerformanceBreakdown(
+      services.slice(0, 2),
+      [{ id: 'l1', source: 'SITE', createdAt: d('2026-11-10'), serviceId: 's1', converted: true }],
+      [event('v1', 'LEAD_VIEW', 's1'), event('v2', 'LEAD_VIEW', 's2')],
+      [order({
+        id: 'multi', status: 'PAID',
+        items: [
+          { serviceId: 's1', serviceName: 'Plomberie', price: 4000, quantity: 1 },
+          { serviceId: 's2', serviceName: 'Électricité', price: 6000, quantity: 1 },
+        ],
+      })],
+    );
+    expect(result.universes).toHaveLength(1);
+    expect(result.universes[0]).toMatchObject({ serviceCount: 2, consultations: 2, orders: 1, revenue: 10000 });
+  });
+
+  it('n’invente aucun taux quand le dénominateur est nul', () => {
+    const result = commercialPerformanceBreakdown(services, [], [], []);
+    expect(result.services.every((row) => row.leadPerConsultationPercent === null && row.leadToOrderPercent === null)).toBe(true);
+    expect(result.universes.every((row) => row.leadPerConsultationPercent === null && row.leadToOrderPercent === null)).toBe(true);
+  });
+
+  it('préserve l’attribution demande→commande si la commande utilise uniquement des lignes libres', () => {
+    const result = commercialPerformanceBreakdown(
+      services.slice(0, 1),
+      [{ id: 'l1', source: 'SITE', createdAt: d('2026-11-10'), serviceId: 's1', converted: true }],
+      [],
+      [order({ id: 'custom', status: 'NEW', leadServiceId: 's1', items: [{ serviceId: null, serviceName: 'Travail personnalisé', price: null, quantity: 1 }] })],
+    );
+    expect(result.services[0].orders).toBe(1);
+    expect(result.services[0].revenue).toBe(0);
   });
 });

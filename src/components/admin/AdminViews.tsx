@@ -1343,6 +1343,16 @@ export function AdminAnalytics() {
     );
   };
 
+  const exportCommercialCsv = () => {
+    downloadCsv(`performance-commerciale-fika-${new Date().toISOString().slice(0, 10)}.csv`,
+      ['Univers', 'Service', 'Consultations de fiche', 'Clics WhatsApp', 'Demandes', 'Demandes converties en commande', 'Commandes créées', 'CA attribué (FCFA)', 'Demandes / consultations (%)', 'Demande → commande (%)'],
+      c.commercial.services.map((s) => [
+        s.universeName, s.name, s.consultations, s.whatsappClicks, s.leads, s.convertedLeads, s.orders, s.revenue,
+        s.leadPerConsultationPercent ?? '', s.leadToOrderPercent ?? '',
+      ]),
+    );
+  };
+
   return (
     <div className="space-y-8">
       {/* Sélecteur de période */}
@@ -1360,6 +1370,9 @@ export function AdminAnalytics() {
           </button>
         ))}
         <span className="text-xs text-brand-text-muted ml-auto hidden sm:block">{data.period.label}</span>
+        <button type="button" onClick={exportCommercialCsv} className="inline-flex items-center gap-2 rounded-full border border-brand-border bg-brand-surface px-4 py-2 text-sm font-bold text-brand-text hover:border-brand-border-dark transition-colors">
+          <Download className="w-4 h-4" /> Exporter performance
+        </button>
       </div>
 
       {/* KPIs */}
@@ -1369,6 +1382,117 @@ export function AdminAnalytics() {
         <KpiCard label="Conversion demandes" value={c.conversionFromLead != null ? `${c.conversionFromLead} %` : '—'} Icon={TrendingUp} hint={`${c.leads.converted}/${c.leads.total} converties`} />
         <KpiCard label="Délai de complétion" value={c.completionDays != null ? `${c.completionDays} j` : '—'} Icon={FileText} hint="Création → terminée (moyenne)" />
       </div>
+
+      {/* Pilotage commercial : du signal de demande au revenu attribué. */}
+      <section className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
+          <div>
+            <h2 className="text-xl font-heading font-bold text-brand-text">Performance commerciale</h2>
+            <p className="text-sm text-brand-text-muted mt-1">Où l'intérêt se transforme en demandes, commandes et chiffre d'affaires.</p>
+          </div>
+          <p className="text-xs text-brand-text-muted">Période : {data.period.label}</p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          <KpiCard label="Consultations de fiches" value={String(c.commercial.services.reduce((sum, s) => sum + s.consultations, 0))} Icon={BarChart} hint="Vues enregistrées, non dédupliquées" />
+          <KpiCard label="Clics WhatsApp attribués" value={String(c.commercial.services.reduce((sum, s) => sum + s.whatsappClicks, 0))} Icon={MessageCircle} hint="Sur les fiches de services" />
+          <KpiCard label="Demandes attribuées" value={String(c.commercial.services.reduce((sum, s) => sum + s.leads, 0))} Icon={Inbox} hint="Demandes liées à une prestation" />
+          <KpiCard label="Demandes converties" value={String(c.commercial.services.reduce((sum, s) => sum + s.convertedLeads, 0))} Icon={TrendingUp} hint="Demandes ayant une commande liée" />
+        </div>
+
+        <div className="bg-brand-surface rounded-2xl border border-brand-border overflow-hidden">
+          <div className="p-6 border-b border-brand-border">
+            <h3 className="font-heading font-bold text-brand-text">Vue par univers</h3>
+            <p className="text-xs text-brand-text-muted mt-1">Comparaison des cinq univers, du volume consulté jusqu'au chiffre d'affaires attribué.</p>
+          </div>
+          {c.commercial.universes.length === 0 ? (
+            <p className="p-6 text-sm text-brand-text-muted">Aucun univers actif dans le catalogue.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[760px]">
+                <thead>
+                  <tr className="text-left text-[11px] font-bold text-brand-text-muted uppercase tracking-wider border-b border-brand-border">
+                    <th className="px-5 py-3">Univers</th>
+                    <th className="px-4 py-3 text-right">Fiches vues</th>
+                    <th className="px-4 py-3 text-right">Clics WA</th>
+                    <th className="px-4 py-3 text-right">Demandes</th>
+                    <th className="px-4 py-3 text-right">Demande / vues</th>
+                    <th className="px-4 py-3 text-right">Commandes créées</th>
+                    <th className="px-4 py-3 text-right">Demande → commande</th>
+                    <th className="px-5 py-3 text-right">CA attribué</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {c.commercial.universes.map((u) => (
+                    <tr key={u.universeId} className="border-b border-brand-border last:border-0">
+                      <td className="px-5 py-4">
+                        <span className="font-semibold text-brand-text">{u.universeName}</span>
+                        <span className="block text-[11px] text-brand-text-muted">{u.serviceCount} prestations actives</span>
+                      </td>
+                      <td className="px-4 py-4 text-right tabular-nums">{u.consultations}</td>
+                      <td className="px-4 py-4 text-right tabular-nums">{u.whatsappClicks}</td>
+                      <td className="px-4 py-4 text-right font-semibold tabular-nums">{u.leads}</td>
+                      <td className="px-4 py-4 text-right tabular-nums">{u.leadPerConsultationPercent != null ? `${u.leadPerConsultationPercent.toFixed(1)} %` : '—'}</td>
+                      <td className="px-4 py-4 text-right tabular-nums">{u.orders}</td>
+                      <td className="px-4 py-4 text-right tabular-nums">{u.leadToOrderPercent != null ? `${u.leadToOrderPercent.toFixed(1)} %` : '—'}</td>
+                      <td className="px-5 py-4 text-right font-semibold tabular-nums">{formatPriceFCFA(u.revenue)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        <div className="bg-brand-surface rounded-2xl border border-brand-border overflow-hidden">
+          <div className="p-6 border-b border-brand-border">
+            <h3 className="font-heading font-bold text-brand-text">Vue détaillée par prestation</h3>
+            <p className="text-xs text-brand-text-muted mt-1">Classement commercial : demandes converties, demandes reçues, revenu, puis consultations.</p>
+          </div>
+          {c.commercial.services.length === 0 ? (
+            <p className="p-6 text-sm text-brand-text-muted">Aucune prestation active à analyser.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[980px]">
+                <thead>
+                  <tr className="text-left text-[11px] font-bold text-brand-text-muted uppercase tracking-wider border-b border-brand-border">
+                    <th className="px-5 py-3">Prestation</th>
+                    <th className="px-3 py-3 text-right">Vues fiche</th>
+                    <th className="px-3 py-3 text-right">Clics WA</th>
+                    <th className="px-3 py-3 text-right">Demandes</th>
+                    <th className="px-3 py-3 text-right">Demande / vues</th>
+                    <th className="px-3 py-3 text-right">Demandes converties</th>
+                    <th className="px-3 py-3 text-right">Commandes créées</th>
+                    <th className="px-3 py-3 text-right">Demande → commande</th>
+                    <th className="px-5 py-3 text-right">CA attribué</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {c.commercial.services.map((s) => (
+                    <tr key={s.serviceId} className="border-b border-brand-border last:border-0">
+                      <td className="px-5 py-4">
+                        <span className="font-semibold text-brand-text">{s.name}</span>
+                        <span className="block text-[11px] text-brand-text-muted">{s.universeName}</span>
+                      </td>
+                      <td className="px-3 py-4 text-right tabular-nums">{s.consultations}</td>
+                      <td className="px-3 py-4 text-right tabular-nums">{s.whatsappClicks}</td>
+                      <td className="px-3 py-4 text-right font-semibold tabular-nums">{s.leads}</td>
+                      <td className="px-3 py-4 text-right tabular-nums">{s.leadPerConsultationPercent != null ? `${s.leadPerConsultationPercent.toFixed(1)} %` : '—'}</td>
+                      <td className="px-3 py-4 text-right tabular-nums">{s.convertedLeads}</td>
+                      <td className="px-3 py-4 text-right tabular-nums">{s.orders}</td>
+                      <td className="px-3 py-4 text-right tabular-nums">{s.leadToOrderPercent != null ? `${s.leadToOrderPercent.toFixed(1)} %` : '—'}</td>
+                      <td className="px-5 py-4 text-right font-semibold tabular-nums">{formatPriceFCFA(s.revenue)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <p className="px-6 py-4 text-[11px] leading-relaxed text-brand-text-muted bg-brand-bg/70 border-t border-brand-border">
+            Méthode : « Demandes converties » = demandes créées sur la période ayant une commande reliée (quel que soit son statut). « Commandes créées » = commandes créées sur la période. Le chiffre d'affaires attribué additionne les lignes de commande rattachées à une prestation sur les statuts facturables. Les consultations et clics sont des événements, pas des personnes uniques ; le ratio demandes / vues est indicatif et peut dépasser 100 %.
+          </p>
+        </div>
+      </section>
 
       {/* CA 12 semaines + funnel */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
