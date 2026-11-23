@@ -6,7 +6,8 @@ import {
   statusFunnel, sourceBreakdown, searchQueriesBreakdown, funnelBreakdown, topServices, costBreakdown, weeklyRevenue,
   topExperts, filterOrdersByPeriod, filterLeadsByPeriod,
   type AnalyticsOrder, type AnalyticsLead, type AnalyticsEvent,
-  type AnalyticsServiceMarginTarget, type SourceRow, type PeriodKey,
+  type AnalyticsServiceMarginTarget, type AnalyticsCatalogService, type ServicePerformanceRow, type UniversePerformanceRow, type SourceRow, type PeriodKey,
+  commercialPerformanceBreakdown,
 } from '../../src/lib/analytics';
 
 /**
@@ -39,6 +40,7 @@ export interface AnalyticsPayload {
     costs: { type: string; amount: number; percent: number }[];
     weekly: { label: string; revenue: number }[];
     experts: { expertId: string; name: string; completedOrders: number; reworkRate: number; cancellationRate: number | null; averageRating: number | null; verificationLevel: string }[];
+    commercial: { services: ServicePerformanceRow[]; universes: UniversePerformanceRow[] };
   };
   previous: {
     revenueInvoiced: number;
@@ -58,12 +60,14 @@ export function isPeriodKey(value: string | null): value is PeriodKey {
 interface OrderRow {
   id: string; status: string; totalPrice: number | null;
   createdAt: Date; completedAt: Date | null; leadId: string | null;
+  lead: { serviceId: string | null } | null;
   costs: { type: string; amount: number }[];
   payments: { amount: number; status: string }[];
   items: { serviceId: string | null; customName: string | null; price: number | null; quantity: number; service: { name: string } | null }[];
 }
 
-interface LeadRow { id: string; source: string; createdAt: Date }
+interface LeadRow { id: string; source: string; createdAt: Date; serviceId: string | null; orders: { id: string }[] }
+interface CatalogServiceRow { id: string; slug: string; name: string; categoryId: string; displayOrder: number; category: { slug: string; title: string } }
 interface EventRow {
   id: string; type: string; createdAt: Date; serviceId: string | null;
   campaign: string | null; meta: unknown;
@@ -81,6 +85,7 @@ export async function getAnalytics(periodKey: PeriodKey): Promise<AnalyticsPaylo
     where: { createdAt: { gte: since } },
     select: {
       id: true, status: true, totalPrice: true, createdAt: true, completedAt: true, leadId: true,
+      lead: { select: { serviceId: true } },
       costs: { select: { type: true, amount: true } },
       payments: { select: { amount: true, status: true } },
       items: { select: { serviceId: true, customName: true, price: true, quantity: true, service: { select: { name: true } } } },
@@ -89,13 +94,22 @@ export async function getAnalytics(periodKey: PeriodKey): Promise<AnalyticsPaylo
 
   const leadsRaw = await prisma.lead.findMany({
     where: { createdAt: { gte: since } },
-    select: { id: true, source: true, createdAt: true },
+    select: { id: true, source: true, createdAt: true, serviceId: true, orders: { select: { id: true } } },
   }) as unknown as LeadRow[];
 
   const eventsRaw = await prisma.event.findMany({
     where: { createdAt: { gte: since } },
     select: { id: true, type: true, createdAt: true, serviceId: true, campaign: true, meta: true },
   }) as unknown as EventRow[];
+
+  const servicesRaw = await prisma.service.findMany({
+    where: { active: true },
+    select: {
+      id: true, slug: true, name: true, categoryId: true, displayOrder: true,
+      category: { select: { slug: true, title: true } },
+    },
+    orderBy: [{ category: { title: 'asc' } }, { displayOrder: 'asc' }, { name: 'asc' }],
+  }) as unknown as CatalogServiceRow[];
 
   const expertsRaw = await prisma.expert.findMany({
     select: { id: true, name: true, verificationLevel: true },
@@ -123,6 +137,7 @@ export async function getAnalytics(periodKey: PeriodKey): Promise<AnalyticsPaylo
     createdAt: o.createdAt,
     completedAt: o.completedAt,
     leadId: o.leadId,
+    leadServiceId: o.lead?.serviceId ?? null,
     costs: o.costs,
     payments: o.payments,
     items: o.items.map((i) => ({
@@ -133,7 +148,15 @@ export async function getAnalytics(periodKey: PeriodKey): Promise<AnalyticsPaylo
     })),
   }));
 
-  const leadsIn: AnalyticsLead[] = leadsRaw;
+  const leadsIn: AnalyticsLead[] = leadsRaw.map((lead) => ({
+    id: lead.id, source: lead.source, createdAt: lead.createdAt,
+    serviceId: lead.serviceId, converted: lead.orders.length > 0,
+  }));
+  const catalogServices: AnalyticsCatalogService[] = servicesRaw.map((service) => ({
+    serviceId: service.id, slug: service.slug, name: service.name,
+    universeId: service.categoryId, universeSlug: service.category.slug,
+    universeName: service.category.title, displayOrder: service.displayOrder,
+  }));
   const eventsIn: AnalyticsEvent[] = eventsRaw.map((e) => ({
     id: e.id,
     type: e.type,
@@ -161,6 +184,7 @@ export async function getAnalytics(periodKey: PeriodKey): Promise<AnalyticsPaylo
   const finance = financeSummary(currentOrders);
   const conversion = leadConversionRate(currentLeads, currentOrders);
   const previousFinance = financeSummary(previousOrders);
+  const commercial = commercialPerformanceBreakdown(catalogServices, currentLeads, periodEvents, currentOrders);
 
   return {
     period: {
@@ -180,6 +204,7 @@ export async function getAnalytics(periodKey: PeriodKey): Promise<AnalyticsPaylo
       costs: costBreakdown(currentOrders),
       weekly: weeklyRevenue(ordersIn, 12, period.to),
       experts: topExperts(expertRows),
+      commercial,
     },
     previous: {
       revenueInvoiced: previousFinance.revenueInvoiced,
