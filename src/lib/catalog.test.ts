@@ -68,3 +68,25 @@ describe('searchServices', () => {
     expect(new Set(r.map((s) => s.id)).size).toBe(r.length);
   });
 });
+
+
+describe('ordre éditorial du catalogue par univers', () => {
+  const expectedOrders: Record<string, string[]> = {
+    'maison-travaux': [
+      'intervention-plomberie', 'intervention-electricite', 'toiture-charpente', 'soudure-metallerie',
+      'menuiserie-bois-alu', 'pose-carrelage', 'travaux-maconnerie', 'peinture-batiment',
+    ],
+    'reparation-maintenance': [
+      'reparation-electromenager', 'reparation-telephone', 'reparation-informatique',
+    ],
+    'auto-moto': ['depannage-mecanique-auto', 'depannage-moto'],
+    'transport-logistique': ['livraison-courses-express', 'demenagement-local'],
+    'numerique-documents': ['presence-digitale-pro', 'creation-cv-professionnel', 'bureautique-impression'],
+  };
+
+  for (const [categoryId, expectedSlugs] of Object.entries(expectedOrders)) {
+    it(`respecte l’ordre validé pour ${categoryId}`, () => {
+      expect(getServices({ categoryId }).map((service) => service.slug)).toEqual(expectedSlugs);
+    });
+  }
+});
