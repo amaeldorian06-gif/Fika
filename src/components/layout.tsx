@@ -1,5 +1,6 @@
 import { Lock, Store, Wrench } from 'lucide-react';
 import { SITE_CITY } from '../lib/site';
+import { BrandLogo } from './BrandLogo';
 import { Link, useRoute } from '../router';
 
 /**
@@ -14,7 +15,7 @@ export { MobileBottomNav } from './navigation/MobileBottomNav';
 
 export function Footer() {
   const { path } = useRoute();
-  if (path.startsWith('/admin')) return null;
+  if (path.startsWith('/admin') || path === '/') return null;
 
   return (
     <footer className="bg-brand-surface border-t border-brand-border py-8 sm:py-10">
