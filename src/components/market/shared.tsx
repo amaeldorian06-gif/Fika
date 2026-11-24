@@ -77,7 +77,7 @@ export function useCatalog(category?: string) {
       .catch(() => { if (alive) setError('Catalogue momentanément indisponible. Réessayez dans un instant.'); });
     return () => { alive = false; };
   }, [category, key]);
-  return { data, error };
+  return { data, error, loading: !data && !error };
 }
 
 /** Normalisation de recherche : accents et casse ignorés (« cable » trouve « Câble »). */
@@ -91,89 +91,57 @@ export function normalizeSearch(s: string): string {
  * Les URL déjà échouées sont mémorisées : le carousel ne re-montrera pas une
  * image morte à chaque tour (l'icône reste stable).
  */
-export function ProductImage({ src, alt, className, iconClassName }: {
-  src?: string | null; alt: string; className?: string; iconClassName?: string;
+export function ProductImage({ src, alt, className, iconClassName, loading = 'lazy' }: {
+  src?: string | null; alt: string; className?: string; iconClassName?: string; loading?: 'lazy' | 'eager';
 }) {
   const [failed, setFailed] = useState<Record<string, boolean>>({});
   if (!src || failed[src]) {
     return <PackageSearch className={iconClassName ?? 'w-10 h-10 text-brand-text-muted/40'} aria-hidden="true" />;
   }
-  return <img src={src} alt={alt} loading="lazy" onError={() => setFailed((f) => ({ ...f, [src]: true }))} className={className} />;
+  return <img src={src} alt={alt} loading={loading} decoding="async" onError={() => setFailed((f) => ({ ...f, [src]: true }))} className={className} />;
 }
 
-/**
- * Défilement automatique des photos d'aperçu : doux et maîtrisé.
- * Une photo reste 5 secondes, puis un fondu enchaîné (700 ms) amène la
- * suivante. Pause au survol ou au focus clavier, désactivé si animation
- * réduite demandée ou une seule photo.
- */
-const CAROUSEL_INTERVAL_MS = 5000;
-
-function useCarouselIndex(count: number, paused = false): number {
-  const [i, setI] = useState(0);
-  useEffect(() => { setI(0); }, [count]);
-  useEffect(() => {
-    if (count <= 1 || paused) return;
-    if (typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const id = window.setInterval(() => setI((v) => (v + 1) % count), CAROUSEL_INTERVAL_MS);
-    return () => { window.clearInterval(id); };
-  }, [count, paused]);
-  return count > 0 ? i % count : 0;
-}
-
-/** Carte produit : photo (carousel), description courte, prix, disponibilité. */
+/** Carte produit : une image principale par carte pour limiter les téléchargements inutiles. */
 export function ProductCard({ product }: { product: MarketProductPublic }) {
-  const [hold, setHold] = useState(false);
-  const imageIndex = useCarouselIndex(product.images.length, hold);
   return (
     <Link
-      to={`/boutique/produit/${product.slug}`}
-      onMouseEnter={() => setHold(true)}
-      onMouseLeave={() => setHold(false)}
-      onFocus={() => setHold(true)}
-      onBlur={() => setHold(false)}
-      className="group flex flex-col rounded-2xl border border-brand-border bg-white overflow-hidden hover:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent"
+      to={"/boutique/produit/" + product.slug}
+      className="group flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-brand-border bg-white shadow-[0_5px_20px_-16px_rgba(20,20,20,0.25)] transition-all duration-300 hover:-translate-y-1 hover:border-brand-border-dark hover:shadow-[0_18px_36px_-22px_rgba(20,20,20,0.36)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
     >
-      <div className="relative aspect-square bg-brand-bg overflow-hidden">
-        {product.images.length === 0 ? (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <PackageSearch className="w-10 h-10 text-brand-text-muted/40" aria-hidden="true" />
-          </div>
-        ) : (
-          product.images.map((src, i) => (
-            <div
-              key={src + i}
-              aria-hidden={i !== imageIndex}
-              className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${i === imageIndex ? 'opacity-100' : 'opacity-0'}`}
-            >
-              <ProductImage src={src} alt={product.name} className="w-full h-full object-cover" />
-            </div>
-          ))
-        )}
-        {product.images.length > 1 && (
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5" aria-hidden="true">
-            {product.images.map((_, d) => (
-              <span key={d} className={`h-1.5 rounded-full transition-all duration-500 ${d === imageIndex ? 'w-2 bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.25)]' : 'w-1.5 bg-white/60'}`} />
-            ))}
-          </div>
-        )}
-      </div>
-      <div className="p-4 flex flex-col gap-1.5 flex-1">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-brand-text-muted">
-          {product.category.name}{product.brand ? ` · ${product.brand}` : ''}
+      <div className="relative aspect-square overflow-hidden bg-[#F3F1EE]">
+        <div className="absolute inset-0 flex items-center justify-center">
+          <ProductImage src={product.images[0]} alt={product.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.045]" iconClassName="h-10 w-10 text-brand-text-muted/35" />
+        </div>
+        <span className={"absolute left-3 top-3 rounded-full border px-2.5 py-1 text-[10px] font-bold shadow-sm " + (product.availability === 'AVAILABLE' ? 'border-emerald-200 bg-white/95 text-emerald-700' : product.availability === 'PREORDER' ? 'border-amber-200 bg-white/95 text-amber-800' : 'border-slate-200 bg-white/95 text-slate-500')}>
+          {AVAILABILITY_LABELS[product.availability]}
         </span>
-        <h3 className="font-heading font-bold leading-snug">{product.name}</h3>
-        {product.shortDescription && (
-          <p className="text-xs text-brand-text-muted leading-snug line-clamp-2">{product.shortDescription}</p>
-        )}
-        <p className="text-lg font-extrabold text-brand-accent">{formatPrice(product.priceSale)}</p>
-        <div className="mt-auto flex items-center justify-between gap-2 pt-2">
-          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${AVAILABILITY_STYLES[product.availability]}`}>
-            {AVAILABILITY_LABELS[product.availability]}
-          </span>
+      </div>
+      <div className="flex flex-1 flex-col gap-1.5 p-3.5 sm:p-4">
+        <span className="truncate text-[10px] font-extrabold uppercase tracking-[0.13em] text-brand-text-muted">
+          {product.category.name}{product.brand ? ' · ' + product.brand : ''}
+        </span>
+        <h3 className="line-clamp-2 min-h-[2.6rem] font-heading text-sm font-bold leading-snug text-brand-text group-hover:text-brand-accent transition-colors sm:text-[15px]">{product.name}</h3>
+        {product.shortDescription && <p className="line-clamp-2 text-xs leading-relaxed text-brand-text-muted">{product.shortDescription}</p>}
+        <div className="mt-auto flex items-end justify-between gap-2 pt-2">
+          <p className="text-lg font-extrabold tracking-tight text-brand-text">{formatPrice(product.priceSale)}</p>
+          <span className="text-[10px] font-bold text-brand-accent opacity-0 transition-opacity group-hover:opacity-100">Voir →</span>
         </div>
       </div>
     </Link>
+  );
+}
+
+export function ProductCardSkeleton() {
+  return (
+    <div aria-hidden="true" className="overflow-hidden rounded-2xl border border-brand-border bg-white">
+      <div className="aspect-square animate-pulse bg-slate-100" />
+      <div className="space-y-3 p-4">
+        <div className="h-2.5 w-1/3 animate-pulse rounded bg-slate-100" />
+        <div className="h-3.5 w-4/5 animate-pulse rounded bg-slate-100" />
+        <div className="h-3.5 w-3/5 animate-pulse rounded bg-slate-100" />
+        <div className="h-5 w-2/5 animate-pulse rounded bg-slate-100" />
+      </div>
+    </div>
   );
 }
 
