@@ -95,6 +95,13 @@ ok('E4 Escape ferme l’overlay', !(await p.locator('[role="dialog"]').count()))
 await p.goto(BASE + '/boutique', { waitUntil: 'load' });
 await p.waitForSelector('text=Écouteurs Bluetooth E2E', { timeout: 10000 });
 ok('E5 nav Boutique active', await p.locator('header nav a[aria-current="page"]').filter({ hasText: 'Boutique' }).count() === 1);
+ok('E5 recherche Market toujours visible', await p.locator('header input[aria-label="Rechercher un produit dans Fika Market"]').isVisible());
+ok('E5 navigation catégories alimentée par le catalogue', await p.locator('header nav[aria-label="Catégories Fika Market"] a[href^="/boutique/categorie/"]').count() > 0);
+await p.getByRole('button', { name: 'Catégories' }).click();
+ok('E5 menu catégories ouvrable', await p.locator('#market-category-menu').isVisible());
+ok('E5 menu catégories contient des catégories réelles', await p.locator('#market-category-menu a[href^="/boutique/categorie/"]').count() > 0);
+await p.keyboard.press('Escape');
+ok('E5 Escape ferme le menu catégories', !(await p.locator('#market-category-menu').count()));
 ok('E5 panier visible en univers Market', await p.locator('header a[href="/boutique/panier"]').isVisible());
 ok('E5 produits e2e rendus', true);
 ok('E5 plus de lien suivi (supprimé)', (await p.locator('header a[href="/boutique/suivi"]').count()) === 0);
@@ -194,6 +201,12 @@ await p.locator('nav[aria-label="Navigation mobile"] a[href="/boutique"]').click
 await p.waitForTimeout(600);
 ok('M12 clic Boutique → univers Market', p.url().includes('/boutique'));
 ok('M12 Boutique active', await p.locator('nav[aria-label="Navigation mobile"] a[aria-current="page"]').filter({ hasText: 'Boutique' }).count() === 1);
+ok('M12 recherche Market accessible sur mobile', await p.locator('header input[aria-label="Rechercher un produit dans Fika Market"]').isVisible());
+ok('M12 navigation secondaire catégories visible', await p.locator('header nav[aria-label="Catégories Fika Market"]').isVisible());
+ok('M12 en-tête Market sans débordement horizontal', await p.evaluate(() => {
+  const nav = document.querySelector('header nav[aria-label="Catégories Fika Market"]');
+  return !!nav && nav.getBoundingClientRect().width <= window.innerWidth;
+}));
 await p.locator('nav[aria-label="Navigation mobile"] a[href="/services"]').click();
 await p.waitForTimeout(600);
 ok('M12 Services actif après bascule', await p.locator('nav[aria-label="Navigation mobile"] a[aria-current="page"]').filter({ hasText: 'Services' }).count() === 1);
