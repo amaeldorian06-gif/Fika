@@ -5,7 +5,6 @@ import { getWALink } from '../../lib/whatsapp';
 import { trackWaClick, trackFunnelStep } from '../../lib/tracking';
 import { Link, navigate, useRoute } from '../../router';
 import { NeedIllustration } from '../NeedIllustration';
-import { BrandLogo } from '../BrandLogo';
 import { SITE_CITY, SITE_DOMAIN, WHATSAPP_PHONE_E164 } from '../../lib/site';
 
 /**
