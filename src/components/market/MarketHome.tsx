@@ -97,7 +97,7 @@ export function MarketHomePage() {
                   <div className="row-span-2"><HeroProductTile product={heroProducts[0]} prominent /></div>
                   {heroProducts[1] && <HeroProductTile product={heroProducts[1]} />}
                   {heroProducts[2] && <HeroProductTile product={heroProducts[2]} />}
-                  {heroProducts.length === 1 && (
+                  {!heroProducts[2] && (
                     <Link to="/boutique/tous" className="flex h-full min-h-[132px] flex-col items-center justify-center rounded-2xl border border-dashed border-[#CFC4B7] bg-white/45 p-4 text-center hover:bg-white/70">
                       <Store className="h-7 w-7 text-brand-accent" aria-hidden="true" />
                       <span className="mt-2 text-xs font-bold text-slate-700">Explorer le catalogue</span>
