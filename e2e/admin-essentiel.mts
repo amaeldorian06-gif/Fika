@@ -69,6 +69,36 @@ try {
     }
   }
 
+  /* ---------- 2bis. Éditeur produit desktop : création + aperçu sans sauvegarde ---------- */
+  await page.goto(`${BASE}/admin/market/catalog`, { waitUntil: 'load' });
+  await page.waitForSelector('text=Fika Market — catalogue', { timeout: 15000 });
+  await page.getByRole('button', { name: 'Nouveau produit' }).click();
+  const editor = page.locator('[role="dialog"][aria-label="Nouveau produit"]');
+  await editor.waitFor({ state: 'visible', timeout: 10000 });
+  const editorBox = await editor.boundingBox();
+  ok(!!editorBox && editorBox.width >= 1000, 'éditeur produit desktop : large workspace (≥ 1000 px)', JSON.stringify(editorBox));
+  ok(await editor.getByText('Aperçu en direct').isVisible(), 'éditeur produit : aperçu client présent');
+  ok(await editor.getByText('Qualité de la fiche').isVisible(), 'éditeur produit : contrôle de complétude présent');
+  ok(await editor.locator('#p-upload').count() === 1, 'éditeur produit : ajout de photos depuis l’ordinateur');
+  await editor.locator('#p-name').fill('Produit de démonstration — aperçu uniquement');
+  ok(await editor.getByText('Produit de démonstration — aperçu uniquement', { exact: true }).isVisible(), 'éditeur produit : aperçu mis à jour en direct');
+  await editor.getByRole('button', { name: 'Fermer l’éditeur' }).click();
+  ok(await editor.count() === 0, 'éditeur produit : fermeture sans enregistrer de données');
+
+  /* ---------- 2ter. Édition : aperçu chargé depuis une fiche existante ---------- */
+  const firstProductEdit = page.locator('button[aria-label^="Modifier "][aria-label!="Modifier le produit"]').first();
+  if (await firstProductEdit.count()) {
+    await firstProductEdit.click();
+    const editDialog = page.locator('[role="dialog"][aria-label="Modifier le produit"]');
+    await editDialog.waitFor({ state: 'visible', timeout: 10000 });
+    ok(await editDialog.getByText('Aperçu en direct').isVisible(), 'édition produit : aperçu direct disponible');
+    ok(await editDialog.locator('#p-name').inputValue().then((value) => value.length > 0), 'édition produit : champs préremplis depuis la fiche');
+    await editDialog.getByRole('button', { name: 'Fermer l’éditeur' }).click();
+    ok(await editDialog.count() === 0, 'édition produit : fermeture sans modification');
+  } else {
+    ok(true, 'catalogue sans produit existant : scénario édition ignoré');
+  }
+
   /* ---------- 3. Commandes réelles visibles dans la file ---------- */
   await page.goto(`${BASE}/admin/market/orders`, { waitUntil: 'load' });
   const orderVisible = await page.waitForSelector('text=MKT-', { timeout: 20000 }).then(() => true).catch(() => false);
