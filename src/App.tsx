@@ -143,7 +143,7 @@ export default function App() {
         Aller au contenu
       </a>
       <GlobalHeader />
-      <main id="contenu" tabIndex={-1} className={`flex-grow outline-none ${isAdmin ? '' : 'pt-8'}`}>
+      <main id="contenu" tabIndex={-1} className={`flex-grow outline-none ${isAdmin || path.startsWith('/boutique') || path === '/demande-produit' ? '' : 'pt-8'}`}>
         <AnimatePresence mode="wait">
           <motion.div
             key={path}
