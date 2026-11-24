@@ -166,7 +166,7 @@ export function EntryPage() {
             href={getWALink('Bonjour Fika 👋, je souhaite être accompagné.')}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={() => trackWaClick({ context: 'entry-footer' })}
+            onClick={() => trackWaClick({ context: 'home-hero' })}
             className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[#25D366] px-6 py-3 text-sm font-extrabold text-[#10351E] shadow-sm transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
           >
             <MessageCircle className="h-5 w-5 fill-current" aria-hidden="true" />
