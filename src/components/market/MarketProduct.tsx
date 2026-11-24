@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Check, ChevronRight, Loader2, MessageCircle, Minus, Plus, ShoppingBag, ShoppingCart } from 'lucide-react';
+import { Check, ChevronRight, MessageCircle, Minus, Plus, ShoppingBag, ShoppingCart } from 'lucide-react';
 import { Button } from '../ui';
 import { Link } from '../../router';
 import { AVAILABILITY_LABELS, type MarketProductPublic } from '../../lib/market';
 import { cart } from '../../lib/cart';
 import { trackMarketEvent } from '../../lib/market-analytics';
 import { getWALink } from '../../lib/whatsapp';
-import { AVAILABILITY_STYLES, formatPrice, ProductCard, ProductCardSkeleton, ProductImage, useCatalog } from './shared';
+import { AVAILABILITY_STYLES, formatPrice, ProductCard, ProductImage, useCatalog } from './shared';
 
 /**
  * Fiche produit — fil d'Ariane (catégorie, sous-catégorie), marque, variante,
