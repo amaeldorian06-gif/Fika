@@ -26,20 +26,57 @@ export type CatalogCategory = {
 
 export type CatalogData = { categories: CatalogCategory[]; products: MarketProductPublic[] };
 
+// Cache mémoire court + déduplication des requêtes simultanées (header et page).
+// Le catalogue public reste rafraîchi rapidement après une modification admin.
+const CATALOG_CACHE_TTL_MS = 10_000;
+const catalogCache = new Map<string, { data: CatalogData; expiresAt: number }>();
+const catalogRequests = new Map<string, Promise<CatalogData>>();
+
+function catalogKey(category?: string): string {
+  return category ? `category:${category}` : 'all';
+}
+
+function loadCatalog(category?: string): Promise<CatalogData> {
+  const key = catalogKey(category);
+  const cached = catalogCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return Promise.resolve(cached.data);
+
+  const pending = catalogRequests.get(key);
+  if (pending) return pending;
+
+  const request = fetch(`/api/market/catalog${category ? `?category=${encodeURIComponent(category)}` : ''}`)
+    .then(async (res) => {
+      if (!res.ok) throw new Error('catalog');
+      return (await res.json()) as CatalogData;
+    })
+    .then((data) => {
+      catalogCache.set(key, { data, expiresAt: Date.now() + CATALOG_CACHE_TTL_MS });
+      return data;
+    })
+    .finally(() => { catalogRequests.delete(key); });
+
+  catalogRequests.set(key, request);
+  return request;
+}
+
 export function useCatalog(category?: string) {
-  const [data, setData] = useState<CatalogData | null>(null);
+  const key = catalogKey(category);
+  const [data, setData] = useState<CatalogData | null>(() => catalogCache.get(key)?.data ?? null);
   const [error, setError] = useState('');
   useEffect(() => {
     let alive = true;
-    fetch(`/api/market/catalog${category ? `?category=${encodeURIComponent(category)}` : ''}`)
-      .then(async (res) => {
-        if (!res.ok) throw new Error('catalog');
-        return (await res.json()) as CatalogData;
-      })
-      .then((d) => { if (alive) { setData(d); setError(''); } })
+    const cached = catalogCache.get(key);
+    if (cached) setData(cached.data);
+    if (cached && cached.expiresAt > Date.now()) {
+      setError('');
+      return () => { alive = false; };
+    }
+
+    loadCatalog(category)
+      .then((result) => { if (alive) { setData(result); setError(''); } })
       .catch(() => { if (alive) setError('Catalogue momentanément indisponible. Réessayez dans un instant.'); });
     return () => { alive = false; };
-  }, [category]);
+  }, [category, key]);
   return { data, error };
 }
 
