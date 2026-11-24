@@ -712,6 +712,9 @@ export function AdminMarketCatalog() {
   const [dialog, setDialog] = useState<'product' | 'category' | 'supplier' | null>(null);
   const [editing, setEditing] = useState<MarketProductDto | null>(null);
   const [collectionId, setCollectionId] = useState<string | null>(null);
+  const [productSearch, setProductSearch] = useState('');
+  const [productStatus, setProductStatus] = useState<'ALL' | 'PUBLISHED' | 'DRAFT' | 'ARCHIVED'>('ALL');
+  const [productCategory, setProductCategory] = useState('ALL');
   const { run, banner } = useActionBanner();
 
   const [catForm, setCatForm] = useState({ id: '', name: '', slug: '', description: '', imageUrl: '', parentId: '', position: '0', active: true, archived: false });
@@ -720,6 +723,22 @@ export function AdminMarketCatalog() {
   if (loading) return <Loading />;
   if (loadError || !data) return <LoadError message={loadError ?? 'Données indisponibles.'} retry={reload} />;
   const { categories, suppliers, products } = data;
+  const filteredProducts = useMemo(() => {
+    const term = productSearch.trim().toLocaleLowerCase('fr');
+    return products.filter((product) => {
+      const matchesSearch = !term || [product.name, product.reference, product.brand ?? '', product.categoryName, product.subcategoryName ?? '', product.supplierName ?? '']
+        .some((value) => value.toLocaleLowerCase('fr').includes(term));
+      const matchesStatus = productStatus === 'ALL'
+        || (productStatus === 'PUBLISHED' && product.active && !product.archived)
+        || (productStatus === 'DRAFT' && !product.active && !product.archived)
+        || (productStatus === 'ARCHIVED' && product.archived);
+      const matchesCategory = productCategory === 'ALL' || product.categoryId === productCategory;
+      return matchesSearch && matchesStatus && matchesCategory;
+    });
+  }, [products, productSearch, productStatus, productCategory]);
+  const publishedProducts = products.filter((product) => product.active && !product.archived).length;
+  const draftProducts = products.filter((product) => !product.active && !product.archived).length;
+  const archivedProducts = products.filter((product) => product.archived).length;
 
   /** Payload complet d'un produit existant — évite qu'un toggle n'écrase les champs non affichés. */
   const productPayload = (p: MarketProductDto, overrides: Partial<MarketProductPayload> = {}): MarketProductPayload => ({
@@ -881,56 +900,169 @@ export function AdminMarketCatalog() {
       </section>
 
       {/* Produits */}
-      <section>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="font-heading font-bold text-lg">Produits ({products.length})</h2>
-          <Button size="sm" onClick={() => { setEditing(null); setDialog('product'); }}><Plus className="w-4 h-4 mr-1" />Produit</Button>
+      <section aria-labelledby="market-admin-products" className="space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-brand-accent">Gestion du catalogue</p>
+            <h2 id="market-admin-products" className="font-heading text-xl font-extrabold text-slate-900">Produits <span className="text-sm font-semibold text-slate-400">({products.length})</span></h2>
+            <p className="mt-1 text-xs text-brand-text-muted">Recherchez, filtrez et mettez à jour les fiches produits.</p>
+          </div>
+          <Button size="sm" onClick={() => { setEditing(null); setDialog('product'); }} className="shrink-0">
+            <Plus className="mr-1 h-4 w-4" /> Nouveau produit
+          </Button>
         </div>
-        {products.length === 0
-          ? <EmptyState icon={Store} title="Catalogue vide" description="Ajoutez vos premières catégories puis vos produits : ils apparaîtront immédiatement dans la boutique." />
-          : <div className="overflow-x-auto bg-white rounded-2xl border border-brand-border">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs uppercase tracking-wider text-brand-text-muted border-b border-brand-border">
-                  <th className="px-4 py-3">Produit</th>
-                  <th className="px-4 py-3">Prix vente</th>
-                  <th className="px-4 py-3">Marge est.</th>
-                  <th className="px-4 py-3">Disponibilité</th>
-                  <th className="px-4 py-3">État</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-brand-border">
-                {products.map((p) => (
-                  <tr key={p.id}>
-                    <td className="px-4 py-3">
-                      <p className="font-semibold">{p.name}</p>
-                      <p className="text-xs text-brand-text-muted">{p.reference} · {p.categoryName}{p.subcategoryName ? ` › ${p.subcategoryName}` : ''}{p.supplierName ? ` · ${p.supplierName}` : ''}</p>
-                    </td>
-                    <td className="px-4 py-3 font-semibold whitespace-nowrap">{formatPriceFCFA(p.priceSale)}</td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className={p.estimatedMargin > 0 ? 'text-emerald-700 font-semibold' : 'text-red-700 font-semibold'}>{formatPriceFCFA(p.estimatedMargin)}</span>
-                    </td>
-                    <td className="px-4 py-3 text-xs">{AVAILABILITY_LABELS[p.availability]}</td>
-                    <td className="px-4 py-3">
-                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${p.archived ? 'bg-brand-bg text-brand-text-muted border-brand-border' : p.active ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
-                        {p.archived ? 'Archivé' : p.active ? 'Publié' : 'Brouillon'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      <button type="button" className="p-2 rounded-lg hover:bg-brand-bg" aria-label={`Modifier ${p.name}`} onClick={() => { setEditing(p); setDialog('product'); }}><Pencil className="w-4 h-4" /></button>
+
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+          <div className="rounded-xl border border-emerald-100 bg-emerald-50/70 p-3 sm:rounded-2xl sm:p-4">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Publiés</p>
+            <p className="mt-1 text-xl font-extrabold text-emerald-800">{publishedProducts}</p>
+          </div>
+          <div className="rounded-xl border border-amber-100 bg-amber-50/70 p-3 sm:rounded-2xl sm:p-4">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Brouillons</p>
+            <p className="mt-1 text-xl font-extrabold text-amber-800">{draftProducts}</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 sm:rounded-2xl sm:p-4">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Archivés</p>
+            <p className="mt-1 text-xl font-extrabold text-slate-700">{archivedProducts}</p>
+          </div>
+        </div>
+
+        <div className="grid gap-3 rounded-2xl border border-brand-border bg-white p-3 shadow-sm sm:grid-cols-[minmax(0,1fr)_180px_190px] sm:p-4">
+          <label className="relative block">
+            <span className="sr-only">Rechercher un produit</span>
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+            <input
+              type="search"
+              value={productSearch}
+              onChange={(e) => setProductSearch(e.target.value)}
+              placeholder="Nom, référence, marque, fournisseur…"
+              className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm font-medium text-slate-800 placeholder:text-slate-400 focus:border-brand-accent focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-accent/15"
+            />
+          </label>
+          <label className="block">
+            <span className="sr-only">Filtrer par état</span>
+            <Select aria-label="Filtrer par état" value={productStatus} onChange={(e) => setProductStatus(e.target.value as typeof productStatus)} className="h-11 bg-slate-50 py-2">
+              <option value="ALL">Tous les états</option>
+              <option value="PUBLISHED">Publiés</option>
+              <option value="DRAFT">Brouillons</option>
+              <option value="ARCHIVED">Archivés</option>
+            </Select>
+          </label>
+          <label className="block">
+            <span className="sr-only">Filtrer par catégorie</span>
+            <Select aria-label="Filtrer par catégorie" value={productCategory} onChange={(e) => setProductCategory(e.target.value)} className="h-11 bg-slate-50 py-2">
+              <option value="ALL">Toutes les catégories</option>
+              {categories.filter((category) => !category.parentId).map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+            </Select>
+          </label>
+        </div>
+
+        {products.length === 0 ? (
+          <EmptyState icon={Store} title="Catalogue vide" description="Ajoutez vos premières catégories puis vos produits : ils apparaîtront immédiatement dans la boutique." />
+        ) : filteredProducts.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-brand-border-dark bg-white px-6 py-12 text-center">
+            <Search className="mx-auto h-7 w-7 text-slate-300" aria-hidden="true" />
+            <p className="mt-3 font-bold text-slate-800">Aucun produit ne correspond à ces filtres.</p>
+            <button type="button" onClick={() => { setProductSearch(''); setProductStatus('ALL'); setProductCategory('ALL'); }} className="mt-2 text-sm font-bold text-brand-accent hover:underline">Effacer les filtres</button>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between gap-3 px-1 text-xs text-brand-text-muted">
+              <span>{filteredProducts.length} résultat{filteredProducts.length > 1 ? 's' : ''}</span>
+              {(productSearch || productStatus !== 'ALL' || productCategory !== 'ALL') && (
+                <button type="button" onClick={() => { setProductSearch(''); setProductStatus('ALL'); setProductCategory('ALL'); }} className="font-bold text-brand-accent hover:underline">Réinitialiser</button>
+              )}
+            </div>
+
+            {/* Table riche sur ordinateur */}
+            <div className="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:block">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-slate-50 text-[10px] font-extrabold uppercase tracking-[0.13em] text-slate-500">
+                    <tr>
+                      <th className="px-4 py-4">Produit</th>
+                      <th className="px-4 py-4">Prix vente</th>
+                      <th className="px-4 py-4">Marge estimée</th>
+                      <th className="px-4 py-4">Disponibilité</th>
+                      <th className="px-4 py-4">État</th>
+                      <th className="px-4 py-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredProducts.map((p) => (
+                      <tr key={p.id} className="transition-colors hover:bg-slate-50/70">
+                        <td className="px-4 py-3">
+                          <div className="flex min-w-[280px] items-center gap-3">
+                            <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                              {p.images[0] ? <img src={p.images[0]} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : <ImagePlus className="h-5 w-5 text-slate-300" aria-hidden="true" />}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="max-w-[300px] truncate font-extrabold text-slate-900">{p.name}</p>
+                              <p className="mt-1 text-[11px] text-slate-500">{p.reference} · {p.categoryName}{p.subcategoryName ? ' › ' + p.subcategoryName : ''}</p>
+                              {p.supplierName && <p className="mt-0.5 truncate text-[10px] text-slate-400">{p.supplierName}</p>}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 font-extrabold text-slate-800">{formatPriceFCFA(p.priceSale)}</td>
+                        <td className="whitespace-nowrap px-4 py-3">
+                          <span className={p.estimatedMargin > 0 ? 'font-bold text-emerald-700' : 'font-bold text-red-700'}>{formatPriceFCFA(p.estimatedMargin)}</span>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-slate-600">{AVAILABILITY_LABELS[p.availability]}</td>
+                        <td className="px-4 py-3">
+                          <span className={'inline-flex rounded-full border px-2.5 py-1 text-[10px] font-extrabold ' + (p.archived ? 'border-slate-200 bg-slate-100 text-slate-500' : p.active ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-800')}>
+                            {p.archived ? 'Archivé' : p.active ? 'Publié' : 'Brouillon'}
+                          </span>
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-right">
+                          <button type="button" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900" aria-label={'Modifier ' + p.name} onClick={() => { setEditing(p); setDialog('product'); }}><Pencil className="h-4 w-4" /></button>
+                          {p.archived
+                            ? <button type="button" className="rounded-lg px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100" onClick={() => void restoreProduct(p)}>Restaurer</button>
+                            : <>
+                              <button type="button" className="rounded-lg px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100" onClick={() => void toggleProduct(p)}>{p.active ? 'Masquer' : 'Publier'}</button>
+                              <button type="button" className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-700" aria-label={'Archiver ' + p.name} onClick={() => void archiveProduct(p)}><Trash2 className="h-4 w-4" /></button>
+                            </>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Cartes adaptées tablette et mobile */}
+            <div className="grid gap-3 lg:hidden sm:grid-cols-2">
+              {filteredProducts.map((p) => (
+                <article key={p.id} className="rounded-2xl border border-brand-border bg-white p-3 shadow-sm">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100">
+                      {p.images[0] ? <img src={p.images[0]} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : <ImagePlus className="h-5 w-5 text-slate-300" aria-hidden="true" />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="line-clamp-2 text-sm font-extrabold text-slate-900">{p.name}</p>
+                      <p className="mt-1 text-[10px] text-slate-500">{p.reference} · {p.categoryName}</p>
+                      <p className="mt-2 text-sm font-extrabold text-brand-accent">{formatPriceFCFA(p.priceSale)}</p>
+                    </div>
+                    <span className={'shrink-0 rounded-full border px-2 py-1 text-[9px] font-extrabold ' + (p.archived ? 'border-slate-200 bg-slate-100 text-slate-500' : p.active ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-800')}>
+                      {p.archived ? 'Archivé' : p.active ? 'Publié' : 'Brouillon'}
+                    </span>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2">
+                    <span className="text-[11px] text-slate-500">{AVAILABILITY_LABELS[p.availability]} · Marge {formatPriceFCFA(p.estimatedMargin)}</span>
+                    <div className="flex items-center gap-1">
+                      <button type="button" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" aria-label={'Modifier ' + p.name} onClick={() => { setEditing(p); setDialog('product'); }}><Pencil className="h-4 w-4" /></button>
                       {p.archived
-                        ? <button type="button" className="p-2 rounded-lg hover:bg-brand-bg font-bold text-xs px-3" onClick={() => void restoreProduct(p)}>Restaurer</button>
+                        ? <button type="button" className="rounded-lg px-2 py-2 text-xs font-bold text-slate-600" onClick={() => void restoreProduct(p)}>Restaurer</button>
                         : <>
-                          <button type="button" className="p-2 rounded-lg hover:bg-brand-bg font-bold text-xs px-3" onClick={() => void toggleProduct(p)}>{p.active ? 'Masquer' : 'Publier'}</button>
-                          <button type="button" className="p-2 rounded-lg hover:bg-red-50 text-red-700" aria-label={`Archiver ${p.name}`} onClick={() => void archiveProduct(p)}><Trash2 className="w-4 h-4" /></button>
+                          <button type="button" className="rounded-lg px-2 py-2 text-xs font-bold text-slate-600" onClick={() => void toggleProduct(p)}>{p.active ? 'Masquer' : 'Publier'}</button>
+                          <button type="button" className="rounded-lg p-2 text-red-600 hover:bg-red-50" aria-label={'Archiver ' + p.name} onClick={() => void archiveProduct(p)}><Trash2 className="h-4 w-4" /></button>
                         </>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>}
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </>
+        )}
       </section>
 
       {dialog === 'product' && (
