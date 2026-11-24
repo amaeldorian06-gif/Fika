@@ -1,165 +1,176 @@
 import { useEffect } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { ShieldCheck, ArrowRight, MessageCircle, PackageSearch, Store, Wrench } from 'lucide-react';
-import { COPY_NAV } from '../../lib/copy/navigation';
+import { ArrowRight, CheckCircle2, Headphones, MapPin, MessageCircle, ShieldCheck, ShoppingBag, Store, Truck, Wrench, Zap } from 'lucide-react';
 import { getWALink } from '../../lib/whatsapp';
-import { trackWaClick } from '../../lib/tracking';
+import { trackWaClick, trackFunnelStep } from '../../lib/tracking';
 import { Link, navigate, useRoute } from '../../router';
-import { trackFunnelStep } from '../../lib/tracking';
 import { NeedIllustration } from '../NeedIllustration';
+import { BrandLogo } from '../BrandLogo';
+import { SITE_CITY, SITE_DOMAIN, WHATSAPP_PHONE_E164 } from '../../lib/site';
 
 /**
- * Page d'entrée Fika — une marque, deux univers d'importance égale.
- * Rôle : orienter selon l'intention, pas tout afficher. Les ancres héritées
- * de l'ancienne accueil (#services, #comment-ca-marche, #faq) redirigent
- * vers l'univers Services qui porte désormais ce contenu.
+ * Page d'entrée Fika — présentation courte, deux parcours et une seule action
+ * de contact. Les catalogues et contenus détaillés restent dans leurs univers.
  */
+const PHONE_LABEL = '+237 671 164 936';
+
+function EntryCard({ kind, title, description, href, action, note }: {
+  kind: 'market' | 'services';
+  title: string;
+  description: string;
+  href: string;
+  action: string;
+  note: string;
+}) {
+  const Icon = kind === 'market' ? Store : Wrench;
+  return (
+    <Link
+      to={href}
+      onClick={() => trackFunnelStep('PATH_SELECTED', { universe: kind })}
+      className="group flex min-h-[190px] flex-col justify-center rounded-[1.6rem] border border-brand-border bg-white p-6 transition-all duration-300 hover:-translate-y-0.5 hover:border-brand-accent/50 hover:shadow-premium-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent sm:p-7"
+    >
+      <span className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-accent text-white shadow-sm">
+        <Icon className="h-5 w-5" aria-hidden="true" />
+      </span>
+      <h2 className="font-heading text-2xl font-extrabold tracking-tight text-brand-text">{title}</h2>
+      <p className="mt-2 text-sm leading-relaxed text-brand-text-muted sm:text-base">{description}</p>
+      <div className="mt-5 flex items-center justify-between gap-3">
+        <span className="text-sm font-bold text-brand-accent">{action}</span>
+        <ArrowRight className="h-4 w-4 text-brand-accent transition-transform group-hover:translate-x-1" aria-hidden="true" />
+      </div>
+      <p className="mt-2 border-t border-brand-border pt-3 text-xs font-medium text-brand-text-muted">{note}</p>
+    </Link>
+  );
+}
+
 export function EntryPage() {
   const { anchor } = useRoute();
   const reduced = useReducedMotion();
 
   useEffect(() => {
-    // Compatibilité : ces sections vivent maintenant sur /services.
+    // Compatibilité : ces sections vivent désormais sur /services.
     if (anchor && ['services', 'comment-ca-marche', 'faq'].includes(anchor)) {
       navigate(`/services#${anchor}`);
     }
   }, [anchor]);
 
   const reveal = (delay: number) => ({
-    initial: { opacity: 0, y: reduced ? 0 : 16 },
+    initial: { opacity: 0, y: reduced ? 0 : 10 },
     animate: { opacity: 1, y: 0 },
-    transition: { duration: 0.5, delay, ease: [0.16, 1, 0.3, 1] as const },
+    transition: { duration: reduced ? 0 : 0.35, delay: reduced ? 0 : delay, ease: [0.16, 1, 0.3, 1] as const },
   });
 
   return (
-    <div className="max-w-6xl mx-auto px-5">
-      {/* Présentation de marque */}
-      <motion.section className="pt-10 sm:pt-16 pb-12 sm:pb-16 text-center" {...reveal(0)}>
-        <p className="text-xs uppercase tracking-widest text-brand-accent font-bold mb-5">{COPY_NAV.entry.eyebrow}</p>
-        <h1 className="font-heading text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-tight">
-          {COPY_NAV.entry.title}
-          <br />
-          <span className="font-serif italic text-brand-accent">{COPY_NAV.entry.titleAccent}</span>
-        </h1>
-        <p className="text-brand-text-muted text-lg mt-6 max-w-2xl mx-auto leading-relaxed">{COPY_NAV.entry.subtitle}</p>
-      </motion.section>
+    <div className="min-h-[calc(100vh-76px)] bg-brand-bg">
+      <main className="mx-auto max-w-6xl px-5 pb-7 pt-8 sm:px-8 sm:pb-9 sm:pt-10 lg:px-10">
+        {/* Une promesse centrale, sans détour. */}
+        <motion.section className="mx-auto max-w-4xl text-center" {...reveal(0)}>
+          <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-brand-accent sm:text-xs sm:tracking-[0.22em]">
+            Ngaoundéré · Une marque, deux façons de vous aider
+          </p>
+          <h1 className="mt-5 font-heading text-[2.25rem] font-extrabold leading-[1.08] tracking-[-0.045em] text-brand-text sm:mt-6 sm:text-5xl lg:text-[3.65rem]">
+            Un besoin, un produit
+            <br className="hidden sm:block" /> ou une solution ?
+          </h1>
+          <p className="mt-1 font-serif text-[2.1rem] italic leading-tight text-brand-accent sm:mt-2 sm:text-5xl lg:text-[3.6rem]">
+            Fika vous accompagne.
+          </p>
+          <p className="mx-auto mt-4 max-w-3xl text-sm leading-relaxed text-brand-text-muted sm:mt-5 sm:text-lg">
+            À Ngaoundéré : décrivez un besoin ou un produit. Fika recherche, vérifie et coordonne la solution.
+          </p>
+        </motion.section>
 
-      {/* Deux entrées d'univers, importance visuelle égale */}
-      <div className="grid md:grid-cols-2 gap-4 sm:gap-6 pb-6">
-        <motion.section
-          aria-labelledby="entry-services"
-          className="group flex flex-col rounded-3xl border border-brand-border bg-white p-6 sm:p-8 hover:border-brand-accent focus-within:border-brand-accent transition-colors"
-          {...reveal(0.1)}
-        >
-          <div className="flex items-center justify-between gap-4 mb-6">
-            <span className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-brand-text-muted">
-              <Wrench className="w-4 h-4 text-brand-accent" aria-hidden="true" />
-              Fika Services
-            </span>
-            <span aria-hidden="true" className="text-brand-text-muted/50 font-heading font-bold text-sm">01</span>
+        {/* Les deux parcours sont immédiatement visibles. */}
+        <motion.section className="mt-7 grid items-stretch gap-4 sm:mt-9 lg:grid-cols-[1.02fr_0.98fr] lg:gap-6" {...reveal(0.06)}>
+          <div className="flex min-h-[330px] items-center justify-center overflow-hidden rounded-[1.7rem] border border-brand-border bg-[#F1E7DC] p-3 sm:min-h-[420px] sm:p-5">
+            <div className="w-full max-w-[380px]">
+              <NeedIllustration withAnswer={false} />
+            </div>
           </div>
-          <div className="max-w-[285px] w-full mx-auto mb-7 self-center">
-            <NeedIllustration withAnswer={false} />
-          </div>
-          <h2 id="entry-services" className="font-heading text-2xl sm:text-3xl font-bold">{COPY_NAV.entry.services.title}</h2>
-          <p className="text-brand-text-muted mt-3 leading-relaxed flex-1">{COPY_NAV.entry.services.text}</p>
-          <div className="mt-7">
-            <Link
-              to="/services"
-              className="inline-flex items-center justify-center gap-2 w-full h-14 py-3.5 px-6 rounded-full bg-brand-text text-white font-bold hover:bg-black transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
-            >
-              {COPY_NAV.entry.services.explore}
-              <ArrowRight className="w-4 h-4" aria-hidden="true" />
-            </Link>
-            <p className="flex items-center gap-1.5 text-xs text-brand-text-muted mt-3">
-              <ShieldCheck className="w-3.5 h-3.5 text-brand-accent shrink-0" aria-hidden="true" />
-              Prix validé avec vous avant toute intervention.
-            </p>
-            <Link
-              to="/demande"
-              onClick={() => trackFunnelStep('PATH_SELECTED', { universe: 'services' })}
-              className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-text hover:text-brand-accent transition-colors mt-4 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent rounded-lg"
-            >
-              {COPY_NAV.entry.services.cta}
-              <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
-            </Link>
+          <div className="grid gap-4 sm:grid-rows-2">
+            <EntryCard
+              kind="market"
+              title="Boutique"
+              description="Un produit ? Fika le recherche et vérifie sa disponibilité pour vous."
+              href="/boutique"
+              action="Explorer Fika Market"
+              note="Prix final confirmé avant tout paiement."
+            />
+            <EntryCard
+              kind="services"
+              title="Services"
+              description="Un besoin ? Fika trouve et coordonne la bonne personne."
+              href="/services"
+              action="Décrire mon besoin"
+              note="Prix validé avec vous avant toute intervention."
+            />
           </div>
         </motion.section>
 
-        <motion.section
-          aria-labelledby="entry-market"
-          className="group flex flex-col rounded-3xl border border-brand-border bg-white p-6 sm:p-8 hover:border-brand-accent focus-within:border-brand-accent transition-colors"
-          {...reveal(0.2)}
-        >
-          <div className="flex items-center justify-between gap-4 mb-6">
-            <span className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-brand-text-muted">
-              <Store className="w-4 h-4 text-brand-accent" aria-hidden="true" />
-              Fika Market
-            </span>
-            <span aria-hidden="true" className="text-brand-text-muted/50 font-heading font-bold text-sm">02</span>
+        {/* Territoire réel : une seule ville, aucune promesse d'expansion prématurée. */}
+        <motion.section className="mt-5 flex flex-col gap-4 rounded-[1.6rem] bg-brand-accent px-5 py-5 text-white sm:mt-6 sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:py-6" {...reveal(0.1)}>
+          <div className="flex items-center gap-4">
+            <MapPin className="h-9 w-9 shrink-0" aria-hidden="true" />
+            <div>
+              <p className="text-xs font-semibold text-white/85 sm:text-sm">Disponible uniquement à</p>
+              <p className="font-heading text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl">Ngaoundéré</p>
+              <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.17em] text-white/80 sm:text-xs">Adamaoua · Cameroun</p>
+            </div>
           </div>
-          <div className="flex items-center justify-center gap-3 mb-6 self-center" aria-hidden="true">
-            <span className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-brand-bg border border-brand-border flex items-center justify-center">
-              <Store className="w-9 h-9 text-brand-accent" />
-            </span>
-            <span className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-brand-accent/10 border border-brand-accent/20 flex items-center justify-center -ml-6 rotate-6">
-              <PackageSearch className="w-6 h-6 text-brand-accent" />
-            </span>
-          </div>
-          <h2 id="entry-market" className="font-heading text-2xl sm:text-3xl font-bold">{COPY_NAV.entry.market.title}</h2>
-          <p className="text-brand-text-muted mt-3 leading-relaxed flex-1">{COPY_NAV.entry.market.text}</p>
-          <div className="mt-7">
-            <Link
-              to="/boutique"
-              className="inline-flex items-center justify-center gap-2 w-full h-14 py-3.5 px-6 rounded-full bg-brand-text text-white font-bold hover:bg-black transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
-            >
-              {COPY_NAV.entry.market.explore}
-              <ArrowRight className="w-4 h-4" aria-hidden="true" />
-            </Link>
-            <p className="flex items-center gap-1.5 text-xs text-brand-text-muted mt-3">
-              <ShieldCheck className="w-3.5 h-3.5 text-brand-accent shrink-0" aria-hidden="true" />
-              Prix final confirmé avant tout paiement.
-            </p>
-            <Link
-              to="/demande-produit"
-              onClick={() => trackFunnelStep('PATH_SELECTED', { universe: 'market' })}
-              className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-text hover:text-brand-accent transition-colors mt-4 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent rounded-lg"
-            >
-              {COPY_NAV.entry.market.cta}
-              <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
-            </Link>
+          <div className="flex shrink-0 items-center gap-2 self-start rounded-xl bg-white px-4 py-3 text-sm font-extrabold text-brand-accent sm:self-center">
+            <ShieldCheck className="h-5 w-5" aria-hidden="true" />
+            Prix validé avant tout
           </div>
         </motion.section>
-      </div>
 
-      {/* Raccourcis fréquents */}
-      <motion.div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 py-6 text-sm" {...reveal(0.3)}>
-        <Link to="/demande" className="font-semibold text-brand-text underline-offset-4 hover:text-brand-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent rounded">
-          {COPY_NAV.entry.shortcuts.describe} →
-        </Link>
-        <a
-          href={getWALink('Bonjour Fika 👋, j’ai une question.')}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={() => trackWaClick({ context: 'home-hero' })}
-          className="inline-flex items-center gap-1.5 font-semibold text-brand-wa hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent rounded"
-        >
-          <MessageCircle className="w-4 h-4" aria-hidden="true" />
-          Parler à Fika
-        </a>
-      </motion.div>
+        {/* Quatre bénéfices lisibles, sans transformer l'accueil en catalogue. */}
+        <motion.section className="mt-7 sm:mt-8" {...reveal(0.14)}>
+          <div className="mb-4 flex items-center gap-3">
+            <span className="h-px flex-1 bg-brand-accent/45" />
+            <h2 className="font-heading text-center text-base font-extrabold text-brand-text sm:text-xl">Avec Fika, profitez de :</h2>
+            <span className="h-px flex-1 bg-brand-accent/45" />
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+            {[
+              { icon: Zap, text: 'Des services variés et réactifs' },
+              { icon: ShoppingBag, text: 'Une boutique en ligne moderne' },
+              { icon: ShieldCheck, text: 'Des achats accompagnés en confiance' },
+              { icon: Headphones, text: 'Une assistance disponible' },
+            ].map(({ icon: Icon, text }) => (
+              <div key={text} className="flex min-h-[112px] flex-col items-center justify-center rounded-2xl border border-brand-border bg-white px-3 py-4 text-center shadow-premium sm:min-h-[124px] sm:px-4">
+                <Icon className="mb-2 h-7 w-7 text-brand-accent sm:h-8 sm:w-8" aria-hidden="true" />
+                <p className="max-w-[18ch] text-xs font-semibold leading-snug text-brand-text sm:text-sm">{text}</p>
+              </div>
+            ))}
+          </div>
+        </motion.section>
+      </main>
 
-      {/* Garanties communes */}
-      <motion.section className="border-t border-brand-border py-10 mb-4" {...reveal(0.4)}>
-        <ul className="grid sm:grid-cols-3 gap-4 text-sm text-brand-text-muted">
-          {COPY_NAV.entry.trust.map((t) => (
-            <li key={t} className="flex items-start gap-2.5">
-              <span aria-hidden="true" className="mt-1.5 w-1.5 h-1.5 rounded-full bg-brand-accent shrink-0" />
-              {t}
-            </li>
-          ))}
-        </ul>
-      </motion.section>
+      {/* Un seul point de contact, visible et utilisable. */}
+      <motion.footer className="bg-brand-text text-white" {...reveal(0.18)}>
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-10">
+          <div>
+            <a href={`tel:${WHATSAPP_PHONE_E164}`} className="text-lg font-extrabold tracking-tight hover:text-brand-contrast-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white rounded">
+              {PHONE_LABEL}
+            </a>
+            <p className="mt-1 text-xs text-white/65">{SITE_DOMAIN}</p>
+          </div>
+          <a
+            href={getWALink('Bonjour Fika 👋, je souhaite être accompagné.')}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => trackWaClick({ context: 'entry-footer' })}
+            className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[#25D366] px-6 py-3 text-sm font-extrabold text-[#10351E] shadow-sm transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          >
+            <MessageCircle className="h-5 w-5 fill-current" aria-hidden="true" />
+            WhatsApp · Nous contacter
+          </a>
+          <span className="hidden items-center gap-2 text-xs font-semibold text-white/75 lg:inline-flex">
+            <Truck className="h-4 w-4" aria-hidden="true" />
+            Plus proche de vous, plus utile pour vous.
+          </span>
+        </div>
+      </motion.footer>
     </div>
   );
 }
