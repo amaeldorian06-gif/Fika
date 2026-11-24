@@ -3,6 +3,7 @@ import {
   Activity, Calculator, Inbox, LogOut, Package, Tags, Users, ChevronRight, Loader2, MailCheck,
 } from 'lucide-react';
 import { Link, navigate } from '../../router';
+import { BrandLogo } from '../BrandLogo';
 import { fetchSession, fetchOrders, logout, fetchNotificationStatus, sendNotificationTest, type AdminIdentity, type NotificationStatus } from '../../lib/admin/api';
 import { TODO_STATUSES } from '../../lib/admin/status';
 import { AdminLoginPage } from './AdminLoginPage';
