@@ -23,7 +23,11 @@ try {
   const p = await (await browser.newContext({ viewport: { width: 390, height: 844 } })).newPage();
   await p.goto(`${BASE}/`, { waitUntil: 'load' });
   await p.waitForSelector('.need-illustration--visual', { timeout: 20000 });
-  ok(await p.getByRole('link', { name: 'Décrire mon besoin', exact: true }).first().isVisible(), 'accueil : CTA primaire « Décrire mon besoin »');
+  ok(await p.getByRole('heading', { name: /Un besoin, un produit ou une solution/ }).isVisible(), 'accueil compact : promesse Fika visible');
+  ok(await p.getByText('Disponible uniquement à').isVisible(), 'accueil : disponibilité explicitement limitée à Ngaoundéré');
+  ok(await p.locator('a[href="tel:+237671164936"]').isVisible(), 'accueil : numéro Fika affiché et cliquable');
+  ok(await p.getByRole('link', { name: 'WhatsApp · Nous contacter' }).isVisible(), 'accueil : CTA WhatsApp visible dans le pied de page');
+  ok(await p.getByRole('link', { name: 'Décrire mon besoin', exact: true }).first().isVisible(), 'accueil : CTA direct de demande de service');
   ok(await p.getByText('Prix validé avec vous avant toute intervention.').isVisible(), 'rassurance prix visible près de l’action services');
   await p.getByRole('link', { name: 'Demander un produit', exact: true }).first().click();
   await p.waitForSelector('#product', { timeout: 15000 });
