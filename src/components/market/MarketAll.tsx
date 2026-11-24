@@ -6,7 +6,7 @@ import { AVAILABILITY_LABELS, type MarketProductPublic } from '../../lib/market'
 import { trackMarketEvent } from '../../lib/market-analytics';
 import { getWALink } from '../../lib/whatsapp';
 import {
-  activeFilterEntries, pushSearchHistory, searchProducts, usePersistentState, useCatalog, ProductCard,
+  activeFilterEntries, pushSearchHistory, searchProducts, usePersistentState, useCatalog, ProductCard, ProductCardSkeleton,
 } from './shared';
 
 /**
@@ -39,7 +39,7 @@ function sortProducts(products: MarketProductPublic[], sort: MarketSort): Market
 }
 
 export function MarketAllPage() {
-  const { data, error } = useCatalog();
+  const { data, error, loading } = useCatalog();
   const products = data?.products ?? [];
 
   // Recherche initiale : paramètre d'URL (?q= depuis l'accueil) prioritaire,
@@ -142,6 +142,12 @@ export function MarketAllPage() {
       <h1 className="font-heading text-3xl font-bold mt-3">Tous les produits</h1>
 
       {error && <p role="alert" className="mt-6 rounded-xl bg-red-50 border border-red-200 text-red-700 p-4">{error}</p>}
+
+      {loading && (
+        <div role="status" aria-label="Chargement du catalogue" className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, index) => <ProductCardSkeleton key={index} />)}
+        </div>
+      )}
 
       {data && (
         <>
