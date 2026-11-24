@@ -6,31 +6,35 @@ import { cart } from '../../lib/cart';
 import { COPY_NAV } from '../../lib/copy/navigation';
 import { Link, navigate, useRoute } from '../../router';
 import { SearchOverlay } from './SearchOverlay';
+import { MarketHeader } from '../market/MarketHeader';
 
 /**
- * En-tête global — une seule marque, deux univers identifiables.
- * Boutique et Services portent des états actifs distincts ; le panier est
- * contextuel à Fika Market (ou visible dès qu'il contient une référence) ;
- * l'univers Services expose le CTA « Décrire mon besoin ».
+ * En-tête global — les deux univers partagent la marque, mais chacun possède
+ * une navigation adaptée à son usage. Fika Market a son propre en-tête Etsy-like.
  */
 
 export type Universe = 'market' | 'services' | 'entry';
 
 export function currentUniverse(path: string): Universe {
-  if (path.startsWith('/boutique')) return 'market';
-  if (path === '/' ) return 'entry';
+  if (path.startsWith('/boutique') || path === '/demande-produit') return 'market';
+  if (path === '/') return 'entry';
   return 'services'; // /services, /univers, /service, /demande, pages légales
 }
 
 export function GlobalHeader() {
+  const { path } = useRoute();
+  if (path.startsWith('/admin')) return null;
+  if (currentUniverse(path) === 'market') return <MarketHeader />;
+  return <ServicesHeader />;
+}
+
+function ServicesHeader() {
   const { path } = useRoute();
   const [searchOpen, setSearchOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
 
   useEffect(() => cart.subscribe(() => setCartCount(cart.count())), []);
   useEffect(() => setCartCount(cart.count()), [path]);
-
-  if (path.startsWith('/admin')) return null;
 
   const universe = currentUniverse(path);
   const isActive = (u: 'market' | 'services') =>
@@ -133,7 +137,7 @@ export function GlobalHeader() {
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => trackWaClick({ context: 'header' })}
-                aria-label={`${COPY_NAV.actions.whatsapp} — ${'ouvrir la conversation'}`}
+                aria-label={`${COPY_NAV.actions.whatsapp} — ouvrir la conversation`}
                 className="p-2.5 rounded-xl text-brand-wa hover:bg-brand-bg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
               >
                 <MessageCircle className="w-5 h-5" aria-hidden="true" />
