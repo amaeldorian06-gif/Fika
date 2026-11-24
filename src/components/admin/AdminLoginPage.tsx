@@ -4,6 +4,7 @@ import { login, type AdminIdentity } from '../../lib/admin/api';
 import { Button } from '../ui';
 import { Field, Input } from '../forms';
 import { Link } from '../../router';
+import { BrandLogo } from '../BrandLogo';
 
 /** Écran de connexion du back-office (tokens brand-*, noindex via App). */
 export function AdminLoginPage({ onSuccess, initialError = null }: { onSuccess: (admin: AdminIdentity) => void; initialError?: string | null }) {
