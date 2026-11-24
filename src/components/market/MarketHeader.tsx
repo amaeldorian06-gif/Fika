@@ -136,7 +136,7 @@ export function MarketHeader() {
             </form>
 
             {suggestionsOpen && query.trim().length >= 2 && (
-              <div id="market-search-suggestions" role="listbox" aria-label="Suggestions de produits" className="absolute left-0 right-0 top-[calc(100%+0.55rem)] z-[60] max-h-[min(65vh,420px)] overflow-y-auto rounded-2xl border border-brand-border bg-white shadow-2xl">
+              <div id="market-search-suggestions" role="region" aria-live="polite" aria-label="Suggestions de produits" className="absolute left-0 right-0 top-[calc(100%+0.55rem)] z-[60] max-h-[min(65vh,420px)] overflow-y-auto rounded-2xl border border-brand-border bg-white shadow-2xl">
                 {suggestions.length > 0 ? (
                   <>
                     {suggestions.map((product) => (
@@ -144,8 +144,6 @@ export function MarketHeader() {
                         key={product.id}
                         to={`/boutique/produit/${product.slug}`}
                         onClick={closeMenus}
-                        role="option"
-                        aria-selected="false"
                         className="flex items-center gap-3 p-3 border-b border-brand-border last:border-b-0 hover:bg-brand-bg focus-visible:outline-none focus-visible:bg-brand-bg"
                       >
                         <span className="w-12 h-12 shrink-0 rounded-xl overflow-hidden bg-brand-bg flex items-center justify-center">
