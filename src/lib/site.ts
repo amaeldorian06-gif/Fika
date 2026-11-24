@@ -48,9 +48,8 @@ export function getDeliveryPromise(citySlug: string = DEFAULT_CITY_SLUG): string
 }
 
 /**
- * Numéro WhatsApp de production, format E.164 (+237 622368790).
- * VALIDÉ par le fondateur (2026-11-02, remplace +237 686382354). Une variable
- * d'env VITE_WA_PHONE / NEXT_PUBLIC_WA_PHONE peut le surcharger sans toucher au code.
+ * Numéro WhatsApp Fika, confirmé par le fondateur : +237 671 164 936.
+ * Une variable VITE_WA_PHONE peut le surcharger par environnement si nécessaire.
  */
 const envPhone = import.meta.env.VITE_WA_PHONE as string | undefined;
 
@@ -59,7 +58,7 @@ function isValidE164(phone: string): boolean {
 }
 
 export const WHATSAPP_PHONE_E164: string =
-  envPhone && isValidE164(envPhone) ? envPhone : '+237622368790';
+  envPhone && isValidE164(envPhone) ? envPhone : '+237671164936';
 
 /** wa.me exige le numéro sans le préfixe « + ». */
 export const WA_PHONE_DIGITS: string = WHATSAPP_PHONE_E164.replace(/^\+/, '');

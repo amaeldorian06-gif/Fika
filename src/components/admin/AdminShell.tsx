@@ -3,6 +3,7 @@ import {
   Activity, Calculator, Inbox, LogOut, Package, Tags, Users, ChevronRight, Loader2, MailCheck,
 } from 'lucide-react';
 import { Link, navigate } from '../../router';
+import { BrandLogo } from '../BrandLogo';
 import { fetchSession, fetchOrders, logout, fetchNotificationStatus, sendNotificationTest, type AdminIdentity, type NotificationStatus } from '../../lib/admin/api';
 import { TODO_STATUSES } from '../../lib/admin/status';
 import { AdminLoginPage } from './AdminLoginPage';
@@ -165,9 +166,7 @@ export function AdminShell({
     <div className="min-h-screen flex bg-brand-bg font-sans">
       <aside className="w-64 bg-brand-surface border-r border-brand-border flex-col h-screen sticky top-0 hidden md:flex">
         <div className="p-6 border-b border-brand-border">
-          <Link to="/" className="font-signature text-3xl text-brand-text">
-            Fika<span className="text-brand-accent">.</span>
-          </Link>
+          <Link to="/" aria-label="Fika — accueil"><BrandLogo className="text-3xl" /></Link>
           <p className="text-xs text-brand-text-muted font-medium uppercase tracking-wider mt-1">Admin Ops</p>
         </div>
 

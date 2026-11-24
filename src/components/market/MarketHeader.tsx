@@ -5,6 +5,7 @@ import { trackWaClick } from '../../lib/tracking';
 import { getWALink } from '../../lib/whatsapp';
 import { Link, navigate, useRoute } from '../../router';
 import { formatPrice, ProductImage, pushSearchHistory, searchProducts, useCatalog } from './shared';
+import { BrandLogo } from '../BrandLogo';
 
 /**
  * En-tête propre à Fika Market : recherche directe, catégories réelles,
@@ -96,7 +97,7 @@ export function MarketHeader() {
             aria-label="Fika Market — accueil de la boutique"
             className="order-1 shrink-0 inline-flex items-baseline gap-1 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
           >
-            <span className="font-signature text-3xl sm:text-4xl leading-none text-brand-text">Fika<span className="text-brand-accent">.</span></span>
+            <BrandLogo className="text-3xl sm:text-4xl" />
             <span className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-[0.18em] text-brand-text-muted">Market</span>
           </Link>
 

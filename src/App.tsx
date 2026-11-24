@@ -86,7 +86,7 @@ export default function App() {
   // (jamais au-dessus d'un champ) et fiches service (il recouvrirait la barre
   // CTA sticky ; WhatsApp reste disponible dans le contenu de la page).
   const FORM_ROUTES = new Set(['/demande', '/demande-produit', '/boutique/commande']);
-  const hideFab = FORM_ROUTES.has(path) || path.startsWith('/service/');
+  const hideFab = FORM_ROUTES.has(path) || path === '/' || path.startsWith('/service/');
   usePageSeo(path);
 
   let page: React.ReactNode;
@@ -143,7 +143,7 @@ export default function App() {
         Aller au contenu
       </a>
       <GlobalHeader />
-      <main id="contenu" tabIndex={-1} className={`flex-grow outline-none ${isAdmin || path.startsWith('/boutique') || path === '/demande-produit' ? '' : 'pt-8'}`}>
+      <main id="contenu" tabIndex={-1} className={`flex-grow outline-none ${isAdmin || path === '/' || path.startsWith('/boutique') || path === '/demande-produit' ? '' : 'pt-8'}`}>
         <AnimatePresence mode="wait">
           <motion.div
             key={path}

@@ -36,7 +36,7 @@
 
 /* Variante visuelle seule (carte d'entrée) : la demande devient le sujet,
    recentrée, sans message éditorial — la copie de la carte joue ce rôle. */
-.need-illustration--visual { max-width: 300px; aspect-ratio: 10 / 11; }
+.need-illustration--visual { max-width: 380px; aspect-ratio: 10 / 11; }
 .need-illustration--visual .need-illustration__request { top: 26%; left: 10%; right: 10%; width: auto; padding: 18px 20px; }
 .need-illustration--visual .need-illustration__request p { font-size: 13.5px; }
 .need-illustration--visual .need-illustration__dot { top: 66%; left: 16%; }

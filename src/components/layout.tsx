@@ -1,5 +1,6 @@
 import { Lock, Store, Wrench } from 'lucide-react';
 import { SITE_CITY } from '../lib/site';
+import { BrandLogo } from './BrandLogo';
 import { Link, useRoute } from '../router';
 
 /**
@@ -14,16 +15,14 @@ export { MobileBottomNav } from './navigation/MobileBottomNav';
 
 export function Footer() {
   const { path } = useRoute();
-  if (path.startsWith('/admin')) return null;
+  if (path.startsWith('/admin') || path === '/') return null;
 
   return (
     <footer className="bg-brand-surface border-t border-brand-border py-8 sm:py-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-[2fr_1fr_1fr_1fr] gap-6 md:gap-8 items-start">
           <div>
-            <Link to="/" className="font-signature text-3xl font-normal tracking-wide text-brand-text inline-flex items-center gap-1.5 mb-2">
-              Fika<span className="text-brand-accent text-2xl leading-none">.</span>
-            </Link>
+            <Link to="/" aria-label="Fika — accueil" className="inline-flex rounded-lg mb-2"><BrandLogo className="text-3xl" /></Link>
             <p className="text-brand-text-muted text-xs max-w-sm leading-relaxed">
               Services du quotidien, artisans et produits sélectionnés — coordonnés à Ngaoundéré par une seule équipe.
             </p>
