@@ -22,13 +22,13 @@ try {
   /* ---------- 1. Accueil : deux chemins d'action directs ---------- */
   const p = await (await browser.newContext({ viewport: { width: 390, height: 844 } })).newPage();
   await p.goto(`${BASE}/`, { waitUntil: 'load' });
-  await p.waitForSelector('.need-illustration--visual', { timeout: 20000 });
+  await p.waitForSelector('img[src="/fika-home-photo.webp"]', { timeout: 20000 });
   ok(await p.getByRole('heading', { name: /Un besoin, un produit ou une solution/ }).isVisible(), 'accueil compact : promesse Fika visible');
   ok(await p.getByText('Disponible uniquement à').isVisible(), 'accueil : disponibilité explicitement limitée à Ngaoundéré');
   ok(await p.locator('a[href="tel:+237671164936"]').isVisible(), 'accueil : numéro Fika affiché et cliquable');
-  ok(await p.getByRole('link', { name: 'WhatsApp · Nous contacter' }).isVisible(), 'accueil : CTA WhatsApp visible dans le pied de page');
+  ok(await p.getByRole('link', { name: 'WhatsApp', exact: true }).isVisible(), 'accueil : CTA WhatsApp visible dans le pied de page');
   ok(await p.getByRole('link', { name: 'Décrire mon besoin', exact: true }).first().isVisible(), 'accueil : CTA direct de demande de service');
-  ok(await p.getByText('Prix validé avec vous avant toute intervention.').isVisible(), 'rassurance prix visible près de l’action services');
+  ok(await p.getByText('Prix validé avant tout').isVisible(), 'rassurance prix visible dans la bannière locale');
   await p.getByRole('link', { name: 'Demander un produit', exact: true }).first().click();
   await p.waitForSelector('#product', { timeout: 15000 });
   ok(p.url().includes('/demande-produit'), 'CTA « Demander un produit » → parcours produit dédié', p.url());
@@ -113,10 +113,6 @@ try {
   ok(cartViewed !== null, 'événement CART_VIEWED mesuré');
 
   /* ---------- 7. FAB WhatsApp : masqué sur les formulaires, visible ailleurs ---------- */
-  const fabOn = async (path) => p.evaluate((u) => {
-    window.location.href = u;
-    return true;
-  }, `${BASE}${path}`).then(() => p.waitForTimeout(900)).then(() => p.locator('aside[aria-label="Contact rapide"]').count());
   await p.goto(`${BASE}/demande`, { waitUntil: 'load' });
   await p.waitForSelector('#need', { timeout: 15000 });
   ok((await p.locator('aside[aria-label="Contact rapide"]').count()) === 0, 'FAB masqué sur /demande (champs jamais recouverts)');
@@ -142,7 +138,7 @@ try {
     return {
       found: true,
       aboveNav: r.bottom <= nav.top + 1,
-      labelComplete: cta.scrollWidth <= cta.clientWidth + 1,
+      labelComplete: cta.scrollWidth <= c.clientWidth + 1,
       height: Math.round(c.height),
       ctaInBar: c.top >= r.top - 1 && c.bottom <= r.bottom + 1,
     };
@@ -184,3 +180,4 @@ try {
 }
 console.log(`\\n===== PARCOURS PRODUIT + UX MOBILE : ${pass}/${pass + fail} ${fail === 0 ? 'PASS' : 'FAIL'} =====`);
 process.exit(fail === 0 ? 0 : 1);
+}
