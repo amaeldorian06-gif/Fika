@@ -128,7 +128,7 @@ export default function App() {
 
   return (
     <MotionConfig reducedMotion="user">
-    <div className={`min-h-screen flex flex-col bg-brand-bg text-brand-text font-sans ${isAdmin ? '' : 'pb-20 md:pb-0'}`}>
+    <div className={`min-h-screen flex flex-col bg-brand-bg text-brand-text font-sans ${isAdmin || path === '/' ? '' : 'pb-20 md:pb-0'}`}>
       {/* Navigation clavier : accès direct au contenu principal (scroll + focus, sans toucher au hash) */}
       <a
         href="#contenu"
@@ -157,7 +157,7 @@ export default function App() {
         </AnimatePresence>
       </main>
       <Footer />
-      {!isAdmin && <MobileBottomNav />}
+      {!isAdmin && path !== '/' && <MobileBottomNav />}
 
       {/* Bouton WhatsApp flottant mobile — masqué sur les pages à formulaire
           (un contact WhatsApp reste disponible en bas de chaque formulaire). */}
