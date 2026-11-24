@@ -83,7 +83,9 @@ export function MarketHeader() {
     setCategoryMenuOpen(false);
   };
 
-  const boutiqueActive = path.startsWith('/boutique') && !currentCategory;
+  const boutiqueActive = path === '/boutique';
+  const allProductsActive = path === '/boutique/tous';
+  const productRequestActive = path === '/demande-produit';
 
   return (
     <header ref={headerRef} className="sticky top-0 z-50 bg-brand-surface/95 backdrop-blur-xl border-b border-brand-border">
@@ -173,7 +175,7 @@ export function MarketHeader() {
           </div>
 
           <div className="order-2 sm:order-4 ml-auto sm:ml-0 flex items-center gap-1 sm:gap-2 shrink-0">
-            <Link to="/services" className="hidden xl:inline-flex h-10 items-center px-3 rounded-full text-sm font-semibold text-brand-text-muted hover:text-brand-text hover:bg-brand-bg">
+            <Link to="/services" className="hidden md:inline-flex h-10 items-center px-3 rounded-full text-sm font-semibold text-brand-text-muted hover:text-brand-text hover:bg-brand-bg">
               Fika Services
             </Link>
             <Link
@@ -219,10 +221,10 @@ export function MarketHeader() {
                 {category.name}
               </Link>
             ))}
-            <Link to="/boutique/tous" className="shrink-0 rounded-full px-3 py-2 text-xs sm:text-sm font-semibold text-brand-text-muted hover:text-brand-text hover:bg-brand-bg">
+            <Link to="/boutique/tous" aria-current={allProductsActive ? 'page' : undefined} className={`shrink-0 rounded-full px-3 py-2 text-xs sm:text-sm font-semibold transition-colors ${allProductsActive ? 'bg-brand-bg text-brand-accent' : 'text-brand-text-muted hover:text-brand-text hover:bg-brand-bg'}`}>
               Tous les produits
             </Link>
-            <Link to="/demande-produit" className="shrink-0 rounded-full px-3 py-2 text-xs sm:text-sm font-bold text-brand-accent hover:bg-brand-bg">
+            <Link to="/demande-produit" aria-current={productRequestActive ? 'page' : undefined} className={`shrink-0 rounded-full px-3 py-2 text-xs sm:text-sm font-bold transition-colors ${productRequestActive ? 'bg-brand-bg text-brand-accent' : 'text-brand-accent hover:bg-brand-bg'}`}>
               Demander un produit
             </Link>
           </div>
