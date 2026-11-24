@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { ArrowRight, CheckCircle2, Headphones, MapPin, MessageCircle, ShieldCheck, ShoppingBag, Store, Truck, Wrench, Zap } from 'lucide-react';
+import { ArrowRight, Headphones, MapPin, MessageCircle, ShieldCheck, ShoppingBag, Store, Truck, Wrench, Zap } from 'lucide-react';
 import { getWALink } from '../../lib/whatsapp';
 import { trackWaClick, trackFunnelStep } from '../../lib/tracking';
 import { Link, navigate, useRoute } from '../../router';
@@ -14,32 +14,36 @@ import { SITE_CITY, SITE_DOMAIN, WHATSAPP_PHONE_E164 } from '../../lib/site';
  */
 const PHONE_LABEL = '+237 671 164 936';
 
-function EntryCard({ kind, title, description, href, action, note }: {
+function EntryCard({ kind, title, description, href, action, requestHref, requestAction, note }: {
   kind: 'market' | 'services';
   title: string;
   description: string;
   href: string;
   action: string;
+  requestHref: string;
+  requestAction: string;
   note: string;
 }) {
   const Icon = kind === 'market' ? Store : Wrench;
   return (
-    <Link
-      to={href}
-      onClick={() => trackFunnelStep('PATH_SELECTED', { universe: kind })}
-      className="group flex min-h-[190px] flex-col justify-center rounded-[1.6rem] border border-brand-border bg-white p-6 transition-all duration-300 hover:-translate-y-0.5 hover:border-brand-accent/50 hover:shadow-premium-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent sm:p-7"
-    >
-      <span className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-accent text-white shadow-sm">
-        <Icon className="h-5 w-5" aria-hidden="true" />
-      </span>
-      <h2 className="font-heading text-2xl font-extrabold tracking-tight text-brand-text">{title}</h2>
-      <p className="mt-2 text-sm leading-relaxed text-brand-text-muted sm:text-base">{description}</p>
-      <div className="mt-5 flex items-center justify-between gap-3">
-        <span className="text-sm font-bold text-brand-accent">{action}</span>
-        <ArrowRight className="h-4 w-4 text-brand-accent transition-transform group-hover:translate-x-1" aria-hidden="true" />
+    <section className="flex min-h-[190px] flex-col justify-center rounded-[1.6rem] border border-brand-border bg-white p-6 transition-all duration-300 hover:border-brand-accent/50 hover:shadow-premium-hover sm:p-7">
+      <Link to={href} className="group rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent">
+        <span className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-accent text-white shadow-sm">
+          <Icon className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <h2 className="font-heading text-2xl font-extrabold tracking-tight text-brand-text">{title}</h2>
+        <p className="mt-2 text-sm leading-relaxed text-brand-text-muted sm:text-base">{description}</p>
+        <span className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-brand-accent">
+          {action}<ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
+        </span>
+      </Link>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-brand-border pt-3">
+        <p className="text-xs font-medium text-brand-text-muted">{note}</p>
+        <Link to={requestHref} onClick={() => trackFunnelStep('PATH_SELECTED', { universe: kind })} className="shrink-0 text-xs font-extrabold text-brand-text underline decoration-brand-accent/50 underline-offset-4 hover:text-brand-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent rounded">
+          {requestAction}
+        </Link>
       </div>
-      <p className="mt-2 border-t border-brand-border pt-3 text-xs font-medium text-brand-text-muted">{note}</p>
-    </Link>
+    </section>
   );
 }
 
@@ -76,7 +80,7 @@ export function EntryPage() {
             Fika vous accompagne.
           </p>
           <p className="mx-auto mt-4 max-w-3xl text-sm leading-relaxed text-brand-text-muted sm:mt-5 sm:text-lg">
-            À Ngaoundéré : décrivez un besoin ou un produit. Fika recherche, vérifie et coordonne la solution.
+            À {SITE_CITY} : décrivez un besoin ou un produit. Fika recherche, vérifie et coordonne la solution.
           </p>
         </motion.section>
 
@@ -94,6 +98,8 @@ export function EntryPage() {
               description="Un produit ? Fika le recherche et vérifie sa disponibilité pour vous."
               href="/boutique"
               action="Explorer Fika Market"
+              requestHref="/demande-produit"
+              requestAction="Demander un produit"
               note="Prix final confirmé avant tout paiement."
             />
             <EntryCard
@@ -101,7 +107,9 @@ export function EntryPage() {
               title="Services"
               description="Un besoin ? Fika trouve et coordonne la bonne personne."
               href="/services"
-              action="Décrire mon besoin"
+              action="Explorer les services"
+              requestHref="/demande"
+              requestAction="Décrire mon besoin"
               note="Prix validé avec vous avant toute intervention."
             />
           </div>
@@ -113,7 +121,7 @@ export function EntryPage() {
             <MapPin className="h-9 w-9 shrink-0" aria-hidden="true" />
             <div>
               <p className="text-xs font-semibold text-white/85 sm:text-sm">Disponible uniquement à</p>
-              <p className="font-heading text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl">Ngaoundéré</p>
+              <p className="font-heading text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl">{SITE_CITY}</p>
               <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.17em] text-white/80 sm:text-xs">Adamaoua · Cameroun</p>
             </div>
           </div>
