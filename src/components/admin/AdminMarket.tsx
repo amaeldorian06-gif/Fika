@@ -201,6 +201,7 @@ function ProductDialog({ product, categories, suppliers, onSaved, onClose }: {
   const set = <K extends keyof ProductForm>(key: K, value: ProductForm[K]) => setForm((f) => ({ ...f, [key]: value }));
   const images = parseImages(form.images);
   const marginEstimate = Number(form.priceSale || 0) - Number(form.estimatedLandedCost || 0);
+  const hasMarginEstimate = Number(form.priceSale) > 0 && form.estimatedLandedCost.trim() !== '';
   const publishChecks = [
     { label: 'Nom et référence renseignés', ok: form.name.trim().length >= 2 && form.reference.trim().length > 0 },
     { label: 'Catégorie sélectionnée', ok: !!form.categoryId },
@@ -553,7 +554,7 @@ function ProductDialog({ product, categories, suppliers, onSaved, onClose }: {
                 </ul>
                 <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
                   <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Marge estimée · interne</p>
-                  <p className={'text-lg font-extrabold mt-1 ' + (marginEstimate >= 0 ? 'text-emerald-700' : 'text-red-700')}>{Number(form.priceSale) > 0 ? formatPriceFCFA(marginEstimate) : 'À calculer'}</p>
+                  <p className={'text-lg font-extrabold mt-1 ' + (marginEstimate >= 0 ? 'text-emerald-700' : 'text-red-700')}>{hasMarginEstimate ? formatPriceFCFA(marginEstimate) : 'À calculer'}</p>
                   <p className="text-[10px] leading-relaxed text-slate-500 mt-1">Calcul indicatif : prix de vente − coût rendu estimé. Visible uniquement dans cet espace.</p>
                 </div>
               </section>
