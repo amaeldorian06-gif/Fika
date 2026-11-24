@@ -7,6 +7,8 @@ import { COPY_NAV } from '../../lib/copy/navigation';
 import { Link, navigate, useRoute } from '../../router';
 import { SearchOverlay } from './SearchOverlay';
 import { MarketHeader } from '../market/MarketHeader';
+import { BrandLogo } from '../BrandLogo';
+import { SITE_CITY } from '../../lib/site';
 
 /**
  * En-tête global — les deux univers partagent la marque, mais chacun possède
@@ -24,8 +26,22 @@ export function currentUniverse(path: string): Universe {
 export function GlobalHeader() {
   const { path } = useRoute();
   if (path.startsWith('/admin')) return null;
+  if (path === '/') return <EntryHeader />;
   if (currentUniverse(path) === 'market') return <MarketHeader />;
   return <ServicesHeader />;
+}
+
+function EntryHeader() {
+  return (
+    <header className="h-[76px] sm:h-[104px] bg-brand-surface border-b border-brand-border">
+      <div className="mx-auto flex h-full max-w-7xl items-center justify-between px-5 sm:px-8 lg:px-12">
+        <Link to="/" aria-label="Fika — accueil" className="rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent">
+          <BrandLogo className="text-[3.25rem] sm:text-[4rem]" />
+        </Link>
+        <span className="text-xs sm:text-lg font-semibold uppercase tracking-[0.14em] sm:tracking-[0.18em] text-brand-accent">{SITE_CITY}</span>
+      </div>
+    </header>
+  );
 }
 
 function ServicesHeader() {
@@ -66,12 +82,8 @@ function ServicesHeader() {
           <div className="flex justify-between items-center h-16 sm:h-20 gap-4">
             {/* Gauche : marque */}
             <div className="flex items-center min-w-0">
-              <Link
-                to="/"
-                className="font-signature text-3xl sm:text-4xl font-normal tracking-wide text-brand-text flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent rounded-lg"
-                aria-label="Fika — accueil"
-              >
-                Fika<span className="text-brand-accent text-2xl sm:text-3xl leading-none">.</span>
+              <Link to="/" aria-label="Fika — accueil" className="rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent">
+                <BrandLogo className="text-3xl sm:text-4xl" />
               </Link>
               {/* Étiquette d'univers (desktop) : « Où suis-je ? » */}
               <span className="hidden lg:inline-flex items-center gap-1.5 ml-4 pl-4 border-l border-brand-border text-[11px] font-bold uppercase tracking-wider text-brand-text-muted">
