@@ -35,9 +35,7 @@ export function AdminLoginPage({ onSuccess, initialError = null }: { onSuccess: 
     <div className="min-h-screen flex items-center justify-center bg-brand-bg px-4 py-16">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Link to="/" className="font-signature text-4xl text-brand-text">
-            Fika<span className="text-brand-accent">.</span>
-          </Link>
+          <Link to="/" aria-label="Fika — accueil"><BrandLogo className="text-4xl" /></Link>
           <p className="text-xs text-brand-text-muted font-bold uppercase tracking-widest mt-2">Espace opérations</p>
         </div>
 
