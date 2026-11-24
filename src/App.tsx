@@ -86,7 +86,7 @@ export default function App() {
   // (jamais au-dessus d'un champ) et fiches service (il recouvrirait la barre
   // CTA sticky ; WhatsApp reste disponible dans le contenu de la page).
   const FORM_ROUTES = new Set(['/demande', '/demande-produit', '/boutique/commande']);
-  const hideFab = FORM_ROUTES.has(path) || path.startsWith('/service/');
+  const hideFab = FORM_ROUTES.has(path) || path === '/' || path.startsWith('/service/');
   usePageSeo(path);
 
   let page: React.ReactNode;
