@@ -216,7 +216,7 @@ export function MarketHomePage() {
 
         {data && products.length === 0 && (
           <div className="mt-8 text-center">
-            <Button asChild variant="outline" className="rounded-full"><a href={getWALink('Bonjour Fika Market 👋\\nJe souhaite demander un produit.')} target="_blank" rel="noopener noreferrer">Nous écrire sur WhatsApp</a></Button>
+            <Button asChild variant="outline" className="rounded-full"><a href={getWALink('Bonjour Fika Market 👋\nJe souhaite demander un produit.')} target="_blank" rel="noopener noreferrer">Nous écrire sur WhatsApp</a></Button>
           </div>
         )}
       </div>
