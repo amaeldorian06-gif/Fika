@@ -1,183 +1,224 @@
 import { useEffect, useState } from 'react';
-import { ArrowRight, CheckCircle2, Search, Store, Truck } from 'lucide-react';
+import { ArrowRight, CheckCircle2, PackageSearch, Store, Truck } from 'lucide-react';
 import { Button } from '../ui';
-import { Link, navigate } from '../../router';
+import { Link } from '../../router';
 import { type MarketProductPublic } from '../../lib/market';
 import { trackMarketEvent } from '../../lib/market-analytics';
 import { getWALink } from '../../lib/whatsapp';
-import {
-  formatPrice, getSearchHistory, pushSearchHistory, searchProducts, useCatalog, ProductCard, ProductImage,
-} from './shared';
-
-/**
- * Accueil Fika Market — recherche immédiatement visible, cartes catégories
- * (jamais vides), collections éditoriales, puis réassurance réelle.
- */
+import { ProductCard, ProductCardSkeleton, ProductImage, useCatalog } from './shared';
 
 interface CollectionPublic { slug: string; name: string; description: string | null; products: MarketProductPublic[] }
 
+function HeroProductTile({ product, prominent = false }: { product: MarketProductPublic; prominent?: boolean }) {
+  return (
+    <Link
+      to={"/boutique/produit/" + product.slug}
+      className={"group relative block min-h-[132px] overflow-hidden rounded-2xl border border-white/60 bg-[#E5DDD0] shadow-sm " + (prominent ? "h-full min-h-[300px] sm:min-h-[390px]" : "h-full")}
+    >
+      <ProductImage src={product.images[0]} alt={product.name} loading="eager" className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" iconClassName="h-10 w-10 text-slate-400" />
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/80 via-slate-950/35 to-transparent p-3 sm:p-4">
+        <p className="truncate text-[10px] font-bold uppercase tracking-[0.14em] text-white/75">{product.category.name}{product.brand ? " · " + product.brand : ""}</p>
+        <p className={"mt-1 line-clamp-2 font-heading font-extrabold leading-snug text-white " + (prominent ? "text-lg sm:text-xl" : "text-sm")}>{product.name}</p>
+        <p className="mt-1 text-sm font-extrabold text-white">{product.priceSale.toLocaleString('fr-FR')} F</p>
+      </div>
+      {prominent && <span className="absolute right-3 top-3 rounded-full bg-white/95 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-800 shadow-sm">À découvrir</span>}
+    </Link>
+  );
+}
+
 export function MarketHomePage() {
-  const { data, error } = useCatalog();
+  const { data, error, loading } = useCatalog();
   const [collections, setCollections] = useState<CollectionPublic[]>([]);
-  const [q, setQ] = useState('');
+  const [collectionsLoading, setCollectionsLoading] = useState(true);
+
   useEffect(() => { trackMarketEvent('SHOP_VIEWED'); }, []);
   useEffect(() => {
     let alive = true;
     fetch('/api/market/collections')
       .then(async (res) => (res.ok ? (await res.json()) as CollectionPublic[] : []))
-      .then((d) => { if (alive) setCollections(d); })
-      .catch(() => { if (alive) setCollections([]); });
+      .then((items) => { if (alive) setCollections(items); })
+      .catch(() => { if (alive) setCollections([]); })
+      .finally(() => { if (alive) setCollectionsLoading(false); });
     return () => { alive = false; };
   }, []);
 
-  const query = q.trim();
-  const suggestions = query.length >= 2 && data ? searchProducts(data.products, query).slice(0, 5) : [];
-  const history = getSearchHistory();
-
-  const goToSearch = (value?: string) => {
-    const term = (value ?? query).trim();
-    if (!term) return;
-    pushSearchHistory(term);
-    navigate(`/boutique/tous?q=${encodeURIComponent(term)}`);
-  };
-
   const products = data?.products ?? [];
-  // Cartes catégories : uniquement les catégories actives qui ont des produits.
+  const discoverProducts = products.filter((product) => product.availability !== 'UNAVAILABLE');
+  const heroProducts = discoverProducts.slice(0, 3);
   const categoryCards = (data?.categories ?? [])
-    .map((c) => ({ ...c, count: products.filter((p) => p.category.slug === c.slug).length }))
-    .filter((c) => c.count > 0);
+    .map((category) => ({
+      ...category,
+      count: products.filter((product) => product.category.slug === category.slug).length,
+    }))
+    .filter((category) => category.count > 0);
+  const hasEditorialCollections = collections.length > 0;
 
   return (
-    <div className="max-w-6xl mx-auto px-5 py-10 sm:py-14">
-      {/* Recherche immédiatement visible */}
-      <p className="text-xs uppercase tracking-widest text-brand-accent font-bold mb-4">Fika Market · Ngaoundéré</p>
-      <h1 className="font-heading text-3xl sm:text-4xl font-bold">Les bons produits, accessibles à Ngaoundéré.</h1>
-      <p className="text-brand-text-muted mt-4 max-w-2xl leading-relaxed">
-        Des produits sélectionnés par Fika, commandés pour vous et livrés localement.
-        Prix final et délai toujours confirmés avec vous <strong>avant</strong> tout paiement.
-      </p>
-
-      {error && <p role="alert" className="mt-8 rounded-xl bg-red-50 border border-red-200 text-red-700 p-4">{error}</p>}
-
-      {data && products.length > 0 && (
-        <>
-          <form
-            role="search"
-            onSubmit={(e) => { e.preventDefault(); goToSearch(); }}
-            className="relative mt-8"
-          >
-            <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-brand-text-muted pointer-events-none" aria-hidden="true" />
-            <input
-              type="search"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Qu'est-ce que vous recherchez ?"
-              aria-label="Rechercher un produit"
-              className="w-full h-14 rounded-full border border-brand-border bg-white pl-12 pr-28 text-sm font-medium placeholder:text-brand-text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:border-brand-accent"
-            />
-            <Button type="submit" className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-full h-11 px-5">Rechercher</Button>
-          </form>
-
-          {/* Historique récent (local, jamais transmis) */}
-          {history.length > 0 && query.length < 2 && (
-            <div className="flex flex-wrap items-center gap-2 mt-3 text-sm">
-              <span className="text-xs text-brand-text-muted font-semibold">Recherches récentes :</span>
-              {history.map((h) => (
-                <button key={h} type="button" onClick={() => { setQ(h); goToSearch(h); }}
-                  className="px-3 py-1 rounded-full border border-brand-border bg-white text-brand-text-muted text-xs font-semibold hover:border-brand-accent hover:text-brand-accent cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent">
-                  {h}
-                </button>
-              ))}
+    <div className="min-h-screen bg-[#FCFBF9]">
+      <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
+        {/* Grande entrée éditoriale : image réelle du catalogue, jamais de visuel inventé. */}
+        <section className="relative overflow-hidden rounded-[1.75rem] border border-[#E8E0D6] bg-[#F0E9DF] shadow-[0_24px_70px_-50px_rgba(38,30,22,0.48)]">
+          <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-white/45 blur-3xl" aria-hidden="true" />
+          <div className="relative grid lg:grid-cols-[0.9fr_1.1fr]">
+            <div className="flex flex-col justify-center px-6 py-9 sm:px-10 sm:py-12 lg:px-12 lg:py-14">
+              <p className="inline-flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.2em] text-brand-accent">
+                <span className="h-1.5 w-1.5 rounded-full bg-brand-accent" /> Fika Market · Ngaoundéré
+              </p>
+              <h1 className="mt-5 max-w-xl font-heading text-3xl font-extrabold leading-[1.08] tracking-tight text-[#25211E] sm:text-4xl lg:text-[3.25rem]">
+                Les produits que vous cherchez. Le reste, on s’en occupe.
+              </h1>
+              <p className="mt-5 max-w-lg text-sm leading-7 text-[#625A51] sm:text-base">
+                Explorez une sélection de produits et demandez ceux que vous ne trouvez pas.
+                Fika vérifie la disponibilité, confirme le prix final et organise la livraison à Ngaoundéré.
+              </p>
+              <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+                <Button asChild size="lg" className="rounded-full shadow-sm">
+                  <Link to="/boutique/tous">Explorer les produits <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" /></Link>
+                </Button>
+                <Button asChild size="lg" variant="outline" className="rounded-full border-[#CFC4B7] bg-white/60">
+                  <Link to="/demande-produit">Demander un produit</Link>
+                </Button>
+              </div>
+              <div className="mt-8 flex flex-wrap gap-x-5 gap-y-2 border-t border-[#D9CFC3] pt-5 text-[11px] font-semibold text-[#625A51]">
+                <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4 text-brand-accent" /> Prix confirmé avant paiement</span>
+                <span className="inline-flex items-center gap-1.5"><Truck className="h-4 w-4 text-brand-accent" /> Livraison locale organisée</span>
+              </div>
             </div>
-          )}
 
-          {/* Suggestions en direct */}
-          {query.length >= 2 && (
-            <div className="mt-3 bg-white border border-brand-border rounded-2xl overflow-hidden" role="listbox" aria-label="Suggestions de produits">
-              {suggestions.length > 0 ? suggestions.map((p) => (
-                <Link key={p.id} to={`/boutique/produit/${p.slug}`} className="flex items-center gap-3 p-3 hover:bg-brand-bg border-b border-brand-border last:border-b-0 focus-visible:outline-none focus-visible:bg-brand-bg">
-                  <div className="w-10 h-10 rounded-xl overflow-hidden bg-brand-bg flex items-center justify-center shrink-0">
-                    <ProductImage src={p.images[0]} alt="" className="w-full h-full object-cover" iconClassName="w-5 h-5 text-brand-text-muted/40" />
-                  </div>
-                  <span className="flex-1 min-w-0">
-                    <span className="block text-sm font-bold truncate">{p.name}</span>
-                    <span className="block text-xs text-brand-text-muted truncate">{p.category.name}{p.brand ? ` · ${p.brand}` : ''}</span>
-                  </span>
-                  <span className="text-sm font-extrabold text-brand-accent whitespace-nowrap">{formatPrice(p.priceSale)}</span>
-                </Link>
-              )) : (
-                <p className="p-4 text-sm text-brand-text-muted">
-                  Aucun produit ne correspond à «&nbsp;{query}&nbsp;». <button type="button" className="font-bold text-brand-accent underline cursor-pointer" onClick={() => goToSearch()}>Voir les alternatives</button> ou <Link to="/demande-produit" className="font-bold text-brand-accent underline">demandez-le nous</Link>.
-                </p>
+            <div className="relative p-3 sm:p-5 lg:p-6">
+              {loading ? (
+                <div className="grid min-h-[300px] grid-cols-2 grid-rows-2 gap-3 sm:min-h-[390px]">
+                  <div className="row-span-2 animate-pulse rounded-2xl bg-white/60" />
+                  <div className="animate-pulse rounded-2xl bg-white/60" />
+                  <div className="animate-pulse rounded-2xl bg-white/60" />
+                </div>
+              ) : heroProducts.length > 0 ? (
+                <div className="grid min-h-[300px] grid-cols-2 grid-rows-2 gap-3 sm:min-h-[390px]">
+                  <div className="row-span-2"><HeroProductTile product={heroProducts[0]} prominent /></div>
+                  {heroProducts[1] && <HeroProductTile product={heroProducts[1]} />}
+                  {heroProducts[2] && <HeroProductTile product={heroProducts[2]} />}
+                  {!heroProducts[2] && (
+                    <Link to="/boutique/tous" className="flex h-full min-h-[132px] flex-col items-center justify-center rounded-2xl border border-dashed border-[#CFC4B7] bg-white/45 p-4 text-center hover:bg-white/70">
+                      <Store className="h-7 w-7 text-brand-accent" aria-hidden="true" />
+                      <span className="mt-2 text-xs font-bold text-slate-700">Explorer le catalogue</span>
+                      <span className="mt-1 text-[10px] text-slate-500">Voir les autres produits</span>
+                    </Link>
+                  )}
+                </div>
+              ) : (
+                <div className="flex min-h-[300px] flex-col items-center justify-center rounded-2xl border border-dashed border-[#CFC4B7] bg-white/45 p-8 text-center sm:min-h-[390px]">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-brand-accent shadow-sm"><PackageSearch className="h-8 w-8" /></div>
+                  <h2 className="mt-4 font-heading text-lg font-extrabold text-slate-800">Votre prochaine trouvaille commence ici.</h2>
+                  <p className="mt-2 max-w-xs text-sm leading-relaxed text-slate-600">Le catalogue s’enrichit progressivement. Faites-nous connaître le produit que vous recherchez.</p>
+                  <Link to="/demande-produit" className="mt-4 text-sm font-bold text-brand-accent hover:underline">Faire une demande <ArrowRight className="inline h-4 w-4" /></Link>
+                </div>
               )}
             </div>
-          )}
+          </div>
+        </section>
 
-          {/* Cartes catégories — jamais de catégorie vide */}
-          {categoryCards.length > 0 && (
-            <section aria-labelledby="home-categories" className="mt-12">
-              <h2 id="home-categories" className="font-heading text-xl font-bold mb-4">Nos catégories</h2>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                {categoryCards.map((c) => (
-                  <Link key={c.slug} to={`/boutique/categorie/${c.slug}`}
-                    className="group rounded-2xl border border-brand-border bg-white overflow-hidden hover:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent">
-                    <div className="aspect-[4/3] bg-brand-bg overflow-hidden relative">
-                      {c.imageUrl
-                        ? <img src={c.imageUrl} alt="" loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                        : <div className="absolute inset-0 flex items-center justify-center"><Store className="w-10 h-10 text-brand-accent" aria-hidden="true" /></div>}
-                    </div>
-                    <div className="p-4">
-                      <h3 className="font-heading font-bold leading-snug">{c.name}</h3>
-                      <p className="text-xs text-brand-text-muted mt-1">{c.count} produit{c.count > 1 ? 's' : ''}{c.children.length > 0 ? ` · ${c.children.length} sous-catégorie${c.children.length > 1 ? 's' : ''}` : ''}</p>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </section>
-          )}
+        {error && <p role="alert" className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>}
 
-          {/* Collections éditoriales — carrousels horizontaux */}
-          {collections.map((col) => (
-            <section key={col.slug} aria-labelledby={`col-${col.slug}`} className="mt-12">
-              <div className="flex items-baseline justify-between gap-4 mb-4">
-                <h2 id={`col-${col.slug}`} className="font-heading text-xl font-bold">{col.name}</h2>
-                {col.description && <p className="hidden sm:block text-xs text-brand-text-muted max-w-xs truncate">{col.description}</p>}
+        {/* Découverte par centres d'intérêt */}
+        <section aria-labelledby="market-interests" className="mt-10 sm:mt-14">
+          <div className="mb-5 flex items-end justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-brand-accent">Parcourir</p>
+              <h2 id="market-interests" className="mt-1 font-heading text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">Explorez par catégorie</h2>
+            </div>
+            <Link to="/boutique/tous" className="shrink-0 text-xs font-bold text-brand-accent hover:underline sm:text-sm">Tout voir <ArrowRight className="inline h-4 w-4" /></Link>
+          </div>
+          {loading ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {Array.from({ length: 4 }).map((_, index) => <div key={index} className="aspect-[5/4] animate-pulse rounded-2xl bg-slate-100" />)}
+            </div>
+          ) : categoryCards.length > 0 ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {categoryCards.map((category) => (
+                <Link key={category.slug} to={"/boutique/categorie/" + category.slug} className="group relative isolate aspect-[5/4] overflow-hidden rounded-2xl border border-brand-border bg-[#EEEAE5] shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
+                  {category.imageUrl
+                    ? <img src={category.imageUrl} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                    : <div className="absolute inset-0 flex items-center justify-center"><Store className="h-10 w-10 text-brand-accent/65" aria-hidden="true" /></div>}
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/75 via-slate-950/5 to-transparent" />
+                  <div className="absolute inset-x-0 bottom-0 p-3 sm:p-4">
+                    <h3 className="font-heading text-sm font-extrabold text-white sm:text-base">{category.name}</h3>
+                    <p className="mt-1 text-[10px] font-semibold text-white/75">{category.count} produit{category.count > 1 ? 's' : ''}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-brand-border-dark bg-white p-6 text-center text-sm text-brand-text-muted">Les catégories apparaîtront ici à mesure que les produits seront publiés.</div>
+          )}
+        </section>
+
+        {/* Sélections définies dans l'administration */}
+        <section className="mt-12 space-y-10 sm:mt-16">
+          {collections.map((collection) => (
+            <section key={collection.slug} aria-labelledby={"collection-" + collection.slug}>
+              <div className="mb-4 flex items-end justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-brand-accent">Sélection Fika</p>
+                  <h2 id={"collection-" + collection.slug} className="mt-1 font-heading text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">{collection.name}</h2>
+                  {collection.description && <p className="mt-1 max-w-xl text-xs text-brand-text-muted sm:text-sm">{collection.description}</p>}
+                </div>
+                <Link to="/boutique/tous" className="shrink-0 text-xs font-bold text-brand-accent hover:underline sm:text-sm">Voir tout <ArrowRight className="inline h-4 w-4" /></Link>
               </div>
-              <div className="flex gap-4 overflow-x-auto pb-2 -mx-5 px-5 snap-x scrollbar-none">
-                {col.products.map((p) => (
-                  <div key={p.id} className="w-44 sm:w-52 shrink-0 snap-start"><ProductCard product={p} /></div>
+              <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-3 sm:-mx-6 sm:gap-4 sm:px-6 lg:-mx-8 lg:px-8">
+                {collection.products.map((product) => (
+                  <div key={product.id} className="w-44 shrink-0 snap-start sm:w-56"><ProductCard product={product} /></div>
                 ))}
               </div>
             </section>
           ))}
+          {collectionsLoading && products.length > 0 && (
+            <section aria-label="Chargement des sélections">
+              <div className="mb-4 h-6 w-48 animate-pulse rounded bg-slate-100" />
+              <div className="flex gap-3 overflow-hidden">
+                {Array.from({ length: 4 }).map((_, index) => <div key={index} className="w-44 shrink-0 sm:w-56"><ProductCardSkeleton /></div>)}
+              </div>
+            </section>
+          )}
+          {!loading && products.length > 0 && !hasEditorialCollections && (
+            <section aria-labelledby="market-discover">
+              <div className="mb-4 flex items-end justify-between gap-4">
+                <div>
+                  <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-brand-accent">Le catalogue</p>
+                  <h2 id="market-discover" className="mt-1 font-heading text-xl font-extrabold text-slate-900 sm:text-2xl">À découvrir en ce moment</h2>
+                </div>
+                <Link to="/boutique/tous" className="shrink-0 text-xs font-bold text-brand-accent hover:underline sm:text-sm">Tous les produits <ArrowRight className="inline h-4 w-4" /></Link>
+              </div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 lg:gap-5">
+                {products.slice(0, 8).map((product) => <ProductCard key={product.id} product={product} />)}
+              </div>
+            </section>
+          )}
+        </section>
 
-          {/* Tous les produits */}
-          <div className="text-center mt-12">
-            <Button asChild size="lg" variant="outline" className="rounded-full">
-              <Link to="/boutique/tous">Voir tous les produits ({products.length})<ArrowRight className="w-4 h-4 ml-2" aria-hidden="true" /></Link>
-            </Button>
+        {/* Un chemin alternatif si le produit n'est pas encore référencé. */}
+        <section className="mt-12 overflow-hidden rounded-2xl border border-[#E8E0D6] bg-[#F4EFE8] p-5 sm:mt-16 sm:p-8">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="max-w-2xl">
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-brand-accent">Vous ne trouvez pas ce que vous cherchez ?</p>
+              <h2 className="mt-2 font-heading text-xl font-extrabold text-slate-900 sm:text-2xl">Faites-nous une demande de produit.</h2>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600">Indiquez ce que vous recherchez. Nous vérifions la disponibilité et revenons vers vous avec le prix final et les modalités avant tout paiement.</p>
+            </div>
+            <Button asChild size="lg" className="shrink-0 rounded-full"><Link to="/demande-produit">Décrire mon produit <ArrowRight className="ml-2 h-4 w-4" /></Link></Button>
           </div>
-        </>
-      )}
+        </section>
 
-      {data && products.length === 0 && (
-        <div className="mt-10 text-center py-16 px-6 bg-white rounded-2xl border border-dashed border-brand-border">
-          <Store className="w-10 h-10 mx-auto text-brand-text-muted/50 mb-4" />
-          <h2 className="font-heading font-bold text-lg">Le catalogue arrive</h2>
-          <p className="text-sm text-brand-text-muted mt-2 max-w-md mx-auto">
-            Nous préparons une première sélection de produits testés. En attendant, dites-nous ce que vous cherchez : nous pouvons probablement le commander pour vous.
-          </p>
-          <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center items-center">
-            <Button asChild variant="primary" className="rounded-full"><Link to="/demande-produit">Demander un produit</Link></Button>
-            <Button asChild variant="outline" className="rounded-full"><a href={getWALink('Bonjour Fika Market 👋\nJe cherche un produit. Pouvez-vous me dire si vous pouvez le commander ?')} target="_blank" rel="noopener noreferrer">Sur WhatsApp</a></Button>
+        {/* Réassurance — engagements réels */}
+        <section aria-label="Engagements Fika Market" className="mt-10 grid gap-3 sm:grid-cols-3 sm:mt-12">
+          <div className="flex gap-3 rounded-2xl border border-brand-border bg-white p-4"><CheckCircle2 className="h-5 w-5 shrink-0 text-brand-accent" /><div><p className="text-sm font-extrabold text-slate-900">Prix confirmé</p><p className="mt-1 text-xs leading-relaxed text-brand-text-muted">Le prix final est communiqué avant tout paiement.</p></div></div>
+          <div className="flex gap-3 rounded-2xl border border-brand-border bg-white p-4"><Truck className="h-5 w-5 shrink-0 text-brand-accent" /><div><p className="text-sm font-extrabold text-slate-900">Livraison organisée</p><p className="mt-1 text-xs leading-relaxed text-brand-text-muted">Les modalités et frais sont précisés avec la confirmation.</p></div></div>
+          <div className="flex gap-3 rounded-2xl border border-brand-border bg-white p-4"><Store className="h-5 w-5 shrink-0 text-brand-accent" /><div><p className="text-sm font-extrabold text-slate-900">Accompagnement Fika</p><p className="mt-1 text-xs leading-relaxed text-brand-text-muted">Une équipe disponible pour vous guider dans votre demande.</p></div></div>
+        </section>
+
+        {data && products.length === 0 && (
+          <div className="mt-8 text-center">
+            <Button asChild variant="outline" className="rounded-full"><a href={getWALink('Bonjour Fika Market 👋\nJe souhaite demander un produit.')} target="_blank" rel="noopener noreferrer">Nous écrire sur WhatsApp</a></Button>
           </div>
-        </div>
-      )}
-
-      {/* Réassurance — uniquement des engagements réels */}
-      <div className="mt-14 grid sm:grid-cols-2 gap-6 text-sm max-w-2xl">
-        <div className="flex gap-3"><CheckCircle2 className="w-5 h-5 text-brand-accent shrink-0" /><p><strong>Prix confirmé avant paiement.</strong> Aucune surprise : le coût final vous est communiqué avant tout engagement.</p></div>
-        <div className="flex gap-3"><Truck className="w-5 h-5 text-brand-accent shrink-0" /><p><strong>Livraison à Ngaoundéré.</strong> Frais indiqués clairement avec le prix final.</p></div>
+        )}
       </div>
     </div>
   );

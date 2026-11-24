@@ -191,7 +191,7 @@ function ProductDialog({ product, categories, suppliers, onSaved, onClose }: {
     delayLabel: product.delayLabel ?? '', availability: product.availability,
     active: product.active, archived: product.archived, popular: product.popular,
     images: product.images.join('\n'),
-    specs: product.specs.map((s) => `${s.label}: ${s.value}`).join('\n'),
+    specs: product.specs.map((s) => s.label + ': ' + s.value).join('\n'),
   } : { ...emptyProduct, categoryId: categories[0]?.id ?? '' });
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
@@ -199,33 +199,69 @@ function ProductDialog({ product, categories, suppliers, onSaved, onClose }: {
   const [imgError, setImgError] = useState('');
 
   const set = <K extends keyof ProductForm>(key: K, value: ProductForm[K]) => setForm((f) => ({ ...f, [key]: value }));
+  const images = parseImages(form.images);
+  const marginEstimate = Number(form.priceSale || 0) - Number(form.estimatedLandedCost || 0);
+  const hasMarginEstimate = Number(form.priceSale) > 0 && form.estimatedLandedCost.trim() !== '';
+  const publishChecks = [
+    { label: 'Nom et référence renseignés', ok: form.name.trim().length >= 2 && form.reference.trim().length > 0 },
+    { label: 'Catégorie sélectionnée', ok: !!form.categoryId },
+    { label: 'Description courte', ok: form.shortDescription.trim().length > 0 },
+    { label: 'Au moins une photo', ok: images.length > 0 },
+    { label: 'Délai renseigné pour une précommande', ok: form.availability !== 'PREORDER' || form.delayLabel.trim().length > 0 },
+  ];
+  const readyCount = publishChecks.filter((item) => item.ok).length;
 
-  const removeImage = (url: string) => set('images', parseImages(form.images).filter((u) => u !== url).join('\n'));
+  const removeImage = (url: string) => set('images', images.filter((u) => u !== url).join('\n'));
+  const moveImage = (index: number, direction: -1 | 1) => {
+    const next = [...images];
+    const target = index + direction;
+    if (target < 0 || target >= next.length) return;
+    [next[index], next[target]] = [next[target], next[index]];
+    set('images', next.join('\n'));
+  };
 
-  /** Téléversement des photos sélectionnées → URLs ajoutées au champ images. */
-  const onPickImages = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
-    e.target.value = ''; // permet de re-sélectionner le même fichier après une erreur
+  /** Téléversement contrôlé : JPEG, PNG ou WebP, 5 Mo maximum par fichier. */
+  const addImages = async (files: File[]) => {
     if (files.length === 0) return;
     setImgError('');
     const current = parseImages(form.images);
     const room = 6 - current.length;
-    if (room <= 0) { setImgError('6 photos maximum par produit : retirez-en une d’abord.'); return; }
-    if (files.length > room) setImgError(`6 photos maximum : seules les ${room} première(s) ont été envoyées.`);
+    if (room <= 0) { setImgError('6 photos maximum par produit : retirez-en une avant d’en ajouter.'); return; }
+    const accepted = files.slice(0, room);
+    if (files.length > room) setImgError('6 photos maximum : seules les ' + room + ' première(s) seront envoyées.');
+    const invalid = accepted.find((file) => !['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024);
+    if (invalid) {
+      setImgError(invalid.size > 5 * 1024 * 1024 ? 'Chaque photo doit peser 5 Mo maximum.' : 'Formats acceptés : JPEG, PNG ou WebP.');
+      return;
+    }
     setImgUploading(true);
+    const uploaded: string[] = [];
     try {
-      const urls: string[] = [];
-      for (const f of files.slice(0, room)) urls.push((await uploadProductImage(f)).url);
-      set('images', [...current, ...urls].join('\n'));
+      for (const file of accepted) uploaded.push((await uploadProductImage(file)).url);
+      set('images', [...current, ...uploaded].join('\n'));
     } catch (err) {
+      if (uploaded.length > 0) set('images', [...current, ...uploaded].join('\n'));
       setImgError(err instanceof Error ? err.message : 'Envoi de l’image impossible.');
     } finally { setImgUploading(false); }
+  };
+
+  const onPickImages = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = '';
+    await addImages(files);
+  };
+
+  const onDropImages = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (imgUploading) return;
+    void addImages(Array.from(e.dataTransfer.files ?? []));
   };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     if (!form.categoryId) { setError('Choisissez une catégorie (créez-en une d’abord si nécessaire).'); return; }
+    if (imgUploading) { setError('Attendez la fin du téléversement des photos.'); return; }
     setPending(true);
     try {
       await saveMarketProduct({
@@ -238,10 +274,9 @@ function ProductDialog({ product, categories, suppliers, onSaved, onClose }: {
         brand: form.brand.trim() || undefined,
         tags: form.tags.split(',').map((t) => t.trim()).filter(Boolean).slice(0, 10),
         sourcingType: (form.sourcingType || null) as MarketProductPayload['sourcingType'],
-        specs: parseSpecs(form.specs), images: parseImages(form.images),
+        specs: parseSpecs(form.specs), images,
         priceSale: Number(form.priceSale),
-        supplierPrice: Number(form.supplierPrice || 0),
-        estimatedLandedCost: Number(form.estimatedLandedCost || 0),
+        supplierPrice: Number(form.supplierPrice || 0), estimatedLandedCost: Number(form.estimatedLandedCost || 0),
         delayLabel: form.delayLabel.trim() || undefined,
         availability: form.availability as MarketProductDto['availability'],
         active: form.archived ? false : form.active, archived: form.archived, popular: form.popular,
@@ -252,118 +287,295 @@ function ProductDialog({ product, categories, suppliers, onSaved, onClose }: {
     } finally { setPending(false); }
   };
 
+  const activeCategory = categories.find((category) => category.id === form.categoryId);
+  const activeSubcategory = categories.find((category) => category.id === form.subcategoryId);
+  const statusText = form.archived ? 'Archivé' : form.active ? 'Visible dans la boutique' : 'Brouillon / masqué';
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-start sm:items-center justify-center overflow-y-auto p-4" role="dialog" aria-modal="true" aria-label={product ? 'Modifier le produit' : 'Nouveau produit'}>
-      <form onSubmit={submit} noValidate className="bg-white rounded-2xl w-full max-w-2xl p-6 space-y-4 my-8">
-        <h2 className="font-heading text-xl font-bold">{product ? 'Modifier le produit' : 'Nouveau produit'}</h2>
-        <div className="grid sm:grid-cols-2 gap-4">
-          <Field label="Nom du produit" htmlFor="p-name" required error={form.name.trim().length < 2 ? 'Nom requis.' : undefined}>
-            <Input id="p-name" value={form.name} onChange={(e) => set('name', e.target.value)} maxLength={120} required />
-          </Field>
-          <Field label="Référence" htmlFor="p-ref" required hint="Unique, ex. FK-MKT-001">
-            <Input id="p-ref" value={form.reference} onChange={(e) => set('reference', e.target.value)} maxLength={40} required />
-          </Field>
-          <Field label="Catégorie" htmlFor="p-cat" required>
-            <Select id="p-cat" value={form.categoryId} onChange={(e) => {
-              const v = e.target.value;
-              const stillValid = categories.some((c) => c.id === form.subcategoryId && c.parentId === v);
-              setForm((f) => ({ ...f, categoryId: v, subcategoryId: stillValid ? f.subcategoryId : '' }));
-            }}>
-              {categories.filter((c) => !c.parentId).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </Select>
-          </Field>
-          <Field label="Sous-catégorie" htmlFor="p-subcat" hint="Facultatif — affine la navigation">
-            <Select id="p-subcat" value={form.subcategoryId} onChange={(e) => set('subcategoryId', e.target.value)}>
-              <option value="">— Aucune —</option>
-              {categories
-                .filter((c) => c.parentId === form.categoryId)
-                .map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </Select>
-          </Field>
-          <Field label="Fournisseur" htmlFor="p-sup">
-            <Select id="p-sup" value={form.supplierId} onChange={(e) => set('supplierId', e.target.value)}>
-              <option value="">— Aucun —</option>
-              {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </Select>
-          </Field>
-          <Field label="Marque" htmlFor="p-brand" hint="Facultatif — ex. Lenovo">
-            <Input id="p-brand" value={form.brand} onChange={(e) => set('brand', e.target.value)} maxLength={80} />
-          </Field>
-        </div>
-        <Field label="Description courte" htmlFor="p-shortdesc" hint="Affichée sur les cartes — requise pour publier">
-          <Input id="p-shortdesc" value={form.shortDescription} onChange={(e) => set('shortDescription', e.target.value)} maxLength={160} placeholder="Une phrase qui donne envie de cliquer" />
-        </Field>
-        <Field label="Description publique" htmlFor="p-desc"><Textarea id="p-desc" rows={3} value={form.description} onChange={(e) => set('description', e.target.value)} maxLength={3000} /></Field>
-        <div className="grid sm:grid-cols-3 gap-4">
-          <Field label="Prix de vente (F)" htmlFor="p-price" required><Input id="p-price" type="number" min={100} value={form.priceSale} onChange={(e) => set('priceSale', e.target.value)} required /></Field>
-          <Field label="Prix fournisseur (F)" htmlFor="p-supprice" hint="Interne"><Input id="p-supprice" type="number" min={0} value={form.supplierPrice} onChange={(e) => set('supplierPrice', e.target.value)} /></Field>
-          <Field label="Coût rendu estimé (F)" htmlFor="p-landed" hint="Interne"><Input id="p-landed" type="number" min={0} value={form.estimatedLandedCost} onChange={(e) => set('estimatedLandedCost', e.target.value)} /></Field>
-        </div>
-        <div className="grid sm:grid-cols-2 gap-4">
-          <Field label="Disponibilité" htmlFor="p-avail">
-            <Select id="p-avail" value={form.availability} onChange={(e) => set('availability', e.target.value)}>
-              {Object.entries(AVAILABILITY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-            </Select>
-          </Field>
-          <Field label="Délai estimé (affiché)" htmlFor="p-delay" hint="Jamais promis sans vérification">
-            <Input id="p-delay" value={form.delayLabel} onChange={(e) => set('delayLabel', e.target.value)} placeholder="ex. 2 à 3 semaines" maxLength={120} />
-          </Field>
-        </div>
-        <Field label="Photos du produit (max 6)" htmlFor="p-img" hint="Téléversez depuis l’appareil ou collez une URL par ligne">
-          {parseImages(form.images).length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-2">
-              {parseImages(form.images).map((url, i) => (
-                <span key={url} className="relative">
-                  <img src={url} alt="" loading="lazy" className="w-16 h-16 object-cover rounded-lg border border-brand-border bg-brand-bg" />
-                  <button type="button" aria-label={`Retirer la photo ${i + 1}`} onClick={() => removeImage(url)} className="absolute -top-1.5 -right-1.5 bg-white border border-brand-border rounded-full p-0.5 shadow-sm cursor-pointer hover:bg-red-50">
-                    <X className="w-3.5 h-3.5 text-brand-text" aria-hidden="true" />
-                  </button>
-                </span>
-              ))}
+    <div className="fixed inset-0 z-50 bg-slate-950/55 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4" role="dialog" aria-modal="true" aria-label={product ? 'Modifier le produit' : 'Nouveau produit'}>
+      <form onSubmit={submit} noValidate className="bg-[#F8F9FB] rounded-2xl sm:rounded-3xl w-full max-w-[1440px] h-[min(94vh,1040px)] overflow-hidden shadow-2xl flex flex-col">
+        {/* En-tête fixe du workspace */}
+        <div className="shrink-0 bg-white border-b border-slate-200 px-4 sm:px-7 py-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="hidden sm:flex w-11 h-11 rounded-2xl bg-brand-accent/10 text-brand-accent items-center justify-center shrink-0">
+              <Store className="w-5 h-5" aria-hidden="true" />
             </div>
-          )}
-          <label className={`inline-flex items-center gap-2 rounded-xl border border-brand-border px-4 py-2 text-sm font-semibold mb-2 ${imgUploading ? 'opacity-60 pointer-events-none' : 'cursor-pointer hover:bg-brand-bg'}`}>
-            {imgUploading ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <ImagePlus className="w-4 h-4" aria-hidden="true" />}
-            {imgUploading ? 'Envoi en cours…' : 'Ajouter des photos'}
-            <input type="file" className="hidden" accept="image/jpeg,image/png,image/webp" multiple onChange={onPickImages} disabled={imgUploading} />
-          </label>
-          {imgError && <p role="alert" className="text-xs text-red-700 mb-1">{imgError}</p>}
-          <Textarea id="p-img" rows={2} value={form.images} onChange={(e) => set('images', e.target.value)} />
-        </Field>
-        <Field label="Caractéristiques (max 12)" htmlFor="p-specs" hint="Une par ligne : Étiquette: valeur">
-          <Textarea id="p-specs" rows={3} value={form.specs} onChange={(e) => set('specs', e.target.value)} />
-        </Field>
-        <div className="grid sm:grid-cols-2 gap-4">
-          <Field label="Tags de recherche (max 10)" htmlFor="p-tags" hint="Séparés par des virgules — ex. chargeur, usb-c">
-            <Input id="p-tags" value={form.tags} onChange={(e) => set('tags', e.target.value)} placeholder="usb, chargeur rapide" />
-          </Field>
-          <Field label="Approvisionnement" htmlFor="p-sourcing" hint="Interne — jamais affiché aux clients">
-            <Select id="p-sourcing" value={form.sourcingType} onChange={(e) => set('sourcingType', e.target.value)}>
-              <option value="">— Non renseigné —</option>
-              <option value="LOCAL">Local (Ngaoundéré)</option>
-              <option value="NATIONAL">National (Cameroun)</option>
-              <option value="IMPORT">International (import)</option>
-              <option value="PARTNER">Fournisseur partenaire</option>
-            </Select>
-          </Field>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-[10px] uppercase tracking-[0.18em] font-extrabold text-brand-accent">Fika Market · Gestion catalogue</p>
+                <span className="text-[10px] font-semibold text-slate-400">/</span>
+                <span className="text-[10px] font-semibold text-slate-500">{product ? 'Édition produit' : 'Nouvelle fiche'}</span>
+              </div>
+              <h2 className="font-heading text-lg sm:text-xl font-extrabold text-slate-900 truncate">{product ? 'Modifier le produit' : 'Créer un produit'}</h2>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            <span className="hidden lg:inline-flex items-center gap-2 text-xs font-semibold text-slate-500">
+              <span className={'w-2 h-2 rounded-full ' + (form.archived ? 'bg-slate-400' : form.active ? 'bg-emerald-500' : 'bg-amber-500')} />
+              {statusText}
+            </span>
+            <button type="button" onClick={onClose} aria-label="Fermer l’éditeur" className="w-10 h-10 rounded-full border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-900 flex items-center justify-center transition-colors">
+              <X className="w-4 h-4" aria-hidden="true" />
+            </button>
+          </div>
         </div>
-        <div className="flex flex-wrap gap-6 text-sm font-semibold">
-          <label className={`flex items-center gap-2 ${form.archived ? 'opacity-50 pointer-events-none' : ''}`}>
-            <input type="checkbox" className="w-4 h-4 accent-brand-accent" checked={form.active && !form.archived} onChange={(e) => set('active', e.target.checked)} disabled={form.archived} />
-            Visible dans la boutique
-          </label>
-          <label className="flex items-center gap-2"><input type="checkbox" className="w-4 h-4 accent-brand-accent" checked={form.popular} onChange={(e) => set('popular', e.target.checked)} />Mettre en avant</label>
-          <label className="flex items-center gap-2"><input type="checkbox" className="w-4 h-4 accent-red-600" checked={form.archived} onChange={(e) => set('archived', e.target.checked)} />Archiver (hors catalogue)</label>
+
+        {/* Corps défilant : formulaire + prévisualisation */}
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+          <div className="max-w-[1320px] mx-auto p-3 sm:p-6 lg:p-8 grid lg:grid-cols-[minmax(0,1.65fr)_minmax(300px,0.85fr)] gap-5 lg:gap-7 items-start">
+            <div className="space-y-5 min-w-0">
+              {/* Identité et classement */}
+              <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-6 space-y-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-brand-accent">01 · Informations</p>
+                    <h3 className="font-heading text-base sm:text-lg font-extrabold text-slate-900 mt-1">Identité du produit</h3>
+                    <p className="text-xs text-slate-500 mt-1">Les informations qui permettent de retrouver et classer le produit.</p>
+                  </div>
+                  <span className="hidden sm:inline-flex rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold text-slate-500">Catalogue</span>
+                </div>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <Field label="Nom du produit" htmlFor="p-name" required error={form.name.trim().length < 2 ? 'Nom requis.' : undefined}>
+                    <Input id="p-name" value={form.name} onChange={(e) => set('name', e.target.value)} maxLength={120} required placeholder="Ex. Écouteurs sans fil Bluetooth" />
+                  </Field>
+                  <Field label="Référence" htmlFor="p-ref" required hint="Identifiant interne, ex. FK-MKT-001">
+                    <Input id="p-ref" value={form.reference} onChange={(e) => set('reference', e.target.value)} maxLength={40} required placeholder="FK-MKT-001" />
+                  </Field>
+                  <Field label="Catégorie" htmlFor="p-cat" required>
+                    <Select id="p-cat" value={form.categoryId} onChange={(e) => {
+                      const v = e.target.value;
+                      const stillValid = categories.some((c) => c.id === form.subcategoryId && c.parentId === v);
+                      setForm((f) => ({ ...f, categoryId: v, subcategoryId: stillValid ? f.subcategoryId : '' }));
+                    }}>
+                      {categories.filter((c) => !c.parentId).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </Select>
+                  </Field>
+                  <Field label="Sous-catégorie" htmlFor="p-subcat" hint="Facultatif — affine la navigation">
+                    <Select id="p-subcat" value={form.subcategoryId} onChange={(e) => set('subcategoryId', e.target.value)}>
+                      <option value="">— Aucune —</option>
+                      {categories.filter((c) => c.parentId === form.categoryId).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </Select>
+                  </Field>
+                  <Field label="Fournisseur" htmlFor="p-sup">
+                    <Select id="p-sup" value={form.supplierId} onChange={(e) => set('supplierId', e.target.value)}>
+                      <option value="">— Aucun —</option>
+                      {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </Select>
+                  </Field>
+                  <Field label="Marque" htmlFor="p-brand" hint="Facultatif — ex. Lenovo">
+                    <Input id="p-brand" value={form.brand} onChange={(e) => set('brand', e.target.value)} maxLength={80} placeholder="Nom de la marque" />
+                  </Field>
+                </div>
+              </section>
+
+              {/* Présentation publique */}
+              <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-6 space-y-4">
+                <div>
+                  <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-brand-accent">02 · Contenu</p>
+                  <h3 className="font-heading text-base sm:text-lg font-extrabold text-slate-900 mt-1">Présentation publique</h3>
+                  <p className="text-xs text-slate-500 mt-1">Ce que le client verra sur les cartes et la fiche produit.</p>
+                </div>
+                <Field label="Description courte" htmlFor="p-shortdesc" hint="Affichée sur les cartes — nécessaire pour une publication soignée">
+                  <Input id="p-shortdesc" value={form.shortDescription} onChange={(e) => set('shortDescription', e.target.value)} maxLength={160} placeholder="Une phrase claire sur l’utilité ou le bénéfice du produit" />
+                </Field>
+                <Field label="Description détaillée" htmlFor="p-desc" hint="Décrivez les usages, les avantages et les éléments importants.">
+                  <Textarea id="p-desc" rows={5} value={form.description} onChange={(e) => set('description', e.target.value)} maxLength={3000} placeholder="Présentez le produit avec des informations vérifiables…" className="min-h-[130px]" />
+                </Field>
+              </section>
+
+              {/* Photographies */}
+              <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-6 space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-brand-accent">03 · Visuels</p>
+                    <h3 className="font-heading text-base sm:text-lg font-extrabold text-slate-900 mt-1">Photographies du produit</h3>
+                    <p className="text-xs text-slate-500 mt-1">La première photo devient l’image principale affichée dans la boutique.</p>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold text-slate-600">{images.length}/6 photos</span>
+                </div>
+                <div
+                  onDragOver={(e) => { e.preventDefault(); }}
+                  onDrop={onDropImages}
+                  className="rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50/80 p-5 sm:p-7 text-center hover:border-brand-accent hover:bg-brand-accent/5 transition-colors"
+                >
+                  <div className="w-11 h-11 mx-auto rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-brand-accent">
+                    {imgUploading ? <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" /> : <ImagePlus className="w-5 h-5" aria-hidden="true" />}
+                  </div>
+                  <p className="mt-3 text-sm font-bold text-slate-800">{imgUploading ? 'Téléversement des photos…' : 'Glissez vos photos ici'}</p>
+                  <p className="mt-1 text-xs text-slate-500">JPEG, PNG ou WebP · 5 Mo maximum par photo · 6 photos maximum</p>
+                  <label htmlFor="p-upload" className="mt-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold cursor-pointer hover:bg-black">
+                    <ImagePlus className="w-4 h-4" aria-hidden="true" /> Choisir depuis l’ordinateur
+                  </label>
+                  <input id="p-upload" type="file" className="sr-only" accept="image/jpeg,image/png,image/webp" multiple onChange={onPickImages} disabled={imgUploading || images.length >= 6} />
+                </div>
+                {images.length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+                    {images.map((url, i) => (
+                      <div key={url} className="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-50 group">
+                        <div className="aspect-square flex items-center justify-center">
+                          <img src={url} alt={form.name ? form.name + ' — photo ' + (i + 1) : 'Photo produit ' + (i + 1)} loading="lazy" className="w-full h-full object-cover" />
+                        </div>
+                        {i === 0 && <span className="absolute left-2 top-2 rounded-full bg-slate-950/85 text-white text-[9px] font-extrabold uppercase tracking-wider px-2 py-1">Principale</span>}
+                        <div className="absolute right-1.5 top-1.5 flex gap-1">
+                          <button type="button" disabled={i === 0} onClick={() => moveImage(i, -1)} aria-label={'Déplacer la photo ' + (i + 1) + ' avant'} className="w-7 h-7 rounded-lg bg-white/95 border border-slate-200 flex items-center justify-center disabled:opacity-30 hover:bg-slate-100">
+                            <ChevronUp className="w-3.5 h-3.5" aria-hidden="true" />
+                          </button>
+                          <button type="button" disabled={i === images.length - 1} onClick={() => moveImage(i, 1)} aria-label={'Déplacer la photo ' + (i + 1) + ' après'} className="w-7 h-7 rounded-lg bg-white/95 border border-slate-200 flex items-center justify-center disabled:opacity-30 hover:bg-slate-100">
+                            <ChevronDown className="w-3.5 h-3.5" aria-hidden="true" />
+                          </button>
+                          <button type="button" onClick={() => removeImage(url)} aria-label={'Retirer la photo ' + (i + 1)} className="w-7 h-7 rounded-lg bg-white/95 border border-slate-200 text-red-600 flex items-center justify-center hover:bg-red-50">
+                            <X className="w-3.5 h-3.5" aria-hidden="true" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <Field label="Ajouter ou modifier les URL (facultatif)" htmlFor="p-img" hint="Une URL par ligne. L’ordre des lignes détermine aussi l’ordre des photos.">
+                  <Textarea id="p-img" rows={3} value={form.images} onChange={(e) => set('images', e.target.value)} placeholder="https://…" />
+                </Field>
+                {imgError && <p role="alert" className="rounded-xl bg-red-50 border border-red-200 text-red-700 p-3 text-xs">{imgError}</p>}
+              </section>
+
+              {/* Prix et disponibilité */}
+              <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-6 space-y-5">
+                <div>
+                  <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-brand-accent">04 · Tarification</p>
+                  <h3 className="font-heading text-base sm:text-lg font-extrabold text-slate-900 mt-1">Prix et approvisionnement</h3>
+                  <p className="text-xs text-slate-500 mt-1">Les coûts fournisseur restent internes et ne sont jamais présentés au client.</p>
+                </div>
+                <div className="grid sm:grid-cols-3 gap-4">
+                  <Field label="Prix de vente (FCFA)" htmlFor="p-price" required>
+                    <Input id="p-price" type="number" min={100} value={form.priceSale} onChange={(e) => set('priceSale', e.target.value)} required placeholder="Ex. 25 000" />
+                  </Field>
+                  <Field label="Prix fournisseur (FCFA)" htmlFor="p-supprice" hint="Interne">
+                    <Input id="p-supprice" type="number" min={0} value={form.supplierPrice} onChange={(e) => set('supplierPrice', e.target.value)} />
+                  </Field>
+                  <Field label="Coût rendu estimé (FCFA)" htmlFor="p-landed" hint="Interne">
+                    <Input id="p-landed" type="number" min={0} value={form.estimatedLandedCost} onChange={(e) => set('estimatedLandedCost', e.target.value)} />
+                  </Field>
+                </div>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <Field label="Disponibilité" htmlFor="p-avail">
+                    <Select id="p-avail" value={form.availability} onChange={(e) => set('availability', e.target.value)}>
+                      {Object.entries(AVAILABILITY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                    </Select>
+                  </Field>
+                  <Field label="Délai estimé affiché" htmlFor="p-delay" hint="À confirmer avec le client avant paiement">
+                    <Input id="p-delay" value={form.delayLabel} onChange={(e) => set('delayLabel', e.target.value)} placeholder="Ex. 2 à 3 semaines" maxLength={120} />
+                  </Field>
+                </div>
+              </section>
+
+              {/* Référencement et publication */}
+              <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-6 space-y-4">
+                <div>
+                  <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-brand-accent">05 · Découverte</p>
+                  <h3 className="font-heading text-base sm:text-lg font-extrabold text-slate-900 mt-1">Recherche et mise en avant</h3>
+                </div>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <Field label="Tags de recherche (max 10)" htmlFor="p-tags" hint="Séparés par des virgules">
+                    <Input id="p-tags" value={form.tags} onChange={(e) => set('tags', e.target.value)} placeholder="usb, chargeur rapide, bluetooth" />
+                  </Field>
+                  <Field label="Approvisionnement" htmlFor="p-sourcing" hint="Interne — jamais affiché aux clients">
+                    <Select id="p-sourcing" value={form.sourcingType} onChange={(e) => set('sourcingType', e.target.value)}>
+                      <option value="">— Non renseigné —</option>
+                      <option value="LOCAL">Local (Ngaoundéré)</option>
+                      <option value="NATIONAL">National (Cameroun)</option>
+                      <option value="IMPORT">International (import)</option>
+                      <option value="PARTNER">Fournisseur partenaire</option>
+                    </Select>
+                  </Field>
+                </div>
+                <Field label="Caractéristiques techniques (max 12)" htmlFor="p-specs" hint="Une par ligne : Étiquette: valeur">
+                  <Textarea id="p-specs" rows={4} value={form.specs} onChange={(e) => set('specs', e.target.value)} placeholder={'Connectivité: Bluetooth 5.3\nAutonomie: 6 heures\nGarantie: selon fournisseur'} />
+                </Field>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <label className={'flex items-start gap-3 rounded-xl border p-4 cursor-pointer transition-colors ' + (form.active && !form.archived ? 'border-emerald-200 bg-emerald-50/60' : 'border-slate-200 bg-slate-50')}>
+                    <input type="checkbox" className="mt-0.5 w-4 h-4 accent-brand-accent" checked={form.active && !form.archived} onChange={(e) => set('active', e.target.checked)} disabled={form.archived} />
+                    <span><span className="block text-sm font-bold text-slate-800">Visible dans la boutique</span><span className="block mt-1 text-xs text-slate-500">Le produit pourra être découvert par les clients.</span></span>
+                  </label>
+                  <label className={'flex items-start gap-3 rounded-xl border p-4 cursor-pointer transition-colors ' + (form.popular ? 'border-brand-accent/30 bg-brand-accent/5' : 'border-slate-200 bg-slate-50')}>
+                    <input type="checkbox" className="mt-0.5 w-4 h-4 accent-brand-accent" checked={form.popular} onChange={(e) => set('popular', e.target.checked)} />
+                    <span><span className="block text-sm font-bold text-slate-800">Mettre en avant</span><span className="block mt-1 text-xs text-slate-500">Priorité dans certaines sélections du catalogue.</span></span>
+                  </label>
+                  <label className="sm:col-span-2 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50/60 p-4 cursor-pointer">
+                    <input type="checkbox" className="mt-0.5 w-4 h-4 accent-red-600" checked={form.archived} onChange={(e) => set('archived', e.target.checked)} />
+                    <span><span className="block text-sm font-bold text-red-800">Archiver ce produit</span><span className="block mt-1 text-xs text-red-700">Retire le produit du catalogue public sans supprimer son historique.</span></span>
+                  </label>
+                </div>
+              </section>
+
+              {error && <p role="alert" className="rounded-xl bg-red-50 border border-red-200 text-red-700 p-4 text-sm font-semibold">{error}</p>}
+            </div>
+
+            {/* Colonne latérale : aperçu et contrôle qualité */}
+            <aside className="space-y-4 lg:sticky lg:top-5">
+              <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.16em] font-extrabold text-brand-accent">Aperçu en direct</p>
+                    <h3 className="font-heading text-sm font-extrabold text-slate-900 mt-1">Vue client</h3>
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-400">FIKA MARKET</span>
+                </div>
+                <div className="p-4">
+                  <div className="aspect-[4/3] rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center">
+                    {images[0]
+                      ? <img src={images[0]} alt="" className="w-full h-full object-cover" />
+                      : <div className="text-center px-4"><ImagePlus className="w-8 h-8 mx-auto text-slate-300" /><p className="mt-2 text-xs text-slate-400">La première photo apparaîtra ici</p></div>}
+                  </div>
+                  <p className="mt-4 text-[10px] uppercase tracking-wider font-bold text-slate-400">{activeCategory?.name ?? 'Catégorie à choisir'}{activeSubcategory ? ' · ' + activeSubcategory.name : ''}{form.brand.trim() ? ' · ' + form.brand.trim() : ''}</p>
+                  <p className="mt-1 font-heading font-extrabold text-slate-900 leading-snug">{form.name.trim() || 'Nom du produit'}</p>
+                  <p className="mt-2 text-xs text-slate-500 leading-relaxed">{form.shortDescription.trim() || 'La description courte sera affichée ici.'}</p>
+                  <p className="mt-3 text-xl font-extrabold text-brand-accent">{Number(form.priceSale) > 0 ? formatPriceFCFA(Number(form.priceSale)) : 'Prix à renseigner'}</p>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <span className={'text-[10px] font-bold px-2.5 py-1 rounded-full border ' + (form.availability === 'AVAILABLE' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : form.availability === 'PREORDER' ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-slate-100 text-slate-500 border-slate-200')}>
+                      {AVAILABILITY_LABELS[form.availability as keyof typeof AVAILABILITY_LABELS]}
+                    </span>
+                    {form.delayLabel.trim() && <span className="text-[10px] text-slate-500">{form.delayLabel.trim()}</span>}
+                  </div>
+                </div>
+              </section>
+
+              <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div><p className="text-[10px] uppercase tracking-[0.16em] font-extrabold text-brand-accent">Qualité de la fiche</p><h3 className="font-heading font-extrabold text-sm text-slate-900 mt-1">{readyCount}/5 éléments prêts</h3></div>
+                  <span className="text-lg font-extrabold text-slate-800">{Math.round((readyCount / publishChecks.length) * 100)}%</span>
+                </div>
+                <div className="h-2 rounded-full bg-slate-100 overflow-hidden"><div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: ((readyCount / publishChecks.length) * 100) + '%' }} /></div>
+                <ul className="space-y-2.5">
+                  {publishChecks.map((item) => (
+                    <li key={item.label} className="flex items-start gap-2 text-xs">
+                      <CheckCircle2 className={'w-4 h-4 shrink-0 ' + (item.ok ? 'text-emerald-600' : 'text-slate-300')} aria-hidden="true" />
+                      <span className={item.ok ? 'text-slate-700 font-semibold' : 'text-slate-500'}>{item.label}</span>
+                    </li>
+                  ))}
+                </ul>
+                <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Marge estimée · interne</p>
+                  <p className={'text-lg font-extrabold mt-1 ' + (marginEstimate >= 0 ? 'text-emerald-700' : 'text-red-700')}>{hasMarginEstimate ? formatPriceFCFA(marginEstimate) : 'À calculer'}</p>
+                  <p className="text-[10px] leading-relaxed text-slate-500 mt-1">Calcul indicatif : prix de vente − coût rendu estimé. Visible uniquement dans cet espace.</p>
+                </div>
+              </section>
+
+              <section className="rounded-2xl bg-slate-900 text-white p-5">
+                <p className="text-xs font-extrabold">Conseil de présentation</p>
+                <p className="mt-2 text-xs leading-relaxed text-slate-300">Privilégiez une photo principale nette, un titre précis, une description courte factuelle et des caractéristiques vérifiables. Le client doit comprendre le produit sans devoir deviner.</p>
+              </section>
+            </aside>
+          </div>
         </div>
-        {form.active && !form.archived && (
-          <p className="text-xs text-brand-text-muted bg-brand-bg rounded-xl p-3">
-            Pour publier : description courte, au moins une photo{form.availability === 'PREORDER' ? ' et un délai estimé (produit sur commande)' : ''} sont requis.
-          </p>
-        )}
-        {error && <p role="alert" className="rounded-xl bg-red-50 border border-red-200 text-red-700 p-3 text-sm">{error}</p>}
-        <div className="flex gap-3 justify-end pt-2">
-          <Button type="button" variant="outline" onClick={onClose}>Annuler</Button>
-          <Button type="submit" disabled={pending}>{pending ? 'Enregistrement…' : 'Enregistrer'}</Button>
+
+        {/* Actions fixes et toujours accessibles */}
+        <div className="shrink-0 bg-white border-t border-slate-200 px-4 sm:px-7 py-3.5 flex flex-wrap items-center justify-between gap-3">
+          <p className="hidden sm:block text-xs text-slate-500">{product ? 'Les modifications ne seront visibles qu’après enregistrement.' : 'Les données ne sont créées qu’après validation du formulaire.'}</p>
+          <div className="flex items-center gap-2 ml-auto">
+            <Button type="button" variant="outline" onClick={onClose} disabled={pending}>Annuler</Button>
+            <Button type="submit" disabled={pending || imgUploading} className="min-w-[150px]">
+              {pending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Enregistrement…</> : product ? 'Enregistrer les modifications' : 'Créer le produit'}
+            </Button>
+          </div>
         </div>
       </form>
     </div>
@@ -501,14 +713,35 @@ export function AdminMarketCatalog() {
   const [dialog, setDialog] = useState<'product' | 'category' | 'supplier' | null>(null);
   const [editing, setEditing] = useState<MarketProductDto | null>(null);
   const [collectionId, setCollectionId] = useState<string | null>(null);
+  const [productSearch, setProductSearch] = useState('');
+  const [productStatus, setProductStatus] = useState<'ALL' | 'PUBLISHED' | 'DRAFT' | 'ARCHIVED'>('ALL');
+  const [productCategory, setProductCategory] = useState('ALL');
   const { run, banner } = useActionBanner();
 
   const [catForm, setCatForm] = useState({ id: '', name: '', slug: '', description: '', imageUrl: '', parentId: '', position: '0', active: true, archived: false });
   const [supForm, setSupForm] = useState({ id: '', name: '', contact: '', note: '', active: true });
+  const categories = data?.categories ?? [];
+  const suppliers = data?.suppliers ?? [];
+  const products = data?.products ?? [];
+  const filteredProducts = useMemo(() => {
+    const term = productSearch.trim().toLocaleLowerCase('fr');
+    return products.filter((product) => {
+      const matchesSearch = !term || [product.name, product.reference, product.brand ?? '', product.categoryName, product.subcategoryName ?? '', product.supplierName ?? '']
+        .some((value) => value.toLocaleLowerCase('fr').includes(term));
+      const matchesStatus = productStatus === 'ALL'
+        || (productStatus === 'PUBLISHED' && product.active && !product.archived)
+        || (productStatus === 'DRAFT' && !product.active && !product.archived)
+        || (productStatus === 'ARCHIVED' && product.archived);
+      const matchesCategory = productCategory === 'ALL' || product.categoryId === productCategory;
+      return matchesSearch && matchesStatus && matchesCategory;
+    });
+  }, [products, productSearch, productStatus, productCategory]);
 
   if (loading) return <Loading />;
   if (loadError || !data) return <LoadError message={loadError ?? 'Données indisponibles.'} retry={reload} />;
-  const { categories, suppliers, products } = data;
+  const publishedProducts = products.filter((product) => product.active && !product.archived).length;
+  const draftProducts = products.filter((product) => !product.active && !product.archived).length;
+  const archivedProducts = products.filter((product) => product.archived).length;
 
   /** Payload complet d'un produit existant — évite qu'un toggle n'écrase les champs non affichés. */
   const productPayload = (p: MarketProductDto, overrides: Partial<MarketProductPayload> = {}): MarketProductPayload => ({
@@ -670,56 +903,169 @@ export function AdminMarketCatalog() {
       </section>
 
       {/* Produits */}
-      <section>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="font-heading font-bold text-lg">Produits ({products.length})</h2>
-          <Button size="sm" onClick={() => { setEditing(null); setDialog('product'); }}><Plus className="w-4 h-4 mr-1" />Produit</Button>
+      <section aria-labelledby="market-admin-products" className="space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-brand-accent">Gestion du catalogue</p>
+            <h2 id="market-admin-products" className="font-heading text-xl font-extrabold text-slate-900">Produits <span className="text-sm font-semibold text-slate-400">({products.length})</span></h2>
+            <p className="mt-1 text-xs text-brand-text-muted">Recherchez, filtrez et mettez à jour les fiches produits.</p>
+          </div>
+          <Button size="sm" onClick={() => { setEditing(null); setDialog('product'); }} className="shrink-0">
+            <Plus className="mr-1 h-4 w-4" /> Nouveau produit
+          </Button>
         </div>
-        {products.length === 0
-          ? <EmptyState icon={Store} title="Catalogue vide" description="Ajoutez vos premières catégories puis vos produits : ils apparaîtront immédiatement dans la boutique." />
-          : <div className="overflow-x-auto bg-white rounded-2xl border border-brand-border">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs uppercase tracking-wider text-brand-text-muted border-b border-brand-border">
-                  <th className="px-4 py-3">Produit</th>
-                  <th className="px-4 py-3">Prix vente</th>
-                  <th className="px-4 py-3">Marge est.</th>
-                  <th className="px-4 py-3">Disponibilité</th>
-                  <th className="px-4 py-3">État</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-brand-border">
-                {products.map((p) => (
-                  <tr key={p.id}>
-                    <td className="px-4 py-3">
-                      <p className="font-semibold">{p.name}</p>
-                      <p className="text-xs text-brand-text-muted">{p.reference} · {p.categoryName}{p.subcategoryName ? ` › ${p.subcategoryName}` : ''}{p.supplierName ? ` · ${p.supplierName}` : ''}</p>
-                    </td>
-                    <td className="px-4 py-3 font-semibold whitespace-nowrap">{formatPriceFCFA(p.priceSale)}</td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className={p.estimatedMargin > 0 ? 'text-emerald-700 font-semibold' : 'text-red-700 font-semibold'}>{formatPriceFCFA(p.estimatedMargin)}</span>
-                    </td>
-                    <td className="px-4 py-3 text-xs">{AVAILABILITY_LABELS[p.availability]}</td>
-                    <td className="px-4 py-3">
-                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${p.archived ? 'bg-brand-bg text-brand-text-muted border-brand-border' : p.active ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
-                        {p.archived ? 'Archivé' : p.active ? 'Publié' : 'Brouillon'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      <button type="button" className="p-2 rounded-lg hover:bg-brand-bg" aria-label={`Modifier ${p.name}`} onClick={() => { setEditing(p); setDialog('product'); }}><Pencil className="w-4 h-4" /></button>
+
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+          <div className="rounded-xl border border-emerald-100 bg-emerald-50/70 p-3 sm:rounded-2xl sm:p-4">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Publiés</p>
+            <p className="mt-1 text-xl font-extrabold text-emerald-800">{publishedProducts}</p>
+          </div>
+          <div className="rounded-xl border border-amber-100 bg-amber-50/70 p-3 sm:rounded-2xl sm:p-4">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Brouillons</p>
+            <p className="mt-1 text-xl font-extrabold text-amber-800">{draftProducts}</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 sm:rounded-2xl sm:p-4">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Archivés</p>
+            <p className="mt-1 text-xl font-extrabold text-slate-700">{archivedProducts}</p>
+          </div>
+        </div>
+
+        <div className="grid gap-3 rounded-2xl border border-brand-border bg-white p-3 shadow-sm sm:grid-cols-[minmax(0,1fr)_180px_190px] sm:p-4">
+          <label className="relative block">
+            <span className="sr-only">Rechercher un produit</span>
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+            <input
+              type="search"
+              value={productSearch}
+              onChange={(e) => setProductSearch(e.target.value)}
+              placeholder="Nom, référence, marque, fournisseur…"
+              className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm font-medium text-slate-800 placeholder:text-slate-400 focus:border-brand-accent focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-accent/15"
+            />
+          </label>
+          <label className="block">
+            <span className="sr-only">Filtrer par état</span>
+            <Select aria-label="Filtrer par état" value={productStatus} onChange={(e) => setProductStatus(e.target.value as typeof productStatus)} className="h-11 bg-slate-50 py-2">
+              <option value="ALL">Tous les états</option>
+              <option value="PUBLISHED">Publiés</option>
+              <option value="DRAFT">Brouillons</option>
+              <option value="ARCHIVED">Archivés</option>
+            </Select>
+          </label>
+          <label className="block">
+            <span className="sr-only">Filtrer par catégorie</span>
+            <Select aria-label="Filtrer par catégorie" value={productCategory} onChange={(e) => setProductCategory(e.target.value)} className="h-11 bg-slate-50 py-2">
+              <option value="ALL">Toutes les catégories</option>
+              {categories.filter((category) => !category.parentId).map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+            </Select>
+          </label>
+        </div>
+
+        {products.length === 0 ? (
+          <EmptyState icon={Store} title="Catalogue vide" description="Ajoutez vos premières catégories puis vos produits : ils apparaîtront immédiatement dans la boutique." />
+        ) : filteredProducts.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-brand-border-dark bg-white px-6 py-12 text-center">
+            <Search className="mx-auto h-7 w-7 text-slate-300" aria-hidden="true" />
+            <p className="mt-3 font-bold text-slate-800">Aucun produit ne correspond à ces filtres.</p>
+            <button type="button" onClick={() => { setProductSearch(''); setProductStatus('ALL'); setProductCategory('ALL'); }} className="mt-2 text-sm font-bold text-brand-accent hover:underline">Effacer les filtres</button>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between gap-3 px-1 text-xs text-brand-text-muted">
+              <span>{filteredProducts.length} résultat{filteredProducts.length > 1 ? 's' : ''}</span>
+              {(productSearch || productStatus !== 'ALL' || productCategory !== 'ALL') && (
+                <button type="button" onClick={() => { setProductSearch(''); setProductStatus('ALL'); setProductCategory('ALL'); }} className="font-bold text-brand-accent hover:underline">Réinitialiser</button>
+              )}
+            </div>
+
+            {/* Table riche sur ordinateur */}
+            <div className="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:block">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-slate-50 text-[10px] font-extrabold uppercase tracking-[0.13em] text-slate-500">
+                    <tr>
+                      <th className="px-4 py-4">Produit</th>
+                      <th className="px-4 py-4">Prix vente</th>
+                      <th className="px-4 py-4">Marge estimée</th>
+                      <th className="px-4 py-4">Disponibilité</th>
+                      <th className="px-4 py-4">État</th>
+                      <th className="px-4 py-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredProducts.map((p) => (
+                      <tr key={p.id} className="transition-colors hover:bg-slate-50/70">
+                        <td className="px-4 py-3">
+                          <div className="flex min-w-[280px] items-center gap-3">
+                            <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                              {p.images[0] ? <img src={p.images[0]} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : <ImagePlus className="h-5 w-5 text-slate-300" aria-hidden="true" />}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="max-w-[300px] truncate font-extrabold text-slate-900">{p.name}</p>
+                              <p className="mt-1 text-[11px] text-slate-500">{p.reference} · {p.categoryName}{p.subcategoryName ? ' › ' + p.subcategoryName : ''}</p>
+                              {p.supplierName && <p className="mt-0.5 truncate text-[10px] text-slate-400">{p.supplierName}</p>}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 font-extrabold text-slate-800">{formatPriceFCFA(p.priceSale)}</td>
+                        <td className="whitespace-nowrap px-4 py-3">
+                          <span className={p.estimatedMargin > 0 ? 'font-bold text-emerald-700' : 'font-bold text-red-700'}>{formatPriceFCFA(p.estimatedMargin)}</span>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-slate-600">{AVAILABILITY_LABELS[p.availability]}</td>
+                        <td className="px-4 py-3">
+                          <span className={'inline-flex rounded-full border px-2.5 py-1 text-[10px] font-extrabold ' + (p.archived ? 'border-slate-200 bg-slate-100 text-slate-500' : p.active ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-800')}>
+                            {p.archived ? 'Archivé' : p.active ? 'Publié' : 'Brouillon'}
+                          </span>
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-right">
+                          <button type="button" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900" aria-label={'Modifier ' + p.name} onClick={() => { setEditing(p); setDialog('product'); }}><Pencil className="h-4 w-4" /></button>
+                          {p.archived
+                            ? <button type="button" className="rounded-lg px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100" onClick={() => void restoreProduct(p)}>Restaurer</button>
+                            : <>
+                              <button type="button" className="rounded-lg px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100" onClick={() => void toggleProduct(p)}>{p.active ? 'Masquer' : 'Publier'}</button>
+                              <button type="button" className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-700" aria-label={'Archiver ' + p.name} onClick={() => void archiveProduct(p)}><Trash2 className="h-4 w-4" /></button>
+                            </>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Cartes adaptées tablette et mobile */}
+            <div className="grid gap-3 lg:hidden sm:grid-cols-2">
+              {filteredProducts.map((p) => (
+                <article key={p.id} className="rounded-2xl border border-brand-border bg-white p-3 shadow-sm">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100">
+                      {p.images[0] ? <img src={p.images[0]} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : <ImagePlus className="h-5 w-5 text-slate-300" aria-hidden="true" />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="line-clamp-2 text-sm font-extrabold text-slate-900">{p.name}</p>
+                      <p className="mt-1 text-[10px] text-slate-500">{p.reference} · {p.categoryName}</p>
+                      <p className="mt-2 text-sm font-extrabold text-brand-accent">{formatPriceFCFA(p.priceSale)}</p>
+                    </div>
+                    <span className={'shrink-0 rounded-full border px-2 py-1 text-[9px] font-extrabold ' + (p.archived ? 'border-slate-200 bg-slate-100 text-slate-500' : p.active ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-800')}>
+                      {p.archived ? 'Archivé' : p.active ? 'Publié' : 'Brouillon'}
+                    </span>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2">
+                    <span className="text-[11px] text-slate-500">{AVAILABILITY_LABELS[p.availability]} · Marge {formatPriceFCFA(p.estimatedMargin)}</span>
+                    <div className="flex items-center gap-1">
+                      <button type="button" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" aria-label={'Modifier ' + p.name} onClick={() => { setEditing(p); setDialog('product'); }}><Pencil className="h-4 w-4" /></button>
                       {p.archived
-                        ? <button type="button" className="p-2 rounded-lg hover:bg-brand-bg font-bold text-xs px-3" onClick={() => void restoreProduct(p)}>Restaurer</button>
+                        ? <button type="button" className="rounded-lg px-2 py-2 text-xs font-bold text-slate-600" onClick={() => void restoreProduct(p)}>Restaurer</button>
                         : <>
-                          <button type="button" className="p-2 rounded-lg hover:bg-brand-bg font-bold text-xs px-3" onClick={() => void toggleProduct(p)}>{p.active ? 'Masquer' : 'Publier'}</button>
-                          <button type="button" className="p-2 rounded-lg hover:bg-red-50 text-red-700" aria-label={`Archiver ${p.name}`} onClick={() => void archiveProduct(p)}><Trash2 className="w-4 h-4" /></button>
+                          <button type="button" className="rounded-lg px-2 py-2 text-xs font-bold text-slate-600" onClick={() => void toggleProduct(p)}>{p.active ? 'Masquer' : 'Publier'}</button>
+                          <button type="button" className="rounded-lg p-2 text-red-600 hover:bg-red-50" aria-label={'Archiver ' + p.name} onClick={() => void archiveProduct(p)}><Trash2 className="h-4 w-4" /></button>
                         </>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>}
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </>
+        )}
       </section>
 
       {dialog === 'product' && (

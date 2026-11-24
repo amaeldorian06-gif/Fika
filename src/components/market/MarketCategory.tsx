@@ -4,7 +4,7 @@ import { Button } from '../ui';
 import { Link } from '../../router';
 import { AVAILABILITY_LABELS, type MarketProductPublic } from '../../lib/market';
 import { trackMarketEvent } from '../../lib/market-analytics';
-import { activeFilterEntries, usePersistentState, useCatalog, ProductCard } from './shared';
+import { activeFilterEntries, usePersistentState, useCatalog, ProductCard, ProductCardSkeleton } from './shared';
 import type { MarketSort } from './MarketAll';
 
 /**
@@ -31,7 +31,7 @@ function sortProducts(products: MarketProductPublic[], sort: MarketSort): Market
 }
 
 export function MarketCategoryPage({ slug }: { slug: string }) {
-  const { data, error } = useCatalog(slug);
+  const { data, error, loading } = useCatalog(slug);
   useEffect(() => { trackMarketEvent('CATEGORY_VIEWED', { category: slug }); }, [slug]);
 
   const [filters, setFilters] = usePersistentState<Filters>(`fika:market:cat:${slug}:filters`, EMPTY_FILTERS);
@@ -97,6 +97,12 @@ export function MarketCategoryPage({ slug }: { slug: string }) {
       {categoryMeta?.description && <p className="text-brand-text-muted mt-3 max-w-2xl leading-relaxed">{categoryMeta.description}</p>}
 
       {error && <p role="alert" className="mt-6 rounded-xl bg-red-50 border border-red-200 text-red-700 p-4">{error}</p>}
+
+      {loading && (
+        <div role="status" aria-label="Chargement des produits" className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, index) => <ProductCardSkeleton key={index} />)}
+        </div>
+      )}
 
       {data && data.products.length === 0 && (
         <div className="mt-8 text-center py-14 px-6 bg-white rounded-2xl border border-dashed border-brand-border">

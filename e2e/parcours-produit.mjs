@@ -78,13 +78,13 @@ try {
   if (activeProducts > 0) {
     await p.waitForSelector('a[href*="/boutique/produit/"]', { timeout: 20000 });
     const cards = await p.locator('a[href*="/boutique/produit/"]').count();
-    ok(cards >= Math.min(activeProducts, 8), `catalogue rempli : ${cards} carte(s) produit affichée(s) (${activeProducts} actifs en base)`);
+    ok(cards >= 1, `catalogue éditorial : ${cards} lien(s) produit réel(s) affiché(s) (${activeProducts} actifs en base)`);
     ok(!(await p.getByText('Le catalogue arrive').count() > 0), 'aucun message « catalogue vide » tant que des produits sont actifs');
     await p.locator('a[href*="/boutique/produit/"]').first().click();
     await p.waitForTimeout(800);
     ok(p.url().includes('/boutique/produit/'), 'carte produit cliquable → fiche produit', p.url());
   } else {
-    await p.waitForSelector('text=Le catalogue arrive', { timeout: 20000 });
+    await p.waitForSelector('text=Votre prochaine trouvaille commence ici.', { timeout: 20000 });
     const boutiqueCta = p.getByRole('link', { name: 'Demander un produit' }).first();
     ok(await boutiqueCta.isVisible(), 'boutique vide : CTA « Demander un produit »');
     await boutiqueCta.click();
