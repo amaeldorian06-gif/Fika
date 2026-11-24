@@ -11,7 +11,7 @@ import { SITE_CITY, SITE_DOMAIN, WHATSAPP_PHONE_E164 } from '../../lib/site';
  * Page d'entrée Fika — présentation courte, deux parcours et une seule action
  * de contact. Les catalogues et contenus détaillés restent dans leurs univers.
  */
-const PHONE_LABEL = '+237 671 164 936';
+const PHONE_LABEL = WHATSAPP_PHONE_E164.replace(/^\\+237(\\d{3})(\\d{3})(\\d{3})$/, '+237 $1 $2 $3');
 
 function EntryCard({ kind, title, description, href, action, requestHref, requestAction, note }: {
   kind: 'market' | 'services';
