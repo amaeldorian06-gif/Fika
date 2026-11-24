@@ -719,10 +719,9 @@ export function AdminMarketCatalog() {
 
   const [catForm, setCatForm] = useState({ id: '', name: '', slug: '', description: '', imageUrl: '', parentId: '', position: '0', active: true, archived: false });
   const [supForm, setSupForm] = useState({ id: '', name: '', contact: '', note: '', active: true });
-
-  if (loading) return <Loading />;
-  if (loadError || !data) return <LoadError message={loadError ?? 'Données indisponibles.'} retry={reload} />;
-  const { categories, suppliers, products } = data;
+  const categories = data?.categories ?? [];
+  const suppliers = data?.suppliers ?? [];
+  const products = data?.products ?? [];
   const filteredProducts = useMemo(() => {
     const term = productSearch.trim().toLocaleLowerCase('fr');
     return products.filter((product) => {
@@ -736,6 +735,9 @@ export function AdminMarketCatalog() {
       return matchesSearch && matchesStatus && matchesCategory;
     });
   }, [products, productSearch, productStatus, productCategory]);
+
+  if (loading) return <Loading />;
+  if (loadError || !data) return <LoadError message={loadError ?? 'Données indisponibles.'} retry={reload} />;
   const publishedProducts = products.filter((product) => product.active && !product.archived).length;
   const draftProducts = products.filter((product) => !product.active && !product.archived).length;
   const archivedProducts = products.filter((product) => product.archived).length;
