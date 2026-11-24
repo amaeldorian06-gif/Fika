@@ -258,9 +258,15 @@ export function AdminShell({
                 </p>
                 {notificationStatus && (
                   <p className="mt-1 text-xs text-brand-text-muted break-words">
-                    Expéditeur : {notificationStatus.sender ?? 'non défini'} · Destinataire : {notificationStatus.recipient}
+                    {notificationStatus.mode === 'aucun'
+                      ? 'Aucun SMTP configuré'
+                      : `${notificationStatus.mode === 'smtp' ? 'SMTP' : 'Gmail'} · ${notificationStatus.host}:${notificationStatus.port} · ${notificationStatus.secure ? 'TLS direct' : 'STARTTLS'}`}
+                    {' · '}Expéditeur : {notificationStatus.sender ?? 'non défini'} · Destinataire : {notificationStatus.recipient}
                   </p>
                 )}
+                {(notificationStatus?.warnings ?? []).map((w) => (
+                  <p key={w} className="mt-1 text-xs font-medium text-amber-700 break-words">{w}</p>
+                ))}
                 {notificationFeedback && (
                   <p role="status" className={`mt-1 text-xs font-medium ${notificationFeedback.kind === 'success' ? 'text-brand-wa' : 'text-red-700'}`}>
                     {notificationFeedback.text}

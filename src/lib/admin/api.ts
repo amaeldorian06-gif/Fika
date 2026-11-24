@@ -188,9 +188,15 @@ export class ApiUnavailableError extends Error {
 
 export interface NotificationStatus {
   configured: boolean;
-  provider: 'Gmail SMTP';
+  provider: 'Gmail SMTP' | 'SMTP';
   sender: string | null;
   recipient: string;
+  /** Mode d'envoi effectif et paramètres de connexion (aucun secret). */
+  mode: 'smtp' | 'gmail' | 'aucun';
+  host: string | null;
+  port: number;
+  secure: boolean;
+  warnings: string[];
 }
 
 export async function fetchNotificationStatus(): Promise<NotificationStatus> {
@@ -200,6 +206,11 @@ export async function fetchNotificationStatus(): Promise<NotificationStatus> {
     provider: data.provider,
     sender: data.sender,
     recipient: data.recipient,
+    mode: data.mode,
+    host: data.host,
+    port: data.port,
+    secure: data.secure,
+    warnings: data.warnings ?? [],
   };
 }
 

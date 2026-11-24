@@ -1,12 +1,10 @@
 import { useEffect } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { MapPin, MessageCircle, ShieldCheck, Store, Wrench } from 'lucide-react';
+import { trackFunnelStep, trackWaClick } from '../../lib/tracking';
 import { getWALink } from '../../lib/whatsapp';
-import { trackWaClick, trackFunnelStep } from '../../lib/tracking';
 import { Link, navigate, useRoute } from '../../router';
-import { SITE_CITY, SITE_DOMAIN, WHATSAPP_PHONE_E164 } from '../../lib/site';
-
-const PHONE_LABEL = '+237 ' + WHATSAPP_PHONE_E164.slice(4, 7) + ' ' + WHATSAPP_PHONE_E164.slice(7, 10) + ' ' + WHATSAPP_PHONE_E164.slice(10, 13);
+import { SITE_CITY } from '../../lib/site';
 
 function EntryCard({ kind, title, description, href }: {
   kind: 'market' | 'services';
@@ -48,7 +46,7 @@ export function EntryPage() {
 
   return (
     <div className="min-h-[calc(100vh-76px)] bg-brand-bg">
-      <main className="mx-auto max-w-6xl px-5 pb-6 pt-7 sm:px-8 sm:pb-8 sm:pt-9 lg:px-10">
+      <main className="mx-auto max-w-6xl px-5 pb-8 pt-7 sm:px-8 sm:pb-10 sm:pt-9 lg:px-10">
         <motion.section className="mx-auto max-w-4xl text-center" {...reveal(0)}>
           <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-brand-accent sm:text-xs sm:tracking-[0.22em]">
             Ngaoundéré · Une marque, deux façons de vous aider
@@ -67,16 +65,25 @@ export function EntryPage() {
 
         <motion.section className="mt-6 grid items-stretch gap-3 sm:mt-8 sm:gap-4 lg:grid-cols-[1.02fr_0.98fr] lg:gap-6" {...reveal(0.05)}>
           <div className="entry-hero-image relative aspect-[1.12/1] overflow-hidden rounded-[1.6rem] border border-brand-border bg-[#F1E7DC] shadow-premium sm:aspect-[1.25/1] lg:aspect-[0.91/1]">
-            <img
-              src="/fika-home-photo.webp"
-              alt="Une cliente souriante consulte son téléphone et découvre Fika."
-              width="360"
-              height="396"
-              loading="eager"
-              fetchPriority="high"
-              decoding="async"
-              className="absolute inset-0 h-full w-full object-cover object-[50%_34%]"
-            />
+            {/* Photo d'accueil : srcset 1x/2x + repli JPEG (navigateurs sans
+                WebP). Préchargée dans index.html → affichage instantané. */}
+            <picture>
+              <source
+                type="image/webp"
+                srcSet="/fika-home-1x.webp 445w, /fika-home-2x.webp 890w"
+                sizes="(min-width: 1024px) 560px, (min-width: 640px) 50vw, 92vw"
+              />
+              <img
+                src="/fika-home.jpg"
+                alt="Une cliente souriante consulte son téléphone et découvre Fika, portant un t-shirt à l'effigie de la marque."
+                width="445"
+                height="493"
+                loading="eager"
+                fetchPriority="high"
+                decoding="async"
+                className="absolute inset-0 h-full w-full object-cover object-[50%_32%]"
+              />
+            </picture>
           </div>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-1 lg:grid-rows-2 lg:gap-4">
             <EntryCard
@@ -110,26 +117,20 @@ export function EntryPage() {
         </motion.section>
       </main>
 
-      <motion.footer className="bg-brand-text text-white" {...reveal(0.14)}>
-        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:py-5 lg:px-10">
-          <div>
-            <a href={`tel:${WHATSAPP_PHONE_E164}`} className="rounded text-lg font-extrabold tracking-tight hover:text-brand-contrast-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">
-              {PHONE_LABEL}
-            </a>
-            <p className="mt-0.5 text-xs text-white/65">{SITE_DOMAIN}</p>
-          </div>
-          <a
-            href={getWALink('Bonjour Fika 👋, je souhaite être accompagné.')}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => trackWaClick({ context: 'home-hero' })}
-            className="inline-flex min-h-[46px] items-center justify-center gap-2 rounded-full bg-[#25D366] px-6 py-3 text-sm font-extrabold text-[#10351E] shadow-sm transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-          >
-            <MessageCircle className="h-5 w-5 fill-current" aria-hidden="true" />
-            WhatsApp
-          </a>
-        </div>
-      </motion.footer>
+      {/* Contact WhatsApp — hors footer (le footer de l'accueil est supprimé).
+          Bouton conservé tel quel : même lien, même message, même style. */}
+      <div className="mx-auto flex max-w-6xl justify-center px-5 pb-10 sm:px-8 lg:px-10">
+        <a
+          href={getWALink('Bonjour Fika 👋, je souhaite être accompagné.')}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => trackWaClick({ context: 'home-hero' })}
+          className="inline-flex min-h-[46px] items-center justify-center gap-2 rounded-full bg-[#25D366] px-6 py-3 text-sm font-extrabold text-[#10351E] shadow-sm transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
+        >
+          <MessageCircle className="h-5 w-5 fill-current" aria-hidden="true" />
+          WhatsApp
+        </a>
+      </div>
     </div>
   );
 }

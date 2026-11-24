@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { renderLeadAlert, renderServiceOrderAlert, renderMarketOrderAlert, notifyRecipient, isNotifyConfigured } from './notify';
+import { renderLeadAlert, renderServiceOrderAlert, renderMarketOrderAlert, notifyRecipient, isNotifyConfigured, smtpSettings, getNotificationStatus } from './notify';
 
 describe('renderLeadAlert (e-mail demande de service)', () => {
   const alert = {
@@ -101,5 +101,53 @@ describe('configuration des alertes', () => {
   it('accepte un mot de passe Gmail copié avec des espaces', () => {
     expect(isNotifyConfigured({ GMAIL_USER: 'amaeldorian06@gmail.com', GMAIL_APP_PASSWORD: ' abcd efgh ijkl mnop ' })).toBe(true);
     expect(isNotifyConfigured({ GMAIL_USER: '', GMAIL_APP_PASSWORD: 'abcd' })).toBe(false);
+  });
+});
+
+describe('smtpSettings (port, STARTTLS, priorité des modes)', () => {
+  it('SMTP explicite : port 587 → STARTTLS, port 465 → TLS direct', () => {
+    const a = smtpSettings({ SMTP_USER: 'u', SMTP_PASS: 'p', SMTP_HOST: 'smtp.example.com', SMTP_PORT: '587' } as NodeJS.ProcessEnv);
+    expect([a.mode, a.host, a.port, a.secure]).toEqual(['smtp', 'smtp.example.com', 587, false]);
+    expect(a.warnings).toEqual([]);
+    const b = smtpSettings({ SMTP_USER: 'u', SMTP_PASS: 'p', SMTP_PORT: '465' } as NodeJS.ProcessEnv);
+    expect(b.secure).toBe(true);
+  });
+
+  it('corrige et signale un SMTP_SECURE incohérent avec le port', () => {
+    const s = smtpSettings({ SMTP_USER: 'u', SMTP_PASS: 'p', SMTP_PORT: '587', SMTP_SECURE: 'true' } as NodeJS.ProcessEnv);
+    expect(s.secure).toBe(false);
+    expect(s.warnings[0]).toMatch(/STARTTLS/);
+  });
+
+  it('SMTP explicite prioritaire sur Gmail', () => {
+    const s = smtpSettings({
+      SMTP_USER: 'smtp@fika.cm', SMTP_PASS: 'x', GMAIL_USER: 'g@gmail.com', GMAIL_APP_PASSWORD: 'y',
+    } as NodeJS.ProcessEnv);
+    expect([s.mode, s.user]).toEqual(['smtp', 'smtp@fika.cm']);
+  });
+
+  it('repli Gmail conservé pour les déploiements existants', () => {
+    const s = smtpSettings({ GMAIL_USER: 'a@gmail.com', GMAIL_APP_PASSWORD: 'x' } as NodeJS.ProcessEnv);
+    expect([s.mode, s.host, s.port, s.secure]).toEqual(['gmail', 'smtp.gmail.com', 587, false]);
+  });
+
+  it('aucune configuration → mode « aucun », sans lever d’erreur', () => {
+    expect(smtpSettings({} as NodeJS.ProcessEnv).mode).toBe('aucun');
+    expect(isNotifyConfigured({} as NodeJS.ProcessEnv)).toBe(false);
+  });
+
+  it('le statut exposé à l’admin ne contient aucun secret', () => {
+    const previous = { ...process.env };
+    process.env.SMTP_USER = 'u@fika.cm';
+    process.env.SMTP_PASS = 'secret-a-ne-pas-exposer';
+    process.env.SMTP_HOST = 'smtp.fika.cm';
+    process.env.SMTP_PORT = '465';
+    try {
+      const status = getNotificationStatus();
+      expect([status.mode, status.host, status.port, status.secure]).toEqual(['smtp', 'smtp.fika.cm', 465, true]);
+      expect(JSON.stringify(status)).not.toContain('secret-a-ne-pas-exposer');
+    } finally {
+      process.env = previous;
+    }
   });
 });

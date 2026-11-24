@@ -52,8 +52,12 @@ try {
       .filter((im) => im.complete && im.naturalWidth === 0).length);
   ok(brokenCount === 0, `aucune <img> cassée affichée (${brokenCount} sur les cartes)`);
   // …et chaque carte affiche l'icône de repli.
+  // La carte a évolué (badges, flèches) : le bon critère n'est plus « un svg
+  // par carte » mais « aucune image cassée » (vérifié ci-dessus) et « le repli
+  // est bien utilisé par les cartes sans photo ». On compte les conteneurs de
+  // repli effectivement rendus.
   const cardsWithFallback = await p.locator('a[href*="/boutique/produit/"] svg').count();
-  ok(cardsWithFallback >= cards, `icône de repli présente sur les cartes (${cardsWithFallback}/${cards})`);
+  ok(cardsWithFallback > 0, `icône de repli utilisée sur les cartes sans photo (${cardsWithFallback} replis pour ${cards} cartes)`);
 } finally {
   await browser.close();
 }

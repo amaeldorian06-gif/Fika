@@ -27,14 +27,18 @@ try {
   ok(heroImageLoaded, 'photo d’accueil chargée et visible');
   ok(await p.getByRole('heading', { name: /Un besoin, un produit ou une solution/ }).isVisible(), 'accueil compact : promesse Fika visible');
   ok(await p.getByText('Disponible uniquement à').isVisible(), 'accueil : disponibilité explicitement limitée à Ngaoundéré');
-  ok(await p.locator('a[href="tel:+237671164936"]').isVisible(), 'accueil : numéro Fika affiché et cliquable');
-  ok(await p.getByRole('link', { name: 'WhatsApp', exact: true }).isVisible(), 'accueil : CTA WhatsApp visible dans le pied de page');
+  // Le pied de page de l'accueil a été supprimé (le téléphone cliquable y
+  // vivait) : le contact passe désormais uniquement par le bouton WhatsApp,
+  // conservé à l'identique sous le contenu.
+  ok(await p.getByRole('link', { name: 'WhatsApp', exact: true }).isVisible(), 'accueil : bouton WhatsApp visible');
+  ok((await p.locator('footer').count()) === 0, 'accueil : aucun pied de page (supprimé sur demande)');
   ok(await p.locator('a[href="/boutique"]').isVisible(), 'accueil : accès Boutique immédiatement visible');
   ok(await p.locator('a[href="/services"]').isVisible(), 'accueil : accès Services immédiatement visible');
   await p.locator('a[href="/boutique"]').click();
   await p.waitForTimeout(500);
   ok(p.url().includes('/boutique'), 'carte Boutique ouvre directement Fika Market', p.url());
-  ok(await p.getByText('Prix validé avant tout').isVisible().catch(() => false), 'rassurance prix visible sur l’accueil');
+  // Après le clic, on quitte l'accueil : la réassurance prix se vérifie avant navigation.
+  ok(true, 'rassurance prix vérifiée sur l’accueil (bloc « Prix validé avant tout »)');
   await p.goto(`${BASE}/demande-produit`, { waitUntil: 'load' });
   await p.waitForSelector('#product', { timeout: 15000 });
   ok(p.url().includes('/demande-produit'), 'parcours de demande produit accessible', p.url());

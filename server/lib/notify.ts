@@ -25,8 +25,54 @@ export function notifyRecipient(env: NodeJS.ProcessEnv = process.env): string {
 
 const cleanPassword = (value: string | undefined): string => (value ?? '').replace(/\s+/g, '');
 
+/**
+ * Réglages SMTP effectifs. Deux modes, le mode explicite étant prioritaire :
+ *
+ *   1. SMTP_HOST / SMTP_PORT / SMTP_SECURE / SMTP_USER / SMTP_PASS — port 587 :
+ *      STARTTLS (secure:false, la connexion est mise à niveau en TLS) ; port
+ *      465 : TLS direct (secure:true). Incohérence port/secure détectée et
+ *      corrigée, puis signalée à l'admin.
+ *   2. Gmail (service:'gmail') via GMAIL_USER / GMAIL_APP_PASSWORD — repli
+ *      conservé pour les déploiements existants.
+ */
+export interface SmtpSettings {
+  mode: 'smtp' | 'gmail' | 'aucun';
+  host: string | null;
+  port: number;
+  secure: boolean;
+  user: string | null;
+  pass: string | null;
+  warnings: string[];
+}
+
+export function smtpSettings(env: NodeJS.ProcessEnv = process.env): SmtpSettings {
+  const warnings: string[] = [];
+  const genericUser = env.SMTP_USER?.trim();
+  const genericPass = cleanPassword(env.SMTP_PASS);
+  if (genericUser && genericPass) {
+    const host = env.SMTP_HOST?.trim() || 'smtp.gmail.com';
+    const port = Number(env.SMTP_PORT ?? 587) || 587;
+    let secure = env.SMTP_SECURE ? env.SMTP_SECURE === 'true' : port === 465;
+    if (port === 587 && secure) {
+      warnings.push('SMTP_SECURE=true sur le port 587 : STARTTLS n’est plus utilisé. Omettez SMTP_SECURE ou passez-le à false.');
+      secure = false;
+    }
+    if (port === 465 && !secure) {
+      warnings.push('Port 465 sans SMTP_SECURE=true : la connexion ne serait pas chiffrée dès l’ouverture.');
+      secure = true;
+    }
+    return { mode: 'smtp', host, port, secure, user: genericUser, pass: genericPass, warnings };
+  }
+  const gmailUser = env.GMAIL_USER?.trim();
+  const gmailPass = cleanPassword(env.GMAIL_APP_PASSWORD);
+  if (gmailUser && gmailPass) {
+    return { mode: 'gmail', host: 'smtp.gmail.com', port: 587, secure: false, user: gmailUser, pass: gmailPass, warnings };
+  }
+  return { mode: 'aucun', host: null, port: 587, secure: false, user: null, pass: null, warnings };
+}
+
 export function isNotifyConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
-  return Boolean(env.GMAIL_USER?.trim() && cleanPassword(env.GMAIL_APP_PASSWORD));
+  return smtpSettings(env).mode !== 'aucun';
 }
 
 export interface LeadAlert {
@@ -153,19 +199,24 @@ export function renderMarketOrderAlert(a: MarketOrderAlert, appUrl: string | nul
 
 let sharedTransport: Transporter | null = null;
 
-function getTransporter(): Transporter | null {
-  const user = process.env.GMAIL_USER?.trim();
-  const pass = cleanPassword(process.env.GMAIL_APP_PASSWORD);
-  if (!user || !pass) return null;
+let sharedSettingsKey: string | null = null;
 
-  if (!sharedTransport) {
-    sharedTransport = nodemailer.createTransport({
-      service: 'gmail',
-      auth: { user, pass },
-      connectionTimeout: 10_000,
-      greetingTimeout: 10_000,
-      socketTimeout: 15_000,
-    });
+function getTransporter(): Transporter | null {
+  const settings = smtpSettings();
+  if (settings.mode === 'aucun' || !settings.user || !settings.pass) return null;
+  const key = settings.mode + ':' + settings.host + ':' + settings.port + ':' + settings.secure + ':' + settings.user;
+  if (!sharedTransport || sharedSettingsKey !== key) {
+    const timeouts = { connectionTimeout: 10_000, greetingTimeout: 10_000, socketTimeout: 15_000 };
+    sharedTransport = settings.mode === 'gmail'
+      ? nodemailer.createTransport({ service: 'gmail', auth: { user: settings.user, pass: settings.pass }, ...timeouts })
+      : nodemailer.createTransport({
+        host: settings.host ?? 'smtp.gmail.com',
+        port: settings.port,
+        secure: settings.secure, // false → STARTTLS
+        auth: { user: settings.user, pass: settings.pass },
+        ...timeouts,
+      });
+    sharedSettingsKey = key;
   }
   return sharedTransport;
 }
@@ -186,7 +237,7 @@ function acceptedRecipientMatches(accepted: unknown[], recipient: string): boole
 }
 
 async function sendGmail(event: string, fromName: string, subject: string, text: string): Promise<DispatchResult> {
-  const user = process.env.GMAIL_USER?.trim();
+  const user = smtpSettings().user;
   const recipient = notifyRecipient();
   const transport = getTransporter();
 
@@ -232,15 +283,27 @@ async function sendNotification(kind: 'lead' | 'service-order' | 'market-order',
 
 export function getNotificationStatus(): {
   configured: boolean;
-  provider: 'Gmail SMTP';
+  provider: 'Gmail SMTP' | 'SMTP';
   sender: string | null;
   recipient: string;
+  /** Mode et paramètres de connexion (aucun secret exposé). */
+  mode: SmtpSettings['mode'];
+  host: string | null;
+  port: number;
+  secure: boolean;
+  warnings: string[];
 } {
+  const settings = smtpSettings();
   return {
-    configured: isNotifyConfigured(),
-    provider: 'Gmail SMTP',
-    sender: process.env.GMAIL_USER?.trim() || null,
+    configured: settings.mode !== 'aucun',
+    provider: settings.mode === 'smtp' ? 'SMTP' : 'Gmail SMTP',
+    sender: settings.user,
     recipient: notifyRecipient(),
+    mode: settings.mode,
+    host: settings.host,
+    port: settings.port,
+    secure: settings.secure,
+    warnings: settings.warnings,
   };
 }
 
@@ -263,9 +326,16 @@ export async function sendNotificationTest(): Promise<{
   try {
     await transport.verify();
   } catch (error) {
-    const details = error && typeof error === 'object' ? error as { code?: unknown } : {};
-    console.error('[notify] authentification SMTP refusée', { code: typeof details.code === 'string' ? details.code : 'UNKNOWN' });
-    return { ok: false, status: 'SMTP_AUTH_FAILED', message: 'Gmail refuse l’authentification. Vérifiez le mot de passe d’application Google.', recipient };
+    const details = error && typeof error === 'object' ? error as { code?: unknown; message?: unknown } : {};
+    const code = typeof details.code === 'string' ? details.code : 'UNKNOWN';
+    console.error('[notify] authentification SMTP refusée', { code });
+    // Traduction des codes nodemailer (EAUTH / ECONNECTION / ETIMEDOUT…).
+    const message = code === 'EAUTH'
+      ? 'Le serveur refuse l’authentification. Vérifiez SMTP_USER / SMTP_PASS (ou le mot de passe d’application Google, jamais le mot de passe du compte).'
+      : code === 'ECONNECTION' || code === 'ETIMEDOUT'
+        ? 'Le serveur SMTP est injoignable — erreur réseau, réessayez plus tard (vérifiez l’hôte et le port).'
+        : 'La vérification de la connexion SMTP a échoué (' + code + ').';
+    return { ok: false, status: 'SMTP_AUTH_FAILED', message, recipient };
   }
 
   const result = await sendGmail(
