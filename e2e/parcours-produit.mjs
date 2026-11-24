@@ -138,7 +138,7 @@ try {
     return {
       found: true,
       aboveNav: r.bottom <= nav.top + 1,
-      labelComplete: cta.scrollWidth <= c.clientWidth + 1,
+      labelComplete: cta.scrollWidth <= cta.clientWidth + 1,
       height: Math.round(c.height),
       ctaInBar: c.top >= r.top - 1 && c.bottom <= r.bottom + 1,
     };
@@ -180,4 +180,3 @@ try {
 }
 console.log(`\\n===== PARCOURS PRODUIT + UX MOBILE : ${pass}/${pass + fail} ${fail === 0 ? 'PASS' : 'FAIL'} =====`);
 process.exit(fail === 0 ? 0 : 1);
-}
