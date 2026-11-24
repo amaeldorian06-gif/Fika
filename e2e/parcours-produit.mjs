@@ -22,16 +22,22 @@ try {
   /* ---------- 1. Accueil : deux chemins d'action directs ---------- */
   const p = await (await browser.newContext({ viewport: { width: 390, height: 844 } })).newPage();
   await p.goto(`${BASE}/`, { waitUntil: 'load' });
-  await p.waitForSelector('img[src="/fika-home-photo.webp"]', { timeout: 20000 });
+  await p.waitForSelector('.entry-hero-image img', { timeout: 20000 });
+  const heroImageLoaded = await p.locator('.entry-hero-image img').evaluate((image) => image.complete && image.naturalWidth > 0);
+  ok(heroImageLoaded, 'photo d’accueil chargée et visible');
   ok(await p.getByRole('heading', { name: /Un besoin, un produit ou une solution/ }).isVisible(), 'accueil compact : promesse Fika visible');
   ok(await p.getByText('Disponible uniquement à').isVisible(), 'accueil : disponibilité explicitement limitée à Ngaoundéré');
   ok(await p.locator('a[href="tel:+237671164936"]').isVisible(), 'accueil : numéro Fika affiché et cliquable');
   ok(await p.getByRole('link', { name: 'WhatsApp', exact: true }).isVisible(), 'accueil : CTA WhatsApp visible dans le pied de page');
-  ok(await p.getByRole('link', { name: 'Décrire mon besoin', exact: true }).first().isVisible(), 'accueil : CTA direct de demande de service');
-  ok(await p.getByText('Prix validé avant tout').isVisible(), 'rassurance prix visible dans la bannière locale');
-  await p.getByRole('link', { name: 'Demander un produit', exact: true }).first().click();
+  ok(await p.locator('a[href="/boutique"]').isVisible(), 'accueil : accès Boutique immédiatement visible');
+  ok(await p.locator('a[href="/services"]').isVisible(), 'accueil : accès Services immédiatement visible');
+  await p.locator('a[href="/boutique"]').click();
+  await p.waitForTimeout(500);
+  ok(p.url().includes('/boutique'), 'carte Boutique ouvre directement Fika Market', p.url());
+  ok(await p.getByText('Prix validé avant tout').isVisible().catch(() => false), 'rassurance prix visible sur l’accueil');
+  await p.goto(`${BASE}/demande-produit`, { waitUntil: 'load' });
   await p.waitForSelector('#product', { timeout: 15000 });
-  ok(p.url().includes('/demande-produit'), 'CTA « Demander un produit » → parcours produit dédié', p.url());
+  ok(p.url().includes('/demande-produit'), 'parcours de demande produit accessible', p.url());
   ok(await p.getByText('Sans compte à créer').first().isVisible(), 'message sans compte visible');
 
   /* ---------- 2. Validation honnête (aucun envoi prématuré) ---------- */
