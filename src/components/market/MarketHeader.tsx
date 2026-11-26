@@ -89,7 +89,7 @@ export function MarketHeader() {
   const productRequestActive = path === '/demande-produit';
 
   return (
-    <header ref={headerRef} className="sticky top-0 z-50 bg-brand-surface/95 backdrop-blur-xl border-b border-brand-border">
+    <header ref={headerRef} className="glass-surface sticky top-0 z-50 border-b border-brand-border/80">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 py-3">
           <Link
@@ -126,7 +126,7 @@ export function MarketHeader() {
                 aria-expanded={suggestionsOpen && query.trim().length >= 2}
                 aria-controls="market-search-suggestions"
                 autoComplete="off"
-                className="w-full h-11 rounded-full border border-brand-border bg-brand-bg pl-11 pr-12 text-sm font-medium placeholder:text-brand-text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:border-brand-accent"
+                className="glass-surface w-full h-11 rounded-full pl-11 pr-12 text-sm font-medium placeholder:text-brand-text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:border-brand-accent"
               />
               <button
                 type="submit"

@@ -18,7 +18,7 @@ import { ServiceCard } from './ServiceCard';
  */
 
 /** Suggestions en un tap : friction minimale sur mobile. */
-const SEARCH_SUGGESTIONS = ['plomberie', 'fuite', 'déménagement', 'réparation téléphone', 'CV'];
+const SEARCH_SUGGESTIONS = ['plomberie', 'réparation téléphone', 'ordinateur', 'livraison express', 'CV'];
 
 function UniverseCard({ slug, title, examples, icon, color, count }: { slug: string; title: string; examples?: string; icon?: string | null; color: string; count: number }) {
   // Photo d'illustration réelle si elle existe (bucket service-univers,
@@ -118,7 +118,7 @@ export function ServicesPage() {
                 type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Ex. plomberie, réparation téléphone, déménagement…"
+                placeholder="Ex. plomberie, réparation téléphone, livraison express…"
                 aria-label="Rechercher un service"
                 className="w-full pl-12 pr-12 py-3.5 glass-surface rounded-full text-base font-medium focus:outline-none focus:ring-2 focus:ring-brand-accent transition-all placeholder:text-brand-text-muted"
               />
@@ -152,12 +152,28 @@ export function ServicesPage() {
         <NeedIllustration />
       </section>
 
+      {/* Navigation par univers : ruban horizontal inspiré des marketplaces. */}
+      <nav aria-label="Parcourir les catégories de services" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-1 mb-4">
+        <div className="glass-surface flex items-center gap-2 overflow-x-auto rounded-2xl p-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <Link to="/services" className="inline-flex shrink-0 items-center rounded-full bg-brand-text px-4 py-2 text-xs font-bold text-white" aria-current="page">
+            Tous les services
+          </Link>
+          {universes.map((u) => (
+            <Link key={u.id} to={`/univers/${u.slug}`} className="inline-flex shrink-0 items-center gap-2 rounded-full border border-white/70 bg-white/55 px-4 py-2 text-xs font-semibold text-brand-text-muted transition-colors hover:bg-white hover:text-brand-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent">
+              <UniverseIcon icon={u.icon ?? 'Wrench'} className="h-4 w-4 text-brand-accent" />
+              {u.title}
+              <span className="text-[10px] font-bold text-brand-accent">{getServices({ categoryId: u.id }).length}</span>
+            </Link>
+          ))}
+        </div>
+      </nav>
+
       {/* Résultats de recherche — plein largeur, sous le héros */}
       {query.trim() !== '' && (
         <section aria-label="Résultats de recherche" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10">
           <p className="text-sm font-semibold text-brand-text-muted mb-5" role="status">
             {results.length === 1 ? '1 service trouvé' : `${results.length} services trouvés`}
-            {results.length === 0 && ' — essayez un autre mot (ex. fuite, écran, transport).'}
+            {results.length === 0 && ' — essayez un autre mot (ex. plomberie, écran, livraison).'}
           </p>
           {results.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

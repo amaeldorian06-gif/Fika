@@ -22,7 +22,7 @@ function FilterSelect({
         <select
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full appearance-none pl-4 pr-10 py-3 bg-brand-bg border border-brand-border rounded-xl text-sm font-medium text-brand-text focus:outline-none focus:ring-2 focus:ring-brand-accent cursor-pointer transition-all"
+          className="glass-surface w-full appearance-none pl-4 pr-10 py-3 rounded-xl text-sm font-medium text-brand-text focus:outline-none focus:ring-2 focus:ring-brand-accent cursor-pointer transition-all"
         >
           <option value="">Tous</option>
           {options.map((o) => (
@@ -76,6 +76,10 @@ export function UniversePage({ slug }: { slug: string }) {
   const [typeBesoin, setTypeBesoin] = useState('');
 
   const allServices = useMemo(() => (universe ? getServices({ categoryId: universe.id }) : []), [universe]);
+
+  const budgetOptions = BUDGETS.filter((value) => allServices.some((service) => service.budget === value));
+  const delayOptions = DELAIS.filter((value) => allServices.some((service) => service.delai === value));
+  const typeOptions = TYPES.filter((value) => allServices.some((service) => service.typeBesoin === value));
 
   const filteredServices = allServices.filter((s) => {
     if (searchQuery) {
@@ -138,7 +142,7 @@ export function UniversePage({ slug }: { slug: string }) {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Rechercher dans cet univers..."
-                className="w-full pl-12 pr-4 py-3 bg-brand-bg border border-brand-border rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-accent transition-all placeholder:text-brand-text-muted font-medium"
+                className="glass-surface w-full pl-12 pr-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-accent transition-all placeholder:text-brand-text-muted font-medium"
               />
             </div>
             <button
@@ -162,9 +166,9 @@ export function UniversePage({ slug }: { slug: string }) {
                 transition={{ duration: 0.3 }}
                 className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 mt-4 border-t border-brand-border overflow-hidden"
               >
-                <FilterSelect label="Budget" value={budget} onChange={setBudget} options={BUDGETS} />
-                <FilterSelect label="Délai" value={delai} onChange={setDelai} options={DELAIS} />
-                <FilterSelect label="Type de besoin" value={typeBesoin} onChange={setTypeBesoin} options={TYPES} />
+                <FilterSelect label="Budget" value={budget} onChange={setBudget} options={budgetOptions} />
+                <FilterSelect label="Délai" value={delai} onChange={setDelai} options={delayOptions} />
+                <FilterSelect label="Type de besoin" value={typeBesoin} onChange={setTypeBesoin} options={typeOptions} />
               </motion.div>
             )}
           </AnimatePresence>
