@@ -1,20 +1,20 @@
 import { useEffect, useState } from 'react';
-import { ArrowRight, BadgeCheck, ChevronDown, Clock, MessageCircle, Search, Star, X } from 'lucide-react';
+import { ArrowRight, BadgeCheck, Clock, MessageCircle, Search, Star, X } from 'lucide-react';
 import { getWALink } from '../lib/whatsapp';
 import { trackServiceSearch, trackWaClick } from '../lib/tracking';
 import { getCategories, getServices, searchServices, universeImage } from '../lib/catalog';
-import { FAQS, SERVICES_RESPONSE_PROMISE } from '../lib/data';
+import { SERVICES_RESPONSE_PROMISE } from '../lib/data';
 import { fetchPublicTestimonials, } from '../lib/proof-api';
 import type { PublicTestimonial } from '../lib/proof';
 import { Button, UniverseIcon } from './ui';
-import { Link } from '../router';
+import { Link, navigate, useRoute } from '../router';
 import { NeedIllustration } from './NeedIllustration';
 import { ServiceCard } from './ServiceCard';
 
 /**
  * Accueil de l'univers Fika Services (route /services) — recherche dès le
  * héros, découverte par univers, processus, témoignages réels (aucun
- * témoignage = section masquée, jamais de faux avis), FAQ.
+ * témoignage = section masquée, jamais de faux avis).
  */
 
 /** Suggestions en un tap : friction minimale sur mobile. */
@@ -80,6 +80,12 @@ function TestimonialCard({ t }: { t: PublicTestimonial }) {
 export function ServicesPage() {
   const [query, setQuery] = useState('');
   const [testimonials, setTestimonials] = useState<PublicTestimonial[] | null>(null);
+  const { anchor } = useRoute();
+
+  useEffect(() => {
+    if (anchor === 'faq' || anchor === 'questions') navigate('/a-propos#questions');
+    else if (anchor === 'comment-ca-marche' || anchor === 'fonctionnement') navigate('/a-propos#fonctionnement');
+  }, [anchor]);
 
   const universes = getCategories();
   const results = searchServices(query);
@@ -192,16 +198,6 @@ export function ServicesPage() {
         </section>
       )}
 
-      {/* Comment ça marche */}
-      <section id="comment-ca-marche" className="border-y border-brand-border bg-white px-5 py-12 mt-10 lg:mt-16">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="font-heading text-2xl font-bold mb-8">Vous expliquez. Nous coordonnons.</h2>
-          <ol className="grid sm:grid-cols-3 gap-8">
-            {['Décrivez votre besoin.', 'Nous précisons la solution et le prix avec vous.', 'Nous organisons l’intervention et son suivi.'].map((text, i) => <li key={text}><span className="text-brand-accent font-mono text-sm">0{i + 1}</span><p className="mt-2 font-medium">{text}</p></li>)}
-          </ol>
-        </div>
-      </section>
-
       {/* Univers */}
       <section id="services" aria-labelledby="univers" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-14 mb-16">
         <h2 id="univers" className="text-2xl font-heading font-bold mb-6 text-brand-text">Parcourir par univers</h2>
@@ -235,12 +231,6 @@ export function ServicesPage() {
         </section>
       )}
 
-      {/* FAQ */}
-      <section id="faq" className="max-w-3xl mx-auto px-5 pt-16 pb-4">
-        <h2 className="font-heading text-2xl font-bold mb-6">Vos questions</h2>
-        {FAQS.map(f => <details key={f.q} className="group border-b border-brand-border"><summary className="list-none cursor-pointer flex items-center justify-between gap-4 py-5 font-semibold focus-visible:outline-brand-accent [&::-webkit-details-marker]:hidden">{f.q}<ChevronDown className="w-5 h-5 shrink-0 group-open:rotate-180" /></summary><p className="text-brand-text-muted leading-relaxed pb-5">{f.a}</p></details>)}
-        <div className="text-center mt-10"><Button asChild size="lg" className="rounded-full"><Link to="/demande">Décrire mon besoin <ArrowRight className="ml-2 w-4 h-4" /></Link></Button></div>
-      </section>
     </div>
   );
 }

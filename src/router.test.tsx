@@ -9,6 +9,7 @@ import { parseRoute } from './router';
 describe('routeur — parseRoute', () => {
   it('route canonique réelle : /services -> { path: "/services" }', () => {
     expect(parseRoute('/services')).toEqual({ path: '/services' });
+    expect(parseRoute('/a-propos')).toEqual({ path: '/a-propos' });
     expect(parseRoute('/')).toEqual({ path: '/' });
     expect(parseRoute('')).toEqual({ path: '/' });
     expect(parseRoute('/boutique/produit/x?code=AB-123')).toEqual({ path: '/boutique/produit/x' });

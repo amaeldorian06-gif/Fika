@@ -47,16 +47,16 @@ ok('E2 ancre /#services redirigée vers /services', p.url().includes('/services#
 ok('E2 section #services présente', await p.locator('#services').count() === 1);
 await p.goto(BASE + '/#faq', { waitUntil: 'load' });
 await p.waitForTimeout(600);
-ok('E2 ancre /#faq redirigée', p.url().includes('/services#faq'));
-ok('E2 section #faq présente', await p.locator('#faq').count() === 1);
+ok('E2 ancre /#faq redirigée vers À propos', p.url().includes('/a-propos#questions'));
+ok('E2 section questions présente', await p.locator('#questions details').count() >= 4);
 
 // --- 3. Univers Services ---
 await p.goto(BASE + '/services', { waitUntil: 'load' });
-await p.waitForSelector('#faq details', { timeout: 10000 });
+await p.waitForSelector('h1:has-text("Fika s’occupe du reste")', { timeout: 10000 });
 ok('E3 hero services', (await p.locator('h1').innerText()).includes('Fika s’occupe du reste'));
 ok('E3 nav Services active', await p.locator('header nav a[aria-current="page"]').filter({ hasText: 'Services' }).count() === 1);
 ok('E3 CTA Décrire mon besoin (header, univers services)', await p.locator('header a[href="/demande"]').first().isVisible());
-ok('E3 comment-ca-marche', await p.locator('#comment-ca-marche').count() === 1);
+ok('E3 catalogue Services', await p.locator('#services').count() === 1);
 ok('E3 recherche : barre présente', await p.locator('input[aria-label="Rechercher un service"]').count() === 1);
 ok('E3 catalogue complet supprimé (aucune liste par défaut)', (await p.locator('a[href^="/service/"]').count()) === 0);
 // La recherche doit rendre les services trouvables, sans doublon d'affichage.
@@ -70,8 +70,11 @@ ok('E3 catalogue complet supprimé (aucune liste par défaut)', (await p.locator
   await p.waitForTimeout(300);
   ok('E3 recherche vidée : résultats retirés', (await p.locator('a[href^="/service/"]').count()) === 0);
 }
-const faq = await p.locator('#faq details').count();
-ok('E3 FAQ héritée (4 questions)', faq >= 4, `${faq} questions`);
+await p.goto(BASE + '/a-propos', { waitUntil: 'load' });
+await p.waitForSelector('#questions details', { timeout: 10000 });
+const faq = await p.locator('#questions details').count();
+ok('E3 FAQ regroupée dans À propos', faq === 8, `${faq} questions`);
+ok('E3 fonctionnement regroupé dans À propos', await p.locator('#fonctionnement li').count() === 3);
 
 // --- 4. Recherche globale ---
 await p.goto(BASE + '/services', { waitUntil: 'load' });
@@ -169,7 +172,8 @@ for (const [path, marker] of [
 await p.goto(BASE + '/demande', { waitUntil: 'load' });
 await p.waitForSelector('form', { timeout: 10000 });
 ok('E10 formulaire demande rendu', true);
-ok('E10 footer colonnes deux univers', (await p.locator('footer h4').filter({ hasText: 'Services' }).count()) === 1 && (await p.locator('footer h4').filter({ hasText: 'Boutique' }).count()) === 1);
+ok('E10 footer deux univers + À propos', (await p.locator('footer h4').filter({ hasText: 'Services' }).count()) === 1 && (await p.locator('footer h4').filter({ hasText: 'Boutique' }).count()) === 1 && (await p.locator('footer h4').filter({ hasText: 'À propos' }).count()) === 1);
+ok('E10 anciens liens Comment ça marche / FAQ absents du footer', (await p.locator('footer a').filter({ hasText: 'Comment ça marche' }).count()) === 0 && (await p.locator('footer a').filter({ hasText: 'Questions fréquentes' }).count()) === 0);
 ok('E10 skip-link présent', await p.getByRole('link', { name: 'Aller au contenu' }).count() === 1);
 
 // --- 11. 404 honnête ---

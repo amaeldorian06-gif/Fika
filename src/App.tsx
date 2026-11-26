@@ -4,6 +4,7 @@ import { Loader2, MessageCircle } from 'lucide-react';
 import { useRoute, Link } from './router';
 import { Footer, GlobalHeader, MobileBottomNav } from './components/layout';
 import { EntryPage } from './components/universes/EntryPage';
+import { AboutPage } from './components/AboutPage';
 import { UniversePage } from './components/UniversePage';
 import { ServicePage } from './components/ServicePage';
 import { ServicesPage } from './components/ServicesPage';
@@ -100,6 +101,8 @@ export default function App() {
     page = <EntryPage />;
   } else if (path === '/services') {
     page = <ServicesPage />;
+  } else if (path === '/a-propos') {
+    page = <AboutPage />;
   } else if (path === '/demande') {
     page = <DemandePage />;
   } else if (path === '/demande-produit') {
