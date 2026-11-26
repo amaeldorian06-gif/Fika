@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { searchServices, getServices } from './catalog';
 
 /**
- * Recherche de services — efficacité réelle sur le catalogue réel (18
- * services actifs). Chaque règle du moteur doit rester vraie.
+ * Recherche de services — efficacité réelle sur le catalogue public actif (11
+ * services actifs après retrait des prestations longues). Chaque règle du moteur doit rester vraie.
  */
 describe('searchServices', () => {
   it('catalogue public maîtrisé : 11 services actifs après retrait des prestations longues', () => {

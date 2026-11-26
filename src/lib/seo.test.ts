@@ -25,8 +25,8 @@ describe('métadonnées — couverture et unicité', () => {
     }
   });
 
-  it('le catalogue génère 25+ routes publiques', () => {
-    expect(getAllPublicRoutes().length).toBeGreaterThanOrEqual(25);
+  it('le catalogue resserré génère au moins 20 routes publiques', () => {
+    expect(getAllPublicRoutes().length).toBeGreaterThanOrEqual(20);
   });
 
   it('fiche service : seoTitle/seoDescription priment, JSON-LD Service + Offer', () => {
