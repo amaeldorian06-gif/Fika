@@ -4,7 +4,7 @@ import { getWALink } from '../../lib/whatsapp';
 import { trackWaClick } from '../../lib/tracking';
 import { cart } from '../../lib/cart';
 import { COPY_NAV } from '../../lib/copy/navigation';
-import { Link, navigate, useRoute } from '../../router';
+import { Link, useRoute } from '../../router';
 import { SearchOverlay } from './SearchOverlay';
 import { MarketHeader } from '../market/MarketHeader';
 import { BrandLogo } from '../BrandLogo';
