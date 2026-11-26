@@ -276,7 +276,11 @@ export function EntryPage() {
             {marketQuery.trim() ? (
               <>
                 <SectionHeading eyebrow="Fika Market" title="Produits correspondants" href="/boutique/tous" linkLabel="Voir tout" />
-                {marketMatches.length > 0 ? (
+                {loading ? (
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4" aria-label="Chargement des produits" aria-busy="true">
+                    {Array.from({ length: 4 }).map((_, index) => <ProductCardSkeleton key={index} />)}
+                  </div>
+                ) : marketMatches.length > 0 ? (
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                     {marketMatches.slice(0, 4).map((product) => <ProductCard key={product.id} product={product} />)}
                   </div>
