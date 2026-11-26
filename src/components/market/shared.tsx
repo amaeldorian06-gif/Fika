@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useReducedMotion } from 'framer-motion';
 import { PackageSearch } from 'lucide-react';
 import { Link } from '../../router';
 import { AVAILABILITY_LABELS, type MarketProductPublic } from '../../lib/market';
@@ -91,35 +92,78 @@ export function normalizeSearch(s: string): string {
  * Les URL déjà échouées sont mémorisées : le carousel ne re-montrera pas une
  * image morte à chaque tour (l'icône reste stable).
  */
-export function ProductImage({ src, alt, className, iconClassName, loading = 'lazy' }: {
-  src?: string | null; alt: string; className?: string; iconClassName?: string; loading?: 'lazy' | 'eager';
+export function ProductImage({ src, alt, className, iconClassName, loading = 'lazy', onError }: {
+  src?: string | null; alt: string; className?: string; iconClassName?: string; loading?: 'lazy' | 'eager'; onError?: (src: string) => void;
 }) {
   const [failed, setFailed] = useState<Record<string, boolean>>({});
   if (!src || failed[src]) {
     return <PackageSearch className={iconClassName ?? 'w-10 h-10 text-brand-text-muted/40'} aria-hidden="true" />;
   }
-  return <img src={src} alt={alt} loading={loading} decoding="async" onError={() => setFailed((f) => ({ ...f, [src]: true }))} className={className} />;
+  return <img src={src} alt={alt} loading={loading} decoding="async" onError={() => { setFailed((f) => ({ ...f, [src]: true })); onError?.(src); }} className={className} />;
 }
 
 /** Carte produit : une image principale par carte pour limiter les téléchargements inutiles. */
 export function ProductCard({ product }: { product: MarketProductPublic }) {
+  const reduceMotion = useReducedMotion();
+  const [isHovered, setIsHovered] = useState(false);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
+  const availableImages = product.images.filter((src) => Boolean(src) && !failedImages[src]);
+
+  // Défilement discret en boucle ; le pointeur et le focus arrêtent l'image
+  // pour laisser le temps d'examiner le produit.
+  useEffect(() => {
+    if (!isHovered || reduceMotion || availableImages.length < 2) return;
+    const timer = window.setInterval(() => setActiveImageIndex((current) => (current + 1) % availableImages.length), 5000);
+    return () => window.clearInterval(timer);
+  }, [isHovered, reduceMotion, availableImages.length]);
+
+  useEffect(() => {
+    if (activeImageIndex >= availableImages.length) setActiveImageIndex(0);
+  }, [activeImageIndex, availableImages.length]);
+
   return (
     <Link
       to={"/boutique/produit/" + product.slug}
-      className="group flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-brand-border bg-white shadow-[0_5px_20px_-16px_rgba(20,20,20,0.25)] transition-all duration-300 hover:-translate-y-1 hover:border-brand-border-dark hover:shadow-[0_18px_36px_-22px_rgba(20,20,20,0.36)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onFocus={() => setIsHovered(true)}
+      onBlur={() => setIsHovered(false)}
+      className="glass-surface group flex h-full min-w-0 flex-col overflow-hidden rounded-2xl shadow-[0_5px_20px_-16px_rgba(20,20,20,0.25)] transition-all duration-300 hover:-translate-y-1 hover:border-brand-border-dark hover:shadow-[0_18px_36px_-22px_rgba(20,20,20,0.36)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
     >
-      <div className="relative aspect-square overflow-hidden bg-[#F3F1EE]">
-        <div className="absolute inset-0 flex items-center justify-center">
-          <ProductImage src={product.images[0]} alt={product.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.045]" iconClassName="h-10 w-10 text-brand-text-muted/35" />
-        </div>
-        <span className={"absolute left-3 top-3 rounded-full border px-2.5 py-1 text-[10px] font-bold shadow-sm " + (product.availability === 'AVAILABLE' ? 'border-emerald-200 bg-white/95 text-emerald-700' : product.availability === 'PREORDER' ? 'border-amber-200 bg-white/95 text-amber-800' : 'border-slate-200 bg-white/95 text-slate-500')}>
+      <div className="relative aspect-square overflow-hidden rounded-t-2xl bg-[#F3F1EE]">
+        {availableImages.length > 0 ? availableImages.map((src, index) => (
+          (!isHovered && index !== activeImageIndex) ? null : (
+            <div key={src} className={`absolute inset-0 transition-opacity duration-500 ${index === activeImageIndex ? 'opacity-100' : 'pointer-events-none opacity-0'}`} aria-hidden={index !== activeImageIndex}>
+              <ProductImage
+                src={src}
+                alt={index === activeImageIndex ? product.name : ''}
+                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.035]"
+                iconClassName="h-10 w-10 text-brand-text-muted/35"
+                onError={(failedSrc) => setFailedImages((current) => ({ ...current, [failedSrc]: true }))}
+              />
+            </div>
+          )
+        )) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <ProductImage src={null} alt={product.name} iconClassName="h-10 w-10 text-brand-text-muted/35" />
+          </div>
+        )}
+        {availableImages.length > 1 && (
+          <div className="absolute inset-x-0 bottom-3 flex justify-center" aria-label={`${availableImages.length} photos du produit`}>
+            <span className="flex items-center gap-1.5 rounded-full border border-white/60 bg-slate-950/25 px-2 py-1 backdrop-blur-xl">
+              {availableImages.map((src, index) => (
+                <span key={src} className={`h-1.5 rounded-full transition-all duration-300 ${index === activeImageIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/55'}`} />
+              ))}
+            </span>
+          </div>
+        )}
+        <span className={`absolute left-3 top-3 rounded-full border px-2.5 py-1 text-[10px] font-bold shadow-sm backdrop-blur-xl ${product.availability === 'AVAILABLE' ? 'border-emerald-200/80 bg-white/85 text-emerald-700' : product.availability === 'PREORDER' ? 'border-amber-200/80 bg-white/85 text-amber-800' : 'border-slate-200/80 bg-white/85 text-slate-500'}`}>
           {AVAILABILITY_LABELS[product.availability]}
         </span>
       </div>
       <div className="flex flex-1 flex-col gap-1.5 p-3.5 sm:p-4">
-        <span className="truncate text-[10px] font-extrabold uppercase tracking-[0.13em] text-brand-text-muted">
-          {product.category.name}{product.brand ? ' · ' + product.brand : ''}
-        </span>
+        <span className="truncate text-[10px] font-extrabold uppercase tracking-[0.13em] text-brand-text-muted">{product.category.name}{product.brand ? ' · ' + product.brand : ''}</span>
         <h3 className="line-clamp-2 min-h-[2.6rem] font-heading text-sm font-bold leading-snug text-brand-text group-hover:text-brand-accent transition-colors sm:text-[15px]">{product.name}</h3>
         {product.shortDescription && <p className="line-clamp-2 text-xs leading-relaxed text-brand-text-muted">{product.shortDescription}</p>}
         <div className="mt-auto flex items-end justify-between gap-2 pt-2">

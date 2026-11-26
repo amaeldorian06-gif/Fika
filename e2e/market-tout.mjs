@@ -221,11 +221,10 @@ try {
     const restoredCards = await p.locator('a[href*="/boutique/produit/"]').count();
     ok(restoredCards === accentExpected, `état conservé : résultats filtrés restaurés (${restoredCards}/${accentExpected})`);
 
-    /* ---------- 6. Défilement automatique des photos (doux : 5 s + fondu) ---------- */
+    /* ---------- 6. Défilement des angles uniquement au survol (5 s + fondu) ---------- */
     await searchAll.fill('carousel');
     await p.waitForTimeout(400);
     const card = p.locator(`a[href="/boutique/produit/${SLUG}"]`).first();
-    // Les photos sont empilées : la couche active porte la classe opacity-100.
     const activeSrc = async () => {
       const layers = card.locator('div[class*="transition-opacity"]');
       const n = await layers.count();
@@ -235,29 +234,33 @@ try {
       }
       return null;
     };
-    ok((await card.locator('img').count()) === 2, 'photos d’aperçu empilées (produit à 2 photos, fondu enchaîné)');
-    ok((await card.locator('div.aspect-square span.rounded-full').count()) === 2, '2 pastilles de position affichées');
-    const src1 = await activeSrc();
-    await p.waitForTimeout(5800);
-    const src2 = await activeSrc();
     const lbl = (s) => (s === IMG_A ? 'A' : s === IMG_B ? 'B' : String(s));
-    ok(src1 !== src2, `la photo change après 5 secondes (${lbl(src1)}→${lbl(src2)})`);
-    // Pause au survol : la photo ne doit plus changer tant que la carte est survolée.
-    // (écarter la souris d'abord : elle est encore sur la carte depuis le clic précédent,
-    //  un hover sans déplacement ne déclenche pas mouseenter)
     await p.mouse.move(5, 5);
     await p.waitForTimeout(100);
-    await card.hover();
-    await p.waitForTimeout(200); // laisser la pause s'installer avant de figer la référence
-    const held1 = await activeSrc();
+    ok((await card.locator('img').count()) === 1, 'au repos : seule la photo principale est chargée');
+    ok((await card.locator('div.aspect-square span.rounded-full').count()) === 2, '2 pastilles de position visibles');
+    const idleSrc1 = await activeSrc();
     await p.waitForTimeout(5600);
-    const held2 = await activeSrc();
-    ok(held1 === held2, 'pause au survol : la photo reste en place');
-    // Fin du survol : le défilement reprend.
+    const idleSrc2 = await activeSrc();
+    ok(idleSrc1 === idleSrc2, 'sans survol : la photo reste fixe');
+
+    await card.hover();
+    await p.waitForTimeout(200);
+    ok((await card.locator('img').count()) === 2, 'au survol : les autres angles sont chargés à la demande');
+    const hoverSrc1 = await activeSrc();
+    await p.waitForTimeout(5600);
+    const hoverSrc2 = await activeSrc();
+    ok(hoverSrc1 !== hoverSrc2, `au survol : la photo change après 5 secondes (${lbl(hoverSrc1)}→${lbl(hoverSrc2)})`);
+    await p.waitForTimeout(5600);
+    const hoverSrc3 = await activeSrc();
+    ok(hoverSrc3 !== hoverSrc2, 'au survol : le carrousel continue à faire défiler les angles');
+
     await p.mouse.move(5, 5);
-    await p.waitForTimeout(5800);
-    const src3 = await activeSrc();
-    ok(src3 !== held2, 'fin du survol : le défilement reprend');
+    await p.waitForTimeout(200);
+    const leaveSrc1 = await activeSrc();
+    await p.waitForTimeout(5600);
+    const leaveSrc2 = await activeSrc();
+    ok(leaveSrc1 === leaveSrc2, 'hors survol : le carrousel s’arrête sur le dernier angle');
 
     /* ---------- 7. Accessibilité : animation réduite = pas de défilement ---------- */
     const ctxReduce = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
@@ -274,10 +277,11 @@ try {
       }
       return null;
     };
+    await card2.hover();
     const rsrc1 = await activeSrc2();
     await p2.waitForTimeout(5800);
     const rsrc2 = await activeSrc2();
-    ok(rsrc1 === rsrc2, 'prefers-reduced-motion → défilement désactivé');
+    ok(rsrc1 === rsrc2, 'prefers-reduced-motion → défilement désactivé même au survol');
     await ctxReduce.close();
 
     /* ---------- 8. Analytics recherche + filtres (vérifiés en base) ---------- */

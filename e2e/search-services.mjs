@@ -41,7 +41,7 @@ try {
 
   // 5. Mot de description seul
   r = await search('fuite');
-  ok(r.length >= 2, '« fuite » → plomberie ET toiture (descriptions)', `${r.length} résultat(s)`);
+  ok(r.length === 1 && r[0].includes('plomberie'), '« fuite » → plomberie ; toiture retirée du catalogue public', `${r.length} résultat(s)`);
 
   // 6. Par univers : mot de la catégorie
   r = await search('numerique');
@@ -53,7 +53,7 @@ try {
   ok(r.length === 0 && honest, 'requête impossible → 0 résultat + message honnête');
 
   // 8. Compteur affiché
-  await search('demenagement');
+  await search('plomberie');
   const counter = await p.locator('[role="status"]').first().innerText();
   ok(/1 service trouvé/.test(counter), 'compteur « 1 service trouvé » affiché', counter);
 
@@ -63,7 +63,7 @@ try {
   ok((await p.locator('a[href^="/service/"]').count()) === 0, 'bouton effacer → résultats retirés');
 
   // 10. Chaque résultat mène bien vers une fiche service
-  r = await search('peinture');
+  r = await search('informatique');
   const first = p.locator('a[href^="/service/"]').first();
   await first.click();
   await p.waitForTimeout(500);

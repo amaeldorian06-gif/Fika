@@ -2,12 +2,12 @@ import { describe, it, expect } from 'vitest';
 import { searchServices, getServices } from './catalog';
 
 /**
- * Recherche de services — efficacité réelle sur le catalogue réel (18
- * services actifs). Chaque règle du moteur doit rester vraie.
+ * Recherche de services — efficacité réelle sur le catalogue public actif (11
+ * services actifs après retrait des prestations longues). Chaque règle du moteur doit rester vraie.
  */
 describe('searchServices', () => {
-  it('catalogue réel chargé : 18 services actifs (base des tests)', () => {
-    expect(getServices().length).toBeGreaterThanOrEqual(18);
+  it('catalogue public maîtrisé : 11 services actifs après retrait des prestations longues', () => {
+    expect(getServices()).toHaveLength(11);
   });
 
   it('mot simple : « plomberie » trouve le dépannage plomberie, en premier', () => {
@@ -33,12 +33,11 @@ describe('searchServices', () => {
     expect(r.some((s) => s.name === 'Dépannage Ordinateur & Imprimante')).toBe(false); // « écran noir » mais pas téléphone
   });
 
-  it('recherche par univers : « transport » ramène aussi les livraisons (catégorie)', () => {
-    const r = searchServices('transport');
+  it('recherche par univers : « livraison » trouve les courses et livraisons express', () => {
+    const r = searchServices('livraison');
     const slugs = r.map((s) => s.slug);
-    expect(slugs).toContain('demenagement-local'); // nom
-    expect(slugs).toContain('livraison-courses-express'); // via l'univers Transport & Logistique
-    expect(r[0].name).toBe('Déménagement Local & Transport'); // match nom avant match catégorie
+    expect(slugs).toEqual(['livraison-courses-express']); // le déménagement est hors catalogue public
+    expect(r[0].name).toBe('Courses & Livraison Express');
   });
 
   it('classement : match par le nom avant match par description seule', () => {
@@ -47,7 +46,7 @@ describe('searchServices', () => {
     // aucun match par le nom → les deux sortent, ordre éditorial conservé
     const names = r.map((s) => s.name);
     expect(names).toContain('Dépannage Plomberie');
-    expect(names).toContain('Toiture & Étanchéité');
+    expect(names).not.toContain('Toiture & Étanchéité');
   });
 
   it('multi-mots exige TOUS les mots : « ordinateur voiture » ne trouve rien', () => {
@@ -72,15 +71,12 @@ describe('searchServices', () => {
 
 describe('ordre éditorial du catalogue par univers', () => {
   const expectedOrders: Record<string, string[]> = {
-    'maison-travaux': [
-      'intervention-plomberie', 'intervention-electricite', 'toiture-charpente', 'soudure-metallerie',
-      'menuiserie-bois-alu', 'pose-carrelage', 'travaux-maconnerie', 'peinture-batiment',
-    ],
+    'maison-travaux': ['intervention-plomberie', 'intervention-electricite'],
     'reparation-maintenance': [
       'reparation-electromenager', 'reparation-telephone', 'reparation-informatique',
     ],
     'auto-moto': ['depannage-mecanique-auto', 'depannage-moto'],
-    'transport-logistique': ['livraison-courses-express', 'demenagement-local'],
+    'transport-logistique': ['livraison-courses-express'],
     'numerique-documents': ['presence-digitale-pro', 'creation-cv-professionnel', 'bureautique-impression'],
   };
 

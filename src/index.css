@@ -36,17 +36,24 @@
   /* Durées de marque, cohérentes avec framer-motion */
   .motion-brand { transition-timing-function: var(--ease-brand); }
 
-  /* Glassmorphism discret pour le catalogue : transparence, flou et contraste lisible. */
+  /* Liquid Glass Fika : reflets discrets, profondeur et contraste lisible.
+     Réservé aux surfaces de navigation, filtres et cartes — jamais aux textes seuls. */
   .glass-surface {
-    background-color: rgba(255, 255, 255, 0.74);
-    border: 1px solid rgba(255, 255, 255, 0.78);
-    box-shadow: 0 12px 32px -18px rgba(25, 24, 23, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.72);
-    -webkit-backdrop-filter: blur(18px) saturate(145%);
-    backdrop-filter: blur(18px) saturate(145%);
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.62));
+    border: 1px solid rgba(255, 255, 255, 0.86);
+    box-shadow: 0 18px 42px -26px rgba(25, 24, 23, 0.30), 0 2px 8px -4px rgba(25, 24, 23, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.92), inset 0 -1px 0 rgba(180, 74, 20, 0.045);
+    -webkit-backdrop-filter: blur(22px) saturate(165%);
+    backdrop-filter: blur(22px) saturate(165%);
   }
-
+  .glass-surface:focus-within {
+    border-color: rgba(180, 74, 20, 0.32);
+    box-shadow: 0 18px 42px -26px rgba(25, 24, 23, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.92), 0 0 0 2px rgba(180, 74, 20, 0.09);
+  }
   @supports not (backdrop-filter: blur(1px)) {
-    .glass-surface { background-color: rgba(255, 255, 255, 0.96); }
+    .glass-surface { background: rgba(255, 255, 255, 0.96); }
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .glass-surface { background: rgba(255, 255, 255, 0.97); -webkit-backdrop-filter: none; backdrop-filter: none; }
   }
 }
 

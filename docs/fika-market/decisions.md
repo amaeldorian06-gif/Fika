@@ -69,3 +69,12 @@ Seuls les événements pré-commande sont déclarés par le client (vues, panier
 ## D17 — Ne pas pousser V1 seule en production
 
 V1 (commit `baa3063`) est vérifiée mais le programme 2.0 retravaille ses statuts et son workflow. Recommandation : attendre le jalon 2.0 complet pour le push GitHub/Vercel — ou pousser V1 maintenant si le fondateur veut la boutique en ligne plus tôt (elle est autonome et sûre). Décision fondateur.
+
+
+## D18 — Fika Market est un commerce opéré par Fika (pas une marketplace multi-vendeurs)
+
+Fika est l'unique vendeur présenté au client pour les produits Fika Market : Fika choisit l'assortiment, fixe et confirme le prix de vente, reçoit la commande, encaisse selon les moyens réellement disponibles, organise l'approvisionnement et assure la livraison au client. Les fournisseurs (locaux ou internationaux) sont des partenaires amont de sourcing/approvisionnement, pas des vendeurs disposant d'une boutique, d'un compte vendeur ou d'un catalogue autonome sur Fika. Aucun modèle de commission, de vitrine de commerçant ou de marketplace multi-vendeurs n'est dans le périmètre actuel. Le stock et les précommandes restent pilotés par Fika.
+
+## D19 — Catalogue Services limité aux engagements contrôlables
+
+Le catalogue public privilégie les prestations individuelles, courtes et à livrable précis. Les prestations de chantier, de fabrication sur mesure ou nécessitant plusieurs intervenants sont conservées dans le dataset pour l'historique et une éventuelle réactivation, mais désactivées du catalogue public (`active=false`). La désactivation n'efface ni commandes, ni leads, ni références. Une prestation technique ne reste publique que si son périmètre, la disponibilité du professionnel, le prix/devis et le délai peuvent être confirmés avant engagement.

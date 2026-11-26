@@ -77,7 +77,7 @@ function ServicesHeader() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-brand-surface/95 backdrop-blur-xl border-b border-brand-border">
+      <header className="glass-surface sticky top-0 z-40 border-b border-brand-border/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16 sm:h-20 gap-4">
             {/* Gauche : marque */}
