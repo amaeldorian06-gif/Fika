@@ -78,7 +78,7 @@ function TestimonialCard({ t }: { t: PublicTestimonial }) {
 }
 
 export function ServicesPage() {
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(() => new URLSearchParams(window.location.search).get('q') ?? '');
   const [testimonials, setTestimonials] = useState<PublicTestimonial[] | null>(null);
   const { anchor } = useRoute();
 
