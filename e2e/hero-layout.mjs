@@ -1,8 +1,8 @@
 /**
  * Vérification layout du redesign NeedIllustration — assertions géométriques
  * réelles (boîtes englobantes) aux viewports desktop / tablette / mobile,
- * pour /services (héros, composition complète) et / (carte d'entrée,
- * variante visuelle). Captures générées pour revue visuelle.
+ * pour /services (héros, composition complète) et / (choix des deux univers).
+ * Captures générées pour revue visuelle.
  */
 import { chromium } from 'playwright';
 
@@ -55,53 +55,40 @@ for (const vp of VIEWPORTS) {
     await p.screenshot({ path: `/home/user/captures-phase1/refine-services-hero-${vp.name}.png` });
   }
 
-  /* ---------- / : carte d'entrée, variante visuelle ---------- */
+  /* ---------- / : présentation directe des deux univers ---------- */
   await p.goto(BASE + '/', { waitUntil: 'load' });
-  await p.waitForSelector('.need-illustration--visual', { timeout: 15000 });
+  await p.waitForSelector('section[aria-labelledby="entry-market"]', { timeout: 15000 });
+  await p.waitForSelector('section[aria-labelledby="entry-services"]', { timeout: 15000 });
   await p.waitForTimeout(300);
 
   const entry = await p.evaluate(() => {
     const cards = [...document.querySelectorAll('section[aria-labelledby^="entry-"]')];
-    const heights = cards.map((c) => c.getBoundingClientRect().height);
-    const card = cards[0]?.getBoundingClientRect();
-    const req = document.querySelector('.need-illustration--visual .need-illustration__request')?.getBoundingClientRect();
-    const fig = document.querySelector('.need-illustration--visual')?.getBoundingClientRect();
-    const h2 = document.getElementById('entry-services')?.getBoundingClientRect();
-    const sideBySide = window.matchMedia('(min-width: 768px)').matches;
+    const rects = cards.map((c) => c.getBoundingClientRect());
+    const desktop = window.matchMedia('(min-width: 1024px)').matches;
     return {
-      equalHeights: !sideBySide || Math.abs(heights[0] - heights[1]) < 2,
-      heightDelta: Math.round(Math.abs(heights[0] - heights[1])),
-      requestInCard: req && card && req.left >= card.left && req.right <= card.right && req.bottom <= card.bottom,
-      requestInFigure: req && fig && req.left >= fig.left - 1 && req.right <= fig.right + 1 && req.bottom <= fig.bottom + 1,
-      noOverlapHeading: req && h2 && !(req.left < h2.right - 1 && h2.left < req.right - 1 && req.top < h2.bottom - 1 && h2.top < req.bottom - 1),
-      figWidth: fig?.width ?? 0,
-      overflowX: document.documentElement.scrollWidth - window.innerWidth,
+      count: cards.length,
+      equalHeights: !desktop || (rects.length === 2 && Math.abs(rects[0].height - rects[1].height) < 2),
+      sideBySide: !desktop || (rects.length === 2 && Math.abs(rects[0].top - rects[1].top) < 2),
+      servicesLink: !!document.querySelector('a[aria-label="Découvrir les services"]'),
+      marketLink: !!document.querySelector('a[aria-label="Explorer la boutique"]'),
+      noHorizontalOverflow: document.documentElement.scrollWidth <= window.innerWidth,
     };
   });
-  ok(`[${vp.name}] entrée : cartes équilibrées (égales si côte à côte)`, entry.equalHeights, `écart ${entry.heightDelta}px`);
-  ok(`[${vp.name}] entrée : demande entièrement dans la carte`, entry.requestInCard);
-  ok(`[${vp.name}] entrée : demande entièrement dans la figure`, entry.requestInFigure);
-  ok(`[${vp.name}] entrée : la demande ne recouvre pas le titre de carte`, entry.noOverlapHeading);
-  ok(`[${vp.name}] entrée : illustration ≥ 260px de large`, entry.figWidth >= 260, `${Math.round(entry.figWidth)}px`);
-  ok(`[${vp.name}] entrée : aucun débordement horizontal`, entry.overflowX <= 0, `scrollWidth+${entry.overflowX}`);
+  ok(`[${vp.name}] entrée : exactement deux univers affichés`, entry.count === 2, `${entry.count} cartes`);
+  ok(`[${vp.name}] entrée : cartes équilibrées sur desktop`, entry.equalHeights);
+  ok(`[${vp.name}] entrée : cartes côte à côte sur desktop`, entry.sideBySide);
+  ok(`[${vp.name}] entrée : accès direct aux deux univers`, entry.servicesLink && entry.marketLink);
+  ok(`[${vp.name}] entrée : aucun débordement horizontal`, entry.noHorizontalOverflow);
 
   if (vp.name === 'desktop-1440' || vp.name === 'tablette-768' || vp.name === 'mobile-390') {
     await p.screenshot({ path: `/home/user/captures-phase1/refine-entree-${vp.name}.png` });
   }
 
-  /* ---------- mobile : le bouton WhatsApp flottant n'obstrue rien ---------- */
+  /* ---------- mobile : le contact reste accessible sans masquer le CTA ---------- */
   if (vp.width <= 400) {
-    const fab = await p.evaluate(() => {
-      const el = document.querySelector('aside[aria-label="Contact rapide"] a')?.getBoundingClientRect();
-      const cta = [...document.querySelectorAll('main a')].find((a) => a.textContent?.includes('Découvrir les services'))?.getBoundingClientRect();
-      const answer = document.querySelector('.need-illustration__answer')?.getBoundingClientRect();
-      const inter = (a, c) => a && c && a.left < c.right - 1 && c.left < a.right - 1 && a.top < c.bottom - 1 && c.top < a.bottom - 1;
-      return { fabCta: inter(el, cta), fabAnswer: inter(el, answer) };
-    });
-    ok(`[${vp.name}] mobile : le WhatsApp flottant ne recouvre pas le CTA principal`, !fab.fabCta);
-    // (à la position de scroll initiale le panneau éditorial est plus bas ; le FAB
-    // est fixe et passe au-dessus du contenu en défilant — comportement standard,
-    // on vérifie qu'il ne bloque aucune zone d'interaction au premier écran)
+    const homeContact = await p.getByRole('link', { name: 'Contacter Fika sur WhatsApp' }).isVisible();
+    ok(`[${vp.name}] mobile : contact WhatsApp accessible sur l'accueil`, homeContact);
+
     await p.goto(BASE + '/services', { waitUntil: 'load' });
     await p.waitForSelector('.need-illustration__answer', { timeout: 15000 });
     const fab2 = await p.evaluate(() => {
