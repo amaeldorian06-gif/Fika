@@ -1,4 +1,5 @@
 import { getCategories, getCategoryBySlug, getServiceBySlug } from './catalog';
+import { FAQS } from './data';
 import { displayPrice, getCityPricing } from './pricing';
 import {
   SITE_CITY, SITE_DOMAIN, SITE_NAME, SITE_URL, WHATSAPP_PHONE_E164,
@@ -119,6 +120,10 @@ const STATIC_META: Record<string, { title: string; description: string }> = {
     description:
       "Un besoin, un produit ou une solution ? Fika vous accompagne : services du quotidien coordonnés par une équipe locale, et sélection de produits livrés à Ngaoundéré.",
   },
+  '/a-propos': {
+    title: 'À propos de Fika : notre fonctionnement et vos questions',
+    description: 'Découvrez les deux univers de Fika, notre façon de coordonner les services et de vendre les produits sélectionnés, ainsi que les réponses aux questions fréquentes à Ngaoundéré.',
+  },
   '/services': {
     title: "Fika Services : tous nos services",
     description:
@@ -177,6 +182,10 @@ export function seoForRoute(path: string): RouteMeta {
 
   if (path === '/') {
     base.jsonLd = [localBusinessJsonLd()];
+    return base;
+  }
+  if (path === '/a-propos') {
+    base.jsonLd = [faqPageJsonLd(FAQS)];
     return base;
   }
 
@@ -292,7 +301,7 @@ export function applyRouteMeta(meta: RouteMeta): void {
 
 /** Liste de toutes les routes publiques (contrôle d'unicité SEO/Sitemap). */
 export function getAllPublicRoutes(): string[] {
-  const routes = ['/', '/services', '/demande', '/mentions-legales', '/cgv', '/confidentialite'];
+  const routes = ['/', '/services', '/a-propos', '/demande', '/mentions-legales', '/cgv', '/confidentialite'];
   for (const u of getCategories()) routes.push(`/univers/${u.slug}`);
   for (const slug of getAllServiceSlugs()) routes.push(`/service/${slug}`);
   return routes;
