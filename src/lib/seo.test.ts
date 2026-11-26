@@ -19,6 +19,12 @@ describe('métadonnées — couverture et unicité', () => {
     }
   });
 
+  it('la page À propos regroupe les questions fréquentes', () => {
+    const meta = seoForRoute('/a-propos');
+    expect(meta.path).toBe('/a-propos');
+    expect(meta.jsonLd.some((ld) => ld['@type'] === 'FAQPage')).toBe(true);
+  });
+
   it('pas de doublon « Fika | Fika »', () => {
     for (const route of getAllPublicRoutes()) {
       expect(seoForRoute(route).title).not.toContain('Fika | Fika');
