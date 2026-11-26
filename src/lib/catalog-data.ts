@@ -14,7 +14,7 @@ export const UNIVERSES: Category[] = [
   {
     id: 'maison-travaux',
     slug: 'maison-travaux',
-    title: 'Maison & Travaux',
+    title: 'Maison & Dépannage',
     description: 'Dépannage ponctuel de plomberie et d’électricité.',
     promise: 'Une fuite ou une panne ? Fika vérifie la disponibilité d’un professionnel avant de confirmer l’intervention.',
     icon: 'Home',
@@ -50,7 +50,7 @@ export const UNIVERSES: Category[] = [
   {
     id: 'transport-logistique',
     slug: 'transport-logistique',
-    title: 'Transport & Logistique',
+    title: 'Courses & Livraison',
     description: 'Courses et livraisons express dans Ngaoundéré.',
     promise: 'Faites livrer un colis ou déléguez une course simple dans Ngaoundéré.',
     icon: 'Truck',

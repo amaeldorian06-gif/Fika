@@ -108,7 +108,7 @@ export function ServicesPage() {
         <div>
           <p className="text-xs uppercase tracking-widest text-brand-accent font-bold mb-4">Fika Services · Ngaoundéré</p>
           <h1 className="font-heading text-3xl sm:text-5xl font-bold tracking-tight leading-tight">Un besoin. Une demande.<br /><span className="font-serif italic text-brand-accent">Fika s’occupe du reste.</span></h1>
-          <p className="text-brand-text-muted text-base sm:text-lg mt-4 sm:mt-6 max-w-xl">Une fuite, une panne, des travaux ou un transport ? Décrivez votre besoin. Nous recherchons et coordonnons la bonne personne.</p>
+          <p className="text-brand-text-muted text-base sm:text-lg mt-4 sm:mt-6 max-w-xl">Une fuite, une panne d’appareil ou une course à effectuer ? Décrivez votre besoin. Nous vérifions la faisabilité, le professionnel et les conditions avant de confirmer.</p>
 
           {/* Recherche — la réponse directe à la promesse du héros */}
           <div id="recherche" className="mt-5 sm:mt-7 max-w-xl">
