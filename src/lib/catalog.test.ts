@@ -33,8 +33,8 @@ describe('searchServices', () => {
     expect(r.some((s) => s.name === 'Dépannage Ordinateur & Imprimante')).toBe(false); // « écran noir » mais pas téléphone
   });
 
-  it('recherche par univers : « transport » ramène aussi les livraisons (catégorie)', () => {
-    const r = searchServices('transport');
+  it('recherche par univers : « livraison » trouve les courses et livraisons express', () => {
+    const r = searchServices('livraison');
     const slugs = r.map((s) => s.slug);
     expect(slugs).toEqual(['livraison-courses-express']); // le déménagement est hors catalogue public
     expect(r[0].name).toBe('Courses & Livraison Express');
