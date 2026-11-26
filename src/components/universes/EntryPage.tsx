@@ -68,7 +68,7 @@ export function EntryPage() {
   const reveal = (delay: number) => ({
     initial: { opacity: 0, y: reduced ? 0 : 8 },
     animate: { opacity: 1, y: 0 },
-    transition: { duration: reduced ? 0 : 0.3, delay: reduced ? 0 : delay, ease: [0.16, 1, 1, 1] as const },
+    transition: { duration: reduced ? 0 : 0.3, delay: reduced ? 0 : delay, ease: [0.16, 1, 0.3, 1] as const },
   });
 
   return (
