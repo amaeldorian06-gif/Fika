@@ -15,16 +15,16 @@ export { MobileBottomNav } from './navigation/MobileBottomNav';
 
 export function Footer() {
   const { path } = useRoute();
-  if (path.startsWith('/admin') || path === '/') return null;
+  if (path.startsWith('/admin')) return null;
 
   return (
     <footer className="bg-brand-surface border-t border-brand-border py-8 sm:py-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-[2fr_1fr_1fr_1fr] gap-6 md:gap-8 items-start">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-6 md:gap-8 items-start">
           <div>
             <Link to="/" aria-label="Fika — accueil" className="inline-flex rounded-lg mb-2"><BrandLogo className="text-3xl" /></Link>
             <p className="text-brand-text-muted text-xs max-w-sm leading-relaxed">
-              Services du quotidien, artisans et produits sélectionnés — coordonnés à Ngaoundéré par une seule équipe.
+              Fika Services coordonne vos demandes ; Fika Market sélectionne et vend ses propres produits à Ngaoundéré.
             </p>
           </div>
 
@@ -34,8 +34,6 @@ export function Footer() {
             </h4>
             <ul className="space-y-1.5 text-xs">
               <li><Link to="/services" className="text-brand-text-muted hover:text-brand-accent transition-colors py-1 inline-block">Tous les services</Link></li>
-              <li><Link to="/services#comment-ca-marche" className="text-brand-text-muted hover:text-brand-accent transition-colors py-1 inline-block">Comment ça marche</Link></li>
-              <li><Link to="/services#faq" className="text-brand-text-muted hover:text-brand-accent transition-colors py-1 inline-block">Questions fréquentes</Link></li>
               <li><Link to="/demande" className="text-brand-text-muted hover:text-brand-accent transition-colors py-1 inline-block">Décrire un besoin</Link></li>
             </ul>
           </div>
@@ -48,6 +46,13 @@ export function Footer() {
               <li><Link to="/boutique" className="text-brand-text-muted hover:text-brand-accent transition-colors py-1 inline-block">Fika Market</Link></li>
               <li><Link to="/demande-produit" className="text-brand-text-muted hover:text-brand-accent transition-colors py-1 inline-block">Demander un produit</Link></li>
               <li><Link to="/boutique/panier" className="text-brand-text-muted hover:text-brand-accent transition-colors py-1 inline-block">Mon panier</Link></li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="font-heading font-bold mb-2.5 text-brand-text uppercase tracking-wider text-[11px]">À propos</h4>
+            <ul className="space-y-1.5 text-xs">
+              <li><Link to="/a-propos" className="text-brand-text-muted hover:text-brand-accent transition-colors py-1 inline-block">Découvrir Fika</Link></li>
             </ul>
           </div>
 
