@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { ArrowRight, Search, ShoppingBag, Wrench, PackageSearch } from 'lucide-react';
 import { Link, navigate, useRoute } from '../../router';
 import { getCategories, getServices, searchServices } from '../../lib/catalog';
@@ -37,7 +37,7 @@ const SERVICE_CATEGORY_LABELS: Record<string, string> = {
   'auto-moto': 'Auto & Moto',
 };
 
-function CategoryChip({ to, children }: { to: string; children: React.ReactNode }) {
+function CategoryChip({ to, children }: { to: string; children: ReactNode }) {
   return (
     <Link
       to={to}
@@ -158,10 +158,7 @@ export function EntryPage() {
 
   const products = data?.products ?? [];
   const discoverProducts = products.filter((product) => product.availability !== 'UNAVAILABLE');
-  const marketMatches = useMemo(
-    () => (marketQuery.trim() ? searchProducts(discoverProducts, marketQuery).slice(0, 6) : []),
-    [discoverProducts, marketQuery],
-  );
+  const marketMatches = marketQuery.trim() ? searchProducts(discoverProducts, marketQuery).slice(0, 6) : [];
   const marketCategories = (data?.categories ?? []).filter((category) =>
     products.some((product) => product.category.slug === category.slug),
   );
