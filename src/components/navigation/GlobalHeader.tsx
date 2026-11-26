@@ -95,13 +95,6 @@ function ServicesHeader() {
             <nav className="hidden md:flex items-center gap-7" aria-label="Navigation principale">
               {navLink('market', COPY_NAV.universes.boutique, '/boutique')}
               {navLink('services', COPY_NAV.universes.services, '/services')}
-              <button
-                type="button"
-                onClick={() => navigate('/services#comment-ca-marche')}
-                className="py-2 text-sm font-semibold text-brand-text-muted hover:text-brand-text transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent rounded-lg"
-              >
-                Comment ça marche
-              </button>
             </nav>
 
             {/* Droite : actions contextuelles */}
